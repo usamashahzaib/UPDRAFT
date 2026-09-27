@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0df420f06dd024c4c8a6dcaa8501c92a, type: 3}
+  m_Name: Weapon_ZIP
+  m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.WeaponDefinition
+  id: 1
+  displayName: ZIP SMG
+  roleDescription: Close-range volume. High fire rate, wider spread, fast reload.
+  bodyDamage: 13
+  pelletsPerShot: 1
+  fullDamageDistance: 10
+  falloffEndpointDistance: 28
+  damageAtFalloffEndpoint: 6
+  maxRange: 35
+  headMultiplier: 1.25
+  roundsPerMinute: 780
+  magazineSize: 30
+  reloadSeconds: 1.5
+  spreadStationaryGrounded: 1
+  spreadMovingGrounded: 1.3
+  spreadAirborne: 2
+  verticalRecoilDegreesPerShot: 0.3

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 885145d4cef1d474981345682956b652, type: 3}
+  m_Name: GraphicsConfig
+  m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.GraphicsConfig
+  lowPresetTargetFps: 30
+  mediumHighPresetTargetFps: 60
+  lowPresetMaxDrawCalls: 150
+  lowPresetMaxVisibleTriangles: 250000
+  targetDownloadMb: 250
+  targetInstalledMb: 600
+  targetClientMemoryMbLow: 750
+  targetReturningStartupSeconds: 8
+  targetArenaLoadSeconds: 10
+  targetKbPerSecondPerClient: 100
+  dynamicResolution: 1
+  bakedLightingOnLow: 1
+  realtimeShadowsOnLow: 0
+  bloomOnLow: 0
+  motionBlurOnLow: 0
+  depthOfFieldOnLow: 0
+  ssaoOnLow: 0

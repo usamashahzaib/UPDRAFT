@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0df420f06dd024c4c8a6dcaa8501c92a, type: 3}
+  m_Name: Weapon_BRICK
+  m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.WeaponDefinition
+  id: 2
+  displayName: BRICK Scattergun
+  roleDescription: Point-blank burst. 8 pellets, extreme close range, slow fire rate.
+  bodyDamage: 9
+  pelletsPerShot: 8
+  fullDamageDistance: 7
+  falloffEndpointDistance: 20
+  damageAtFalloffEndpoint: 3
+  maxRange: 25
+  headMultiplier: 1.25
+  roundsPerMinute: 75
+  magazineSize: 6
+  reloadSeconds: 2
+  spreadStationaryGrounded: 4
+  spreadMovingGrounded: 4
+  spreadAirborne: 4.5
+  verticalRecoilDegreesPerShot: 2

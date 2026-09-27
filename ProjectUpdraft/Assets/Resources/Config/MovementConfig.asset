@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac42759b6a96882468c3c8712483850f, type: 3}
+  m_Name: MovementConfig
+  m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.MovementConfig
+  maxHealth: 100
+  groundSpeed: 6
+  speedWhileFiring: 5.1
+  groundAcceleration: 35
+  gravity: 20
+  jumpUpwardVelocity: 6
+  capsuleHeight: 1.8
+  capsuleRadius: 0.35
+  stepHeight: 0.35
+  respawnDelaySeconds: 4
+  recoveryDelayAfterDamage: 5
+  recoveryPerSecond: 25
+  respawnProtectionSeconds: 1.5

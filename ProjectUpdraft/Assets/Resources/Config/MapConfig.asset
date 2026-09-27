@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89d3bb05447f8fd4bad484321ef4c519, type: 3}
+  m_Name: MapConfig
+  m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.MapConfig
+  mapName: Switchyard
+  boundsMin: {x: -48, y: -40}
+  boundsMax: {x: 48, y: 40}
+  groundLevelY: 0
+  centerZone: {x: 0, y: 0, z: 0}
+  westZone: {x: -22, y: 0, z: 0}
+  eastZone: {x: 22, y: 0, z: 0}
+  zoneRadius: 6
+  northSpawnCenter: {x: 0, y: 0, z: 35}
+  spawnRoomSize: {x: 20, y: 8}
+  southSpawnCenter: {x: 0, y: 0, z: -35}
+  exitsPerSpawn: 3
+  platformHeight: 3
+  platformSize: {x: 10, y: 8}
+  platformCenters:
+  - {x: 20, y: 3, z: 14}
+  - {x: -20, y: 3, z: 14}
+  - {x: 20, y: 3, z: -14}
+  - {x: -20, y: 3, z: -14}
+  minimumMainRouteWidth: 4
+  sightlineBlockerZ: 20

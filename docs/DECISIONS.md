@@ -63,11 +63,35 @@ Unity's own batchmode compiler both report zero errors; all 24 EditMode
 tests pass (`RelayScoringControllerTests`, `LaunchPadTests`,
 `ShotResolverTests`, `PlayerHealthControllerTests`).
 
-**Known follow-up, not yet done**: `Assets/Scripts/Editor/` currently
-compiles into the same `Updraft.Runtime.asmdef` as everything else (no
-`includePlatforms: ["Editor"]` restriction), which will break an Android
-player build since `UnityEditor` isn't available there. Needs a dedicated
-Editor-only asmdef before attempting an actual device/APK build.
+**Fixed the same session**: added `Assets/Scripts/Editor/Updraft.Editor.asmdef`
+(`includePlatforms: ["Editor"]`, references `Updraft.Runtime`) so Editor-only
+code is isolated from the assembly that will eventually target Android.
+Recompiled and reran all 24 tests after the split — still clean.
+
+### An actual scene now exists
+Added `Assets/Scripts/Editor/BuildOfflineSlice.cs`
+(`Tools/Updraft/Build Offline Slice Scene`), which chains
+`CreateConfigAssets` → `CreatePrefabs` → `SceneSetup.SetupScene()` and saves
+the result, so the offline vertical slice is a real openable scene instead
+of only README instructions. Ran it via
+`-executeMethod Updraft.Editor.BuildOfflineSlice.Run` — completed with no
+exceptions and produced:
+- All 12 config assets at `Assets/Resources/Config/*.asset`
+- `PlayerPrefab`, `BotPrefab`, `TutorialTarget`, `TutorialMarker` prefabs at
+  `Assets/Resources/Prefabs/`
+- `Assets/Scenes/Main.unity`, registered in Build Settings
+
+Recompiled and reran the EditMode suite once more afterward (24/24 still
+pass) to confirm generating the scene didn't disturb anything.
+
+**Still not verified**: nobody has pressed Play and watched a match actually
+run — batchmode confirms the scene builds and the assembly compiles, not
+that gameplay behaves correctly at runtime (materials are unassigned so
+everything will render as default-magenta/white primitives; that's expected
+for a graybox and doesn't block a Play Mode functional test). Also still
+missing: an actual Android build (needs Android Build Support installed via
+Unity Hub, and PlayerSettings configured per `MILESTONE_STATUS.md`'s
+checklist), and Photon Fusion 2 for Milestone C.
 
 ## Spec revision: now building the "FINAL MASTER SPECIFICATION (v1.0)"
 

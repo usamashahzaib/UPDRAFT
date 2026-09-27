@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 425f9e6e7ac4ad94997fd507d01fd2dc, type: 3}
+  m_Name: CatalogConfig
+  m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.CatalogConfig
+  shopEnabled: 0
+  bundles:
+  - id: signal
+    displayName: Signal
+    referenceUsdPrice: 1.99
+    contents:
+    - 'Body style: Signal'
+    - 'Weapon wrap: Signal (ARC/ZIP/BRICK)'
+  - id: foundry
+    displayName: Foundry
+    referenceUsdPrice: 3.99
+    contents:
+    - 'Body style: Foundry'
+    - 'Profile badge: Foundry'
+  - id: skyline
+    displayName: Skyline
+    referenceUsdPrice: 5.99
+    contents:
+    - 'Body style: Skyline'
+    - 'Profile badge: Skyline'

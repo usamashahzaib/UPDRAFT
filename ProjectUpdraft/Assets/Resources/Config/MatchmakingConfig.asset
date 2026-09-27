@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c584c83a95b0a244c814e4388f43e5a4, type: 3}
+  m_Name: MatchmakingConfig
+  m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.MatchmakingConfig
+  maxPartySize: 3
+  inviteCodeLength: 8
+  startingRating: 1000
+  eloK: 24
+  evaluationIntervalSeconds: 2
+  initialRatingWindow: 150
+  widenAfterSeconds: 20
+  widenStepEverySeconds: 10
+  widenStepAmount: 50
+  maxRatingWindow: 350
+  preferredMaxLatencyMs: 120
+  showStillSearchingAfterSeconds: 60
+  botFillQueueThresholdSeconds: 45
