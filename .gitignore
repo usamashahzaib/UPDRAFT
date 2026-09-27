@@ -1,0 +1,22 @@
+# Unity generated
+ProjectUpdraft/Library/
+ProjectUpdraft/Temp/
+ProjectUpdraft/Obj/
+ProjectUpdraft/Build/
+ProjectUpdraft/Builds/
+ProjectUpdraft/Logs/
+ProjectUpdraft/UserSettings/
+ProjectUpdraft/MemoryCaptures/
+ProjectUpdraft/*.csproj
+ProjectUpdraft/*.sln
+ProjectUpdraft/.vs/
+
+# Backend
+Backend/**/bin/
+Backend/**/obj/
+Backend/**/*.user
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
