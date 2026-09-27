@@ -11,11 +11,14 @@ namespace Updraft.Config
         public string[] contents;
     }
 
-    // Spec section 20: monetize only after validation. Cosmetic-only, permanent, no premium currency.
+    // Final spec section 19: monetize only after Milestone D validation.
+    // IAP is cosmetic-only, permanent, no premium currency. Rewarded ads
+    // (AdConfig) are the other approved monetization lever — never
+    // interstitial/forced ads, never pay-to-win.
     [CreateAssetMenu(fileName = "CatalogConfig", menuName = "Updraft/Config/Catalog Config")]
     public class CatalogConfig : ScriptableObject
     {
-        public bool shopEnabled = false; // stays false until the gameplay validation gate (section 26) passes
+        public bool shopEnabled = false; // stays false until Milestone D's gameplay validation gate passes
 
         public CosmeticBundle[] bundles = new[]
         {

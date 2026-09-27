@@ -2,7 +2,10 @@ using UnityEngine;
 
 namespace Updraft.Config
 {
-    // Spec section 13: bots for tutorial, offline practice, and disconnect substitution only.
+    // Final spec section 12: bots for tutorial, offline practice, disconnect
+    // substitution, AND public-lobby fill once queue time exceeds
+    // MatchmakingConfig.botFillQueueThresholdSeconds (this is a change from the
+    // earlier draft, which kept public matchmaking human-only).
     [CreateAssetMenu(fileName = "BotConfig", menuName = "Updraft/Config/Bot Config")]
     public class BotConfig : ScriptableObject
     {

@@ -2,6 +2,31 @@
 
 Working title per spec; check name availability before publishing.
 
+## Spec revision: now building the "FINAL MASTER SPECIFICATION (v1.0)"
+
+The user replaced the earlier draft spec with a merged final version. Core
+gameplay numbers (movement, weapons, pads, map, match flow) are unchanged, so
+everything already built stays valid. Deltas from the earlier draft, applied
+in this pass:
+
+1. **Bots now fill public lobbies**, not just tutorial/practice/disconnect
+   substitution — once queue time exceeds 45s (`MatchmakingConfig.
+   botFillQueueThresholdSeconds`), remaining slots fill with labeled `[BOT]`
+   players so a match still starts. Bot-filled matches stay flagged and
+   excluded from balance/rating stats, same as before.
+2. **Monetization corrected**: rewarded ads (AdMob, rewarded-only, capped,
+   skippable — `AdConfig`) are now an approved lever alongside permanent
+   cosmetics, both still gated behind Milestone D validation passing.
+3. **Explicit KPI go/kill gate** (`KpiGateConfig`): D1 ≥35%, D7 ≥15%,
+   D30 ≥5%, tutorial completion ≥80%, crash-free ≥99.5%, voluntary rematch
+   ≥50%, median queue <45s. Two failed KPI passes → fix the core loop or pivot
+   to Phase 2, no sunk-cost spending.
+4. **Phase 2 (Arena Royale, 12-player)** is named as a future mode built on
+   the same stack/art, gated on sustained D7 ≥15% after live launch. **Not
+   started** — building it before then would violate the pre-D feature freeze
+   this spec itself sets (section 26/33: no parallel feature creep, don't
+   build Phase 2 before Milestone D passes).
+
 ## Current milestone: A (Foundation) → B (Combat prototype), in progress
 
 ### What exists now
@@ -34,6 +59,9 @@ Working title per spec; check name availability before publishing.
   coordinates, section 10), `BotConfig`, `MatchmakingConfig`,
   `ProgressionConfig`, `GraphicsConfig`, `CatalogConfig` (cosmetic bundles,
   shop disabled by default until the section 26 validation gate passes).
+- `Assets/Scripts/Config/AdConfig.cs` — rewarded-ad rules (extra crate roll,
+  credit bonus, cosmetic trial, all capped/day) and `KpiGateConfig.cs` — the
+  soft-launch go/kill thresholds, both from the final spec.
 - `Assets/Scripts/Tests/RelayScoringControllerTests.cs` — NUnit EditMode
   tests for scoring/contest/reset/win/overtime behavior. Source only; not yet
   run (no Unity Editor/Test Framework available in this environment).

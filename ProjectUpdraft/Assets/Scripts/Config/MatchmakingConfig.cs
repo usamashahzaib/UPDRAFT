@@ -25,5 +25,11 @@ namespace Updraft.Config
 
         [Header("UX")]
         public float showStillSearchingAfterSeconds = 60f;
+
+        [Header("Bot Fill (final spec section 12/13)")]
+        // Public lobbies fill remaining slots with labeled bots once queue time
+        // exceeds this threshold, so a match still starts. Bot-filled matches
+        // are flagged in analytics and excluded from balance/rating updates.
+        public float botFillQueueThresholdSeconds = 45f;
     }
 }
