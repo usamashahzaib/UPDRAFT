@@ -19,6 +19,12 @@ namespace Updraft.Editor
         [MenuItem("Tools/Updraft/Build Offline Slice Scene")]
         public static void Run()
         {
+            // Deliberately does NOT call ConfigureAndroidBuild here — this is
+            // a content-generation tool (configs/prefabs/scene), and platform
+            // build settings are a separate concern with its own menu item
+            // (Tools/Updraft/Configure Android Build) and its own caller
+            // (BuildAndroidTest.Run). Coupling them meant every scene rebuild
+            // silently rewrote ProjectSettings.asset.
             SetupProjectLayers.EnsureLayersExist();
             CreateConfigAssets.CreateAllConfigs();
             CreatePrefabs.CreateAllPrefabs();

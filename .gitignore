@@ -11,6 +11,18 @@ ProjectUpdraft/*.csproj
 ProjectUpdraft/*.sln
 ProjectUpdraft/.vs/
 
+# Ad-hoc batchmode compile/test scratch output (always regenerable)
+ProjectUpdraft/unity_*.log
+ProjectUpdraft/*.xml
+ProjectUpdraft/PerformanceTestRunInfo.json
+
+# com.unity.test-framework.performance writes these into Resources by
+# default, which would otherwise ship inside every player build.
+ProjectUpdraft/Assets/Resources/PerformanceTestRunInfo.json
+ProjectUpdraft/Assets/Resources/PerformanceTestRunInfo.json.meta
+ProjectUpdraft/Assets/Resources/PerformanceTestRunSettings.json
+ProjectUpdraft/Assets/Resources/PerformanceTestRunSettings.json.meta
+
 # Backend
 Backend/**/bin/
 Backend/**/obj/

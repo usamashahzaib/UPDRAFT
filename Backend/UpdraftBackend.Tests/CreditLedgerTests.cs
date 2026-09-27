@@ -77,4 +77,31 @@ public class CreditLedgerTests
 
         Assert.Equal(2, context.CreditLedgerEntries.Count());
     }
+
+    [Fact]
+    public void SameMatchReward_ForDifferentPlayers_IsAllowed()
+    {
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        using var context = NewContext(connection);
+
+        context.CreditLedgerEntries.Add(new CreditLedgerEntry
+        {
+            PlayerId = Guid.NewGuid(),
+            ChangeAmount = 20,
+            Reason = "match_completion",
+            SourceId = "match-123",
+        });
+        context.CreditLedgerEntries.Add(new CreditLedgerEntry
+        {
+            PlayerId = Guid.NewGuid(),
+            ChangeAmount = 20,
+            Reason = "match_completion",
+            SourceId = "match-123",
+        });
+
+        context.SaveChanges();
+
+        Assert.Equal(2, context.CreditLedgerEntries.Count());
+    }
 }
