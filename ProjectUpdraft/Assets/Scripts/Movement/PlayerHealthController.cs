@@ -39,13 +39,20 @@ namespace Updraft.Movement
         {
             if (!IsAlive) return;
 
+            float previousTimeSinceDamage = _timeSinceLastDamage;
             _timeSinceLastDamage += deltaTime;
 
-            if (_timeSinceLastDamage >= _config.recoveryDelayAfterDamage && CurrentHealth < _config.maxHealth)
+            if (CurrentHealth >= _config.maxHealth) return;
+
+            // Only the portion of this tick that falls after the recovery delay
+            // counts as regen time — a single large deltaTime that straddles the
+            // delay boundary must not be credited as a full second of healing.
+            float regenSeconds = _timeSinceLastDamage - UnityEngine.Mathf.Max(previousTimeSinceDamage, _config.recoveryDelayAfterDamage);
+            if (regenSeconds > 0f)
             {
                 CurrentHealth = UnityEngine.Mathf.Min(
                     _config.maxHealth,
-                    CurrentHealth + _config.recoveryPerSecond * deltaTime);
+                    CurrentHealth + _config.recoveryPerSecond * regenSeconds);
             }
         }
     }

@@ -54,6 +54,7 @@ namespace Updraft.Pads
         }
 
         public bool CanActivate => _activationLockoutRemaining <= 0f;
+        public float RechargeRemaining => HasCharge ? 0f : _rechargeRemaining;
 
         public void NotifyActivated()
         {

@@ -2,6 +2,73 @@
 
 Working title per spec; check name availability before publishing.
 
+## Milestone A/B: Unity Editor compiles clean, all tests pass (2026-09-27)
+
+User installed Unity 6.3 LTS (6000.3.25f1) and the .NET SDK. A separate
+work session (or the user, working in parallel) had scaffolded the
+MonoBehaviour layer on top of the pure-logic classes from the previous
+session — `PlayerController`, `BotController`, `ThirdPersonCamera`,
+`TouchInputManager`, `MatchController`, `MatchHUD`, `TutorialController`,
+`SwitchyardGenerator`, `GameBootstrap`, `SceneSetup`, and Editor tooling to
+generate config assets/prefabs. It was reviewed for safety (no destructive
+or suspicious code) before running.
+
+Opening the project in Unity's batch mode surfaced ~150 real compile errors
+across five iterations, all fixed:
+- **`Updraft.Runtime.asmdef` referenced package IDs instead of assembly
+  names** (`"com.unity.inputsystem"` instead of `"Unity.InputSystem"`, etc.)
+  — this alone caused every InputSystem/TextMeshPro/URP-dependent script to
+  fail. Fixed to `Unity.InputSystem`, `Unity.TextMeshPro`, `UnityEngine.UI`,
+  `Unity.RenderPipelines.Universal.Runtime`.
+- **Sibling-namespace shadowing**: `Updraft.Camera` and `Updraft.Input` are
+  sibling namespaces of `Updraft.UI`/`Updraft.Player`/etc. under the common
+  `Updraft` parent, so bare `Camera`/`Input` inside those files resolved to
+  the *namespace*, not `UnityEngine.Camera`/`UnityEngine.Input` — even
+  inside `ThirdPersonCamera.cs` itself and `TouchInputManager.cs` itself.
+  Fixed by fully qualifying as `UnityEngine.Camera`/`UnityEngine.Input`
+  wherever this collided (5 call sites across 4 files).
+- Missing `using` directives between the Player/Camera/Input/UI/Pads/Match
+  namespaces (each namespace only imports what its own file references, and
+  several cross-references were missed) — added ~12 directives across 6
+  files.
+- Illegal C# (`static` local variable, a malformed reflection expression
+  comparing `float >= bool`, `Touch`/`TouchControl` type confusion in
+  `TouchInputManager`, a duplicated movement simulation running in both
+  `PlayerController` and `BotController`) — see the earlier commit for these;
+  found and fixed by manual review before the first compile attempt.
+- **`[SerializeField] private` fields being assigned from other classes**
+  (`GameBootstrap`/`SceneSetup` wiring `MatchController`/`MatchHUD`/
+  `TutorialController`/`PlayerController`/`ThirdPersonCamera`/
+  `TouchInputManager`/`SwitchyardGenerator`) — private means private even
+  within the same assembly; made every field that's genuinely wired
+  externally `public` instead, added `PlayerController.SetAmmo()`/
+  `IsGrounded` accessors rather than exposing internal simulation state
+  directly.
+- `PlayerController.OnDeath`/`OnRespawn` were `Action` (no args) but every
+  consumer expected the player reference — changed to `Action<PlayerController>`.
+- Nested-type references (`MatchRulesConfig.ZoneScheduleEntry`,
+  `CatalogConfig.CosmeticBundle`) that don't exist — those types are
+  namespace-level, not nested; fixed the references in `CreateConfigAssets.cs`.
+- `NavMeshAgent.stepOffset` doesn't exist (that's a `CharacterController`
+  property) — used `baseOffset` instead.
+- A genuine **behavioral bug**, caught only by actually running the EditMode
+  tests: `PlayerHealthController.Tick` credited a full `deltaTime` of health
+  regen even when a single large tick straddled the 5-second post-damage
+  delay, over-healing (e.g. one 5s tick jumped straight to 100 HP instead of
+  0 regen). Fixed to only credit the portion of the tick that falls after
+  the delay boundary.
+
+**Verified, not claimed**: `dotnet build`/`dotnet test` for the backend and
+Unity's own batchmode compiler both report zero errors; all 24 EditMode
+tests pass (`RelayScoringControllerTests`, `LaunchPadTests`,
+`ShotResolverTests`, `PlayerHealthControllerTests`).
+
+**Known follow-up, not yet done**: `Assets/Scripts/Editor/` currently
+compiles into the same `Updraft.Runtime.asmdef` as everything else (no
+`includePlatforms: ["Editor"]` restriction), which will break an Android
+player build since `UnityEditor` isn't available there. Needs a dedicated
+Editor-only asmdef before attempting an actual device/APK build.
+
 ## Spec revision: now building the "FINAL MASTER SPECIFICATION (v1.0)"
 
 The user replaced the earlier draft spec with a merged final version. Core

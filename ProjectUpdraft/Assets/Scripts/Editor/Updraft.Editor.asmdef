@@ -1,0 +1,18 @@
+{
+    "name": "Updraft.Editor",
+    "rootNamespace": "Updraft.Editor",
+    "references": [
+        "Updraft.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
