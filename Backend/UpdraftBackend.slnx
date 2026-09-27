@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="UpdraftBackend.Tests/UpdraftBackend.Tests.csproj" />
+  <Project Path="UpdraftBackend/UpdraftBackend.csproj" />
+</Solution>

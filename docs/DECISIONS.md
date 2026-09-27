@@ -27,6 +27,24 @@ in this pass:
    this spec itself sets (section 26/33: no parallel feature creep, don't
    build Phase 2 before Milestone D passes).
 
+## Toolchain status (2026-09-27)
+
+User installed Unity Hub and the .NET SDK locally. Verified in this session:
+- **.NET SDK 10.0.401** is present (`C:\Program Files\dotnet\dotnet.exe`) —
+  PATH wasn't refreshed in this shell, so it's invoked by full path. The
+  backend now **actually builds** (`dotnet build`: 0 errors) and has a real
+  test project that **passes** (`dotnet test`: 2/2), see below.
+- **Unity Hub** is installed (`C:\Program Files\Unity Hub\`); the user is now
+  downloading a Unity Editor version through it. Until that finishes and the
+  project is opened once, the `ProjectUpdraft/` C# scripts still can't be
+  compiled or have their EditMode tests run.
+- Generated the backend's first EF Core migration
+  (`Backend/UpdraftBackend/Data/Migrations/…InitialCreate`) via the
+  `dotnet-ef` global tool, and added `UpdraftBackend.slnx` grouping both
+  backend projects. `dotnet build` on the solution: 0 errors, 2 warnings (a
+  pre-existing `NU1903` advisory on a transitive test-only SQLite package).
+  `dotnet test`: 2/2 passing.
+
 ## Current milestone: A (Foundation) → B (Combat prototype), in progress
 
 ### What exists now
@@ -62,12 +80,24 @@ in this pass:
 - `Assets/Scripts/Config/AdConfig.cs` — rewarded-ad rules (extra crate roll,
   credit bonus, cosmetic trial, all capped/day) and `KpiGateConfig.cs` — the
   soft-launch go/kill thresholds, both from the final spec.
-- `Assets/Scripts/Tests/RelayScoringControllerTests.cs` — NUnit EditMode
-  tests for scoring/contest/reset/win/overtime behavior. Source only; not yet
-  run (no Unity Editor/Test Framework available in this environment).
-- `Backend/UpdraftBackend/` — ASP.NET Core (net10.0) Minimal API skeleton:
-  `Program.cs` wiring the section 23 endpoint groups (auth, profile, party,
-  matchmaking, matches, commerce, support) over a single `UpdraftDbContext`
+- `Assets/Scripts/Bots/BotPerception.cs`, `BotDecisionMaker.cs` — section 12
+  bot logic: LOS/audible-event perception only (never a hidden position
+  read), reaction-delay-gated intent switching (600ms easy / 350ms
+  standard), retreat-when-hurt, and a per-bot desync chance so team focus
+  fire isn't perfectly synchronized.
+- `Assets/Scripts/Updraft.Runtime.asmdef` + `Assets/Scripts/Tests/
+  Updraft.Tests.asmdef` — proper Unity assembly definitions so the test
+  assembly only compiles in the Editor against `UnityEngine.TestRunner`/NUnit,
+  and `com.unity.test-framework` added to `Packages/manifest.json`.
+- `Assets/Scripts/Tests/*.cs` — NUnit EditMode coverage for
+  `RelayScoringController`, `LaunchPad`/`PlayerPadManager`, `ShotResolver`
+  (including the "BRICK can't one-shot 100 HP even all-headshots" rule and
+  seeded-pellet determinism), and `PlayerHealthController`. **Source only —
+  not yet run.** Unity Editor isn't installed yet (see Toolchain status
+  above), so these are unverified until it is.
+- `Backend/UpdraftBackend/` — ASP.NET Core (net10.0) Minimal API: `Program.cs`
+  wiring the section 23 endpoint groups (auth, profile, party, matchmaking,
+  matches, commerce, support) over a single `UpdraftDbContext`
   (Npgsql/PostgreSQL 16), entities for the section 23 persistent records, a
   unique `(Reason, SourceId)` index on the credit ledger so a source event
   can never double-grant a reward, and ownership derived from a `player_id`
@@ -76,6 +106,13 @@ in this pass:
   Every genuinely external call (Google Play identity verification, Google
   Play purchase verification, game-server service-credential auth) is a
   `TODO` comment naming the exact dependency, not a fabricated success path.
+  **Verified**: `dotnet build` succeeds with 0 errors/0 warnings.
+- `Backend/UpdraftBackend.Tests/` — xUnit project using a real SQLite
+  in-memory connection (not EF's InMemory provider, which doesn't enforce
+  unique indexes) to regression-test the credit-ledger duplicate-reward
+  constraint. **Verified**: `dotnet test` → 2/2 passed. One low-priority
+  `NU1903` advisory on a transitive `SQLitePCLRaw` test dependency — test-only
+  code path, not shipped; worth bumping when a patched version is available.
 
 These are deliberately plain C# (no `MonoBehaviour`/Fusion coupling) so the
 same rules can run in offline practice and on the dedicated server, per
@@ -98,8 +135,9 @@ section 21 ("keep presentation separate from authoritative gameplay rules").
   signing key, and Google Play identity/purchase verification calls are
   `TODO`s. **Blocked on**: a signing-key strategy and a Google Play Console
   service-account credential.
-- Mobile touch input, camera, tutorial, bots, UI screens, cosmetic-shop UI,
-  telemetry — later sections, not started.
+- Mobile touch input, camera, tutorial UI, bot movement/aim execution wiring
+  (decision logic exists; it still needs to drive `PlayerMovementSimulator`/
+  `ShotResolver`), cosmetic-shop UI, telemetry — later sections, not started.
 
 ### Standing decisions (recorded per section 34: "for ordinary unspecified
 implementation details, choose the simplest solution and record it")
@@ -114,29 +152,32 @@ implementation details, choose the simplest solution and record it")
   matchmaking systems need richer identity.
 
 ### External dependencies that block real progress (cannot be worked around)
-1. **Unity 6.3 LTS Editor** must be installed locally to open/build the
-   project, create scenes, and produce an actual playable APK.
+1. **A Unity Editor version installed through Unity Hub** (6.3 LTS) — Hub
+   alone doesn't let this environment open/build the project, create scenes,
+   or produce an APK. This is a GUI-driven, multi-GB install with license
+   activation, so it wasn't started without confirmation.
 2. **Photon Fusion 2 App ID** (Photon account) for any networking work.
-3. **.NET 10 SDK + PostgreSQL 16** for the backend (Milestone E onward).
+3. **PostgreSQL 16** running (locally or via `docker-compose up`) to exercise
+   the backend against something other than the test project's in-memory
+   SQLite.
 4. **Google Play Console account** for signing, store listing, and billing
    (Milestone F/G).
-None of these are needed to keep writing gameplay-rule code, so that work
-continues in parallel.
+~~.NET 10 SDK~~ — resolved; installed and verified working this session.
 
 ## Next steps
-1. Add an `.asmdef` for `Assets/Scripts/Tests` referencing `UnityEngine.TestRunner`/
-   NUnit once Unity is available, and actually run the EditMode tests.
-2. Add EditMode tests for `LaunchPad`/`PadPlacementValidator`/`ShotResolver`/
-   `PlayerHealthController` to match the coverage `RelayScoringController` has.
-3. Player movement controller (KCC-style ground/air movement matching section
-   6's speed/acceleration/gravity/jump numbers) — next gameplay piece to write.
-4. Bot decision logic (perception via line-of-sight, route-following,
-   objective-seeking) per section 13 — needs `MapConfig` route data first.
-5. Once Unity Editor is available: open the project, add the packages in
-   `Packages/manifest.json`, build the Switchyard graybox from section 10's
-   coordinates, and wire prefabs to the scripts above.
-6. Once the .NET SDK is available: `dotnet build`/`dotnet test` the backend —
-   it has not been compiled in this environment yet.
+1. Install a Unity 6.3 LTS Editor via Unity Hub (`Unity Hub.exe`, already
+   present), open `ProjectUpdraft/`, let it generate `Library/`/
+   `ProjectSettings/`, and run the EditMode test suite for real.
+2. Once compiling in-Editor: build the Switchyard graybox from section 10's
+   coordinates and wire prefabs/`MonoBehaviour` adapters to the pure logic
+   classes (movement, pads, weapons, scoring) that already exist.
+3. Wire `BotDecisionMaker`'s output intents to actually drive
+   `PlayerMovementSimulator` input and `ShotResolver` shots.
+4. `docker-compose up postgres` and point the backend's connection string at
+   it to validate migrations end-to-end (no EF Core migrations generated
+   yet — needs `dotnet ef migrations add InitialCreate` once a first schema
+   pass is reviewed).
+5. Photon Fusion 2 import + App ID once the account exists (Milestone C).
 
 ### Git identity note
 Commits in this repo use a project-local identity (`Project UPDRAFT
