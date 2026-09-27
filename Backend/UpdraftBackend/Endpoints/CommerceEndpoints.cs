@@ -10,7 +10,7 @@ public static class CommerceEndpoints
     // once, handle pending transactions, restore, refunds. Payment stays
     // disabled (CatalogConfig.shopEnabled = false) until this full lifecycle
     // passes testing — this scaffold intentionally does not enable it.
-    public static void MapCommerceEndpoints(this WebApplication app)
+    public static void MapCommerceEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/commerce").RequireAuthorization();
 

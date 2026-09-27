@@ -63,6 +63,13 @@ namespace Updraft.Player
         float fireTimer;
         int teamId = 0; // 0 = TeamA (friendly), 1 = TeamB (enemy)
         int playerId;
+        bool movementAllowed = true;
+        bool combatAllowed = true;
+        bool padPlacementAllowed = true;
+        bool weaponSelectionAllowed = true;
+        bool isSpawnProtected;
+        float spawnProtectionRemaining;
+        bool hadPadCharge = true;
 
         // External (bot) input override. Humans drive via touchInput; bots drive
         // via SetExternalInput so BotController's decisions actually reach fire/
@@ -89,6 +96,7 @@ namespace Updraft.Player
         [SerializeField] float aimAssistConeDegrees = 3f;
         [SerializeField] float aimAssistMaxDistance = 25f;
         [SerializeField] float aimAssistSensitivityMultiplier = 0.7f;
+        readonly Collider[] aimAssistCandidates = new Collider[32];
 
         // Events
         public System.Action<int, Vector3, Vector3> OnFire; // weaponIndex, muzzlePos, aimDir
@@ -112,6 +120,7 @@ namespace Updraft.Player
         public bool HasPadCharge => padManager.HasCharge;
         public float PadRechargeRemaining => padManager.RechargeRemaining;
         public bool CanActivatePad => padManager.CanActivate;
+        public bool IsSpawnProtected => isSpawnProtected;
         public int TeamId => teamId;
         public int PlayerId => playerId;
 
@@ -142,11 +151,7 @@ namespace Updraft.Player
             UpdateWeaponVisual();
             SetTeamMaterial(teamId);
 
-            // Subscribe to input
-            if (touchInput != null)
-            {
-                touchInput.OnPingWorldPositionRequested += HandlePingRequest;
-            }
+            BindTouchInput();
         }
 
         void Start()
@@ -170,12 +175,26 @@ namespace Updraft.Player
             currentAmmo = currentWeapon.magazineSize;
             SetTeamMaterial(teamId);
             UpdateWeaponVisual();
+            BindTouchInput();
+        }
+
+        void BindTouchInput()
+        {
+            if (touchInput == null) return;
+            touchInput.OnPingWorldPositionRequested -= HandlePingRequest;
+            touchInput.OnPingWorldPositionRequested += HandlePingRequest;
+        }
+
+        void OnDestroy()
+        {
+            if (touchInput != null)
+                touchInput.OnPingWorldPositionRequested -= HandlePingRequest;
         }
 
         public void SetWeapon(int weaponIndex)
         {
             if (weaponIndex < 0 || weaponIndex >= weaponDefinitions.Length) return;
-            if (!healthController.IsAlive) return; // no switching while alive per spec
+            if (healthController.IsAlive && !weaponSelectionAllowed) return;
 
             currentWeaponIndex = weaponIndex;
             currentWeapon = weaponDefinitions[weaponIndex];
@@ -195,18 +214,39 @@ namespace Updraft.Player
 
         void Update()
         {
+            float dt = Time.deltaTime;
+            padManager.Tick(dt);
+            if (!hadPadCharge && padManager.HasCharge)
+                OnPadChargeReady?.Invoke();
+            hadPadCharge = padManager.HasCharge;
+
             if (!healthController.IsAlive) return;
 
-            // Tick simulation
-            float dt = Time.deltaTime;
-            movementSim.Tick(GetMovementInput(), GetFacingForward(), GetFacingRight(), dt);
+            float healthBeforeTick = healthController.CurrentHealth;
             healthController.Tick(dt);
-            padManager.Tick(dt);
+            if (!Mathf.Approximately(healthBeforeTick, healthController.CurrentHealth))
+                OnHealthChanged?.Invoke(healthController.CurrentHealth / movementConfig.maxHealth);
+            UpdateSpawnProtection(dt);
+            UpdateCameraInput();
+
+            MovementInput movementInput = GetMovementInput();
+            if (movementAllowed)
+            {
+                movementSim.Tick(movementInput, GetFacingForward(), GetFacingRight(), dt);
+                if (movementSim.IsLaunched && movementInput.moveAxis.sqrMagnitude > 0.01f)
+                {
+                    Vector3 steerDirection = GetFacingForward() * movementInput.moveAxis.y + GetFacingRight() * movementInput.moveAxis.x;
+                    movementSim.ApplyAirSteer(steerDirection, padConfig.airSteerDegreesPerSecond, dt);
+                }
+            }
 
             // Apply movement via CharacterController
-            Vector3 displacement = movementSim.Velocity * dt;
-            CollisionFlags flags = charController.Move(displacement);
-            movementSim.IsGrounded = (flags & CollisionFlags.CollidedBelow) != 0;
+            if (movementAllowed)
+            {
+                Vector3 displacement = movementSim.Velocity * dt;
+                CollisionFlags flags = charController.Move(displacement);
+                movementSim.IsGrounded = (flags & CollisionFlags.CollidedBelow) != 0;
+            }
 
             // Handle landing
             if (!wasGrounded && movementSim.IsGrounded)
@@ -222,6 +262,9 @@ namespace Updraft.Player
             // Handle pad activation (jump on armed pad = launch)
             HandlePadInteraction();
 
+            if (padPlacementAllowed && touchInput?.PadPressed == true)
+                TryPlacePad();
+
             // Handle shooting
             HandleShooting(dt);
 
@@ -233,6 +276,36 @@ namespace Updraft.Player
             {
                 cameraPivot.position = transform.position + Vector3.up * movementConfig.capsuleHeight * 0.8f;
             }
+        }
+
+        void UpdateCameraInput()
+        {
+            if (touchInput == null || playerCamera == null) return;
+
+            touchInput.AimSensitivityScale = IsAimAssistRegionActive()
+                ? aimAssistSensitivityMultiplier
+                : 1f;
+
+            Vector2 aim = touchInput.AimDelta;
+            if (aim.sqrMagnitude > 0f)
+                playerCamera.AddYawPitch(aim.x, -aim.y);
+        }
+
+        void UpdateSpawnProtection(float dt)
+        {
+            if (!isSpawnProtected) return;
+
+            spawnProtectionRemaining -= dt;
+            if (spawnProtectionRemaining <= 0f || FireHeld || !IsInsideOwnSpawnRoom())
+                isSpawnProtected = false;
+        }
+
+        bool IsInsideOwnSpawnRoom()
+        {
+            Vector3 center = teamId == 0 ? mapConfig.northSpawnCenter : mapConfig.southSpawnCenter;
+            Vector3 half = mapConfig.spawnRoomSize * 0.5f;
+            Vector3 offset = transform.position - center;
+            return Mathf.Abs(offset.x) <= half.x && Mathf.Abs(offset.z) <= half.z;
         }
 
         MovementInput GetMovementInput()
@@ -285,6 +358,7 @@ namespace Updraft.Player
         void HandleFootsteps(float dt)
         {
             if (!movementSim.IsGrounded) return;
+            if (footstepClips == null || footstepClips.Length == 0) return;
 
             float speed = new Vector3(movementSim.Velocity.x, 0, movementSim.Velocity.z).magnitude;
             if (speed > 1f)
@@ -309,7 +383,7 @@ namespace Updraft.Player
                 if (Physics.Raycast(ray, out RaycastHit hit, 0.5f))
                 {
                     var pad = hit.collider.GetComponent<LaunchPadBehaviour>();
-                    if (pad != null && pad.PadData.CanBeUsed)
+                    if (pad != null && pad.PadData.CanBeUsed && padManager.CanActivate)
                     {
                         // Launch!
                         Vector3 launchVel = pad.PadData.GetLaunchVelocity();
@@ -332,7 +406,7 @@ namespace Updraft.Player
 
         void HandleShooting(float dt)
         {
-            if (currentWeapon == null) return;
+            if (currentWeapon == null || !combatAllowed) return;
 
             bool fireHeld = FireHeld;
 
@@ -381,8 +455,9 @@ namespace Updraft.Player
             else if (new Vector3(movementSim.Velocity.x, 0, movementSim.Velocity.z).magnitude > 0.5f) moveState = MovementState.MovingGrounded;
             else moveState = MovementState.StationaryGrounded;
 
-            // Get aim direction with aim assist
-            Vector3 aimDirection = GetAimDirectionWithAssist();
+            // Camera chooses the aim point; the real shot is traced from the muzzle
+            // so nearby walls still block a camera-visible target.
+            Vector3 aimDirection = GetMuzzleAimDirection();
 
             // Generate shot seed (in real networked game, server provides this)
             uint shotSeed = (uint)Random.Range(0, int.MaxValue);
@@ -404,31 +479,39 @@ namespace Updraft.Player
             OnFire?.Invoke(currentWeaponIndex, muzzleTransform.position, aimDirection);
         }
 
-        Vector3 GetAimDirectionWithAssist()
+        Vector3 GetMuzzleAimDirection()
         {
-            Vector3 aimDir = playerCamera != null ? playerCamera.transform.forward : transform.forward;
+            if (playerCamera == null || muzzleTransform == null) return transform.forward;
+            Vector3 aimPoint = playerCamera.GetAimPoint(currentWeapon.maxRange, ~0);
+            Vector3 direction = aimPoint - muzzleTransform.position;
+            return direction.sqrMagnitude > 0.0001f ? direction.normalized : playerCamera.transform.forward;
+        }
 
-            if (!aimAssistEnabled || playerCamera == null) return aimDir;
+        bool IsAimAssistRegionActive()
+        {
+            if (!aimAssistEnabled || playerCamera == null) return false;
 
-            // Check for enemies in aim assist cone
-            Ray ray = new Ray(playerCamera.transform.position, aimDir);
-            if (Physics.SphereCast(ray, Mathf.Tan(aimAssistConeDegrees * Mathf.Deg2Rad) * aimAssistMaxDistance, out RaycastHit hit, aimAssistMaxDistance, LayerMask.GetMask("Player")))
+            int candidateCount = Physics.OverlapSphereNonAlloc(playerCamera.transform.position, aimAssistMaxDistance,
+                aimAssistCandidates, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < candidateCount; i++)
             {
-                var target = hit.collider.GetComponent<PlayerController>();
-                if (target != null && target.TeamId != this.teamId && target.IsAlive)
-                {
-                    // Slow down sensitivity when near target
-                    Vector3 toTarget = (target.transform.position + Vector3.up * 1.5f) - playerCamera.transform.position;
-                    float angle = Vector3.Angle(aimDir, toTarget.normalized);
-                    if (angle <= aimAssistConeDegrees)
-                    {
-                        // Return direction toward target (slowdown effect handled by input sensitivity)
-                        return toTarget.normalized;
-                    }
-                }
+                var candidate = aimAssistCandidates[i];
+                var target = candidate.GetComponentInParent<PlayerController>();
+                if (target == null || target == this || !target.IsAlive || target.TeamId == teamId) continue;
+
+                Vector3 targetPoint = target.transform.position + Vector3.up * 1.4f;
+                Vector3 toTarget = targetPoint - playerCamera.transform.position;
+                if (Vector3.Angle(playerCamera.transform.forward, toTarget) > aimAssistConeDegrees) continue;
+
+                if (Physics.Raycast(playerCamera.transform.position, toTarget.normalized, out RaycastHit hit,
+                    toTarget.magnitude, ~0, QueryTriggerInteraction.Ignore) &&
+                    hit.collider.GetComponentInParent<PlayerController>() != target)
+                    continue;
+
+                return true;
             }
 
-            return aimDir;
+            return false;
         }
 
         void ProcessPellet(Vector3 direction)
@@ -439,7 +522,7 @@ namespace Updraft.Player
 
             if (Physics.Raycast(ray, out RaycastHit hit, maxRange, ~0, QueryTriggerInteraction.Ignore))
             {
-                var target = hit.collider.GetComponent<PlayerController>();
+                var target = hit.collider.GetComponentInParent<PlayerController>();
                 if (target != null && target.IsAlive && target.TeamId != this.teamId)
                 {
                     // Check headshot
@@ -451,13 +534,13 @@ namespace Updraft.Player
                     // Hit confirmation feedback
                     // TODO: hit marker, sound
                 }
-                else if (hit.collider.GetComponent<LaunchPadBehaviour>() != null)
+                else if (hit.collider.GetComponentInParent<LaunchPadBehaviour>() != null)
                 {
-                    var padBehaviour = hit.collider.GetComponent<LaunchPadBehaviour>();
+                    var padBehaviour = hit.collider.GetComponentInParent<LaunchPadBehaviour>();
                     // Damage pad (enemies can destroy, friendly fire can't per spec)
                     if (padBehaviour.PadData.TeamId != this.teamId)
                     {
-                        padBehaviour.PadData.ApplyDamage(currentWeapon.bodyDamage); // simplified
+                        padBehaviour.ApplyDamage(currentWeapon.bodyDamage); // simplified
                     }
                 }
             }
@@ -488,7 +571,7 @@ namespace Updraft.Player
 
         public void ApplyDamage(float amount, int attackerId, WeaponId weaponId)
         {
-            if (!healthController.IsAlive) return;
+            if (!healthController.IsAlive || !combatAllowed || isSpawnProtected) return;
 
             healthController.ApplyDamage(amount);
             OnHealthChanged?.Invoke(healthController.CurrentHealth / movementConfig.maxHealth);
@@ -506,8 +589,8 @@ namespace Updraft.Player
             PlaySound(deathClip);
             OnDeath?.Invoke(this);
 
-            // Disable input, start respawn timer
-            enabled = false;
+            charController.enabled = false;
+            if (bodyMesh != null) bodyMesh.SetActive(false);
             Invoke(nameof(Respawn), movementConfig.respawnDelaySeconds);
         }
 
@@ -523,27 +606,22 @@ namespace Updraft.Player
             charController.enabled = true;
 
             healthController.ResetForRespawn();
+            movementSim.Reset();
             currentAmmo = currentWeapon.magazineSize;
             isReloading = false;
             OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
             OnHealthChanged?.Invoke(1f);
 
-            // Spawn protection
-            StartCoroutine(SpawnProtectionRoutine());
+            if (bodyMesh != null) bodyMesh.SetActive(true);
+            isSpawnProtected = true;
+            spawnProtectionRemaining = movementConfig.respawnProtectionSeconds;
 
-            enabled = true;
             OnRespawn?.Invoke(this);
-        }
-
-        System.Collections.IEnumerator SpawnProtectionRoutine()
-        {
-            // TODO: Implement spawn protection visual feedback
-            yield return new WaitForSeconds(movementConfig.respawnProtectionSeconds);
         }
 
         public void TryPlacePad()
         {
-            if (!padManager.HasCharge) return;
+            if (!padPlacementAllowed || !movementSim.IsGrounded || !padManager.HasCharge) return;
 
             // Calculate placement position (~1.6m ahead facing camera horizontal)
             Vector3 forward = GetFacingForward();
@@ -566,11 +644,15 @@ namespace Updraft.Player
         bool CanPlacePadAt(Vector3 position, Vector3 forward)
         {
             // Check surface tilt
-            if (Physics.Raycast(position + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 1f))
-            {
-                float tilt = Vector3.Angle(hit.normal, Vector3.up);
-                if (tilt > padConfig.maxSurfaceTiltDegrees) return false;
-            }
+            if (!Physics.Raycast(position + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 1f))
+                return false;
+            float tilt = Vector3.Angle(hit.normal, Vector3.up);
+            if (tilt > padConfig.maxSurfaceTiltDegrees) return false;
+
+            int padLayerMask = LayerMask.GetMask("Pad");
+            if (padLayerMask != 0 && Physics.CheckSphere(position + Vector3.up * 0.1f, padConfig.diameter * 0.5f,
+                padLayerMask, QueryTriggerInteraction.Ignore))
+                return false;
 
             // Check spawn exclusion
             Vector3 spawnCenter = teamId == 0 ? mapConfig.northSpawnCenter : mapConfig.southSpawnCenter;
@@ -659,6 +741,30 @@ namespace Updraft.Player
         {
             aimAssistEnabled = enabled;
             PlayerPrefs.SetInt("AimAssistEnabled", enabled ? 1 : 0);
+        }
+
+        public void SetMatchPermissions(bool allowMovement, bool allowCombat, bool allowPadPlacement, bool allowWeaponSelection)
+        {
+            movementAllowed = allowMovement;
+            combatAllowed = allowCombat;
+            padPlacementAllowed = allowPadPlacement;
+            weaponSelectionAllowed = allowWeaponSelection;
+        }
+
+        public void ResetForMatchStart()
+        {
+            healthController.ResetForRespawn();
+            movementSim.Reset();
+            padManager.ResetForMatchStart();
+            hadPadCharge = true;
+            currentAmmo = currentWeapon.magazineSize;
+            isReloading = false;
+            fireTimer = currentWeapon.SecondsPerShot;
+            isSpawnProtected = false;
+            if (!charController.enabled) charController.enabled = true;
+            if (bodyMesh != null) bodyMesh.SetActive(true);
+            OnHealthChanged?.Invoke(1f);
+            OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
         }
     }
 }

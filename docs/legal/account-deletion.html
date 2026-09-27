@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Request deletion of a Project UPDRAFT account and associated data.">
+  <title>Delete your Project UPDRAFT account</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      background: #eef2ff;
+      color: #172033;
+    }
+
+    main {
+      width: min(100%, 42rem);
+      margin: 0 auto;
+      padding: clamp(1.25rem, 4vw, 2.5rem);
+      border: 1px solid #c9d2e8;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 1rem 2.5rem rgba(29, 43, 78, 0.12);
+    }
+
+    h1 { margin-top: 0; line-height: 1.15; }
+    h2 { margin-top: 2rem; font-size: 1.15rem; }
+    p, li { max-width: 65ch; }
+
+    label {
+      display: block;
+      margin: 1rem 0 0.35rem;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      min-height: 2.75rem;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid #7b879f;
+      border-radius: 0.45rem;
+      background: #ffffff;
+      color: #172033;
+      font: inherit;
+    }
+
+    input:focus-visible, button:focus-visible, a:focus-visible {
+      outline: 3px solid #f0a500;
+      outline-offset: 2px;
+    }
+
+    button {
+      margin-top: 1.25rem;
+      min-height: 2.75rem;
+      padding: 0.7rem 1.1rem;
+      border: 0;
+      border-radius: 0.45rem;
+      background: #2744c7;
+      color: #ffffff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover { background: #1d349e; }
+
+    .notice {
+      padding: 0.9rem 1rem;
+      border-left: 0.3rem solid #5269d8;
+      background: #eef1ff;
+    }
+
+    .small { font-size: 0.925rem; }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #111827; color: #e8edf8; }
+      main { border-color: #46516b; background: #1c2538; }
+      input { border-color: #8f9ab0; background: #111827; color: #ffffff; }
+      .notice { background: #252f52; }
+      a { color: #aebcff; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Delete your Project UPDRAFT account</h1>
+    <p>You can request deletion of your Project UPDRAFT account and the personal data associated with it even if you no longer have the game installed.</p>
+
+    <div class="notice" role="note">
+      <strong>Before you continue:</strong> deletion is permanent. Your profile, progression, and cosmetic inventory will no longer be available after the request is verified and completed.
+    </div>
+
+    <form method="post" action="/api/support/account-deletion" accept-charset="UTF-8">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" autocomplete="name" maxlength="120" required>
+
+      <label for="email">Email address associated with the account</label>
+      <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required aria-describedby="email-help">
+      <p id="email-help" class="small">We will use this address to verify account ownership and communicate about this request.</p>
+
+      <button type="submit">Request account deletion</button>
+    </form>
+
+    <h2>What will be deleted</h2>
+    <ul>
+      <li>Your Project UPDRAFT account and profile.</li>
+      <li>Account-linked gameplay progress, cosmetic inventory, and player-level analytics that we are not required to retain.</li>
+    </ul>
+
+    <h2>What may be retained</h2>
+    <p>We may retain limited purchase, transaction, security, fraud-prevention, or legal records where required or permitted by law. Aggregated or de-identified analytics that can no longer reasonably identify you may also remain. See the <a href="[PLACEHOLDER: PRIVACY POLICY URL]">Project UPDRAFT Privacy Policy</a> for details.</p>
+
+    <p class="small">If this form does not work, email <a href="mailto:[PLACEHOLDER: SUPPORT EMAIL]">[PLACEHOLDER: SUPPORT EMAIL]</a>. We may ask for additional information to verify that you control the account.</p>
+    <p class="small">Developer: [PLACEHOLDER: COMPANY NAME]</p>
+  </main>
+</body>
+</html>

@@ -60,6 +60,10 @@ namespace Updraft.Match
         // Match timing
         float matchStartTime;
         bool matchEnded;
+        MatchPhase previousPhase;
+
+        public int ActivePlayerCount => allPlayers.Count;
+        public MatchPhase CurrentPhase => flowController?.Phase ?? MatchPhase.Preparation;
 
         // Events
         public System.Action<MatchOutcome, int, int> OnMatchEnded; // outcome, scoreA, scoreB
@@ -70,17 +74,9 @@ namespace Updraft.Match
             scoringController = new RelayScoringController(matchRules);
         }
 
-        void Start()
-        {
-            // For offline practice, start immediately with bot match
-            if (isOfflinePractice)
-            {
-                StartOfflinePractice();
-            }
-        }
-
         public void StartOfflinePractice(int botCount = 5, int humanTeam = 0)
         {
+            if (allPlayers.Count > 0) return;
             isOfflinePractice = true;
             localPlayerTeam = humanTeam;
 
@@ -130,6 +126,7 @@ namespace Updraft.Match
             // Initialize
             WeaponDefinition startingWeapon = weaponDefinitions[localPlayerWeaponIndex];
             localPlayer.Initialize(0, localPlayerTeam, startingWeapon);
+            matchHUD?.Initialize(this, localPlayer);
 
             allPlayers.Add(localPlayer);
             if (localPlayerTeam == 0) teamAPlayers.Add(localPlayer);
@@ -150,7 +147,6 @@ namespace Updraft.Match
                 bool easyDifficulty = (teamId == localPlayerTeam); // easy bots on player's team
 
                 botController.Initialize(playerId, teamId, weapon, easyDifficulty);
-                playerController.Initialize(playerId, teamId, weapon);
 
                 // Subscribe to events
                 playerController.OnDeath += OnPlayerDeath;
@@ -171,6 +167,9 @@ namespace Updraft.Match
             flowController = new MatchFlowController(matchRules);
             scoringController = new RelayScoringController(matchRules);
             matchEnded = false;
+            previousPhase = flowController.Phase;
+
+            ApplyMatchPermissions();
 
             // Start preparation phase
             matchHUD?.ShowPhase(MatchPhase.Preparation, matchRules.preparationSeconds);
@@ -202,6 +201,14 @@ namespace Updraft.Match
 
             float dt = Time.deltaTime;
             flowController.Tick(dt);
+
+            if (flowController.Phase != previousPhase)
+            {
+                HandlePhaseEntered(flowController.Phase);
+                previousPhase = flowController.Phase;
+            }
+
+            ApplyMatchPermissions();
 
             // Update HUD timer
             matchHUD?.UpdateTimer(GetDisplayTime());
@@ -248,27 +255,43 @@ namespace Updraft.Match
                     break;
 
                 case MatchPhase.InProgress:
-                    if (flowController.PhaseElapsed < Time.deltaTime) // just entered
-                    {
-                        matchHUD?.OnMatchStart();
-                        matchStartTime = Time.time;
-                    }
                     break;
 
                 case MatchPhase.Overtime:
-                    if (flowController.PhaseElapsed < Time.deltaTime) // just entered
-                    {
-                        matchHUD?.ShowOvertime();
-                    }
                     break;
 
                 case MatchPhase.Results:
-                    if (!matchEnded)
-                    {
-                        EndMatch(scoringController.Outcome);
-                    }
                     break;
             }
+        }
+
+        void HandlePhaseEntered(MatchPhase phase)
+        {
+            switch (phase)
+            {
+                case MatchPhase.Countdown:
+                    matchHUD?.ShowPhase(MatchPhase.Countdown, matchRules.countdownSeconds);
+                    break;
+                case MatchPhase.InProgress:
+                    foreach (var player in allPlayers)
+                        player.ResetForMatchStart();
+                    matchHUD?.OnMatchStart();
+                    matchStartTime = Time.time;
+                    break;
+                case MatchPhase.Overtime:
+                    matchHUD?.ShowOvertime();
+                    break;
+                case MatchPhase.Results:
+                    break;
+            }
+        }
+
+        void ApplyMatchPermissions()
+        {
+            bool live = flowController.Phase == MatchPhase.InProgress || flowController.Phase == MatchPhase.Overtime;
+            bool selecting = flowController.Phase == MatchPhase.Preparation;
+            foreach (var player in allPlayers)
+                player.SetMatchPermissions(live, live, live, selecting);
         }
 
         void TickScoring(float dt)
@@ -279,6 +302,9 @@ namespace Updraft.Match
             bool teamBPresent = CheckTeamInZone(teamBPlayers, activeZoneCenter);
 
             scoringController.Tick(teamAPresent, teamBPresent, flowController.MatchTime, dt);
+
+            if (scoringController.IsInOvertime && flowController.Phase == MatchPhase.InProgress)
+                flowController.NotifyOvertimeStarted();
 
             // Update HUD scores
             matchHUD?.UpdateScores(scoringController.ScoreA, scoringController.ScoreB);
@@ -307,11 +333,9 @@ namespace Updraft.Match
                 if (!player.IsAlive) continue;
 
                 // Check if player has spawn protection (simplified)
-                bool spawnProtected = false; // Would track respawn time
-
                 // Valid occupation check
                 Vector3 feetPos = player.transform.position; // Simplified - should be feet position
-                if (ZoneOccupancy.IsValid(feetPos, zoneCenter, mapConfig.groundLevelY, matchRules, player.IsAlive, spawnProtected))
+                if (ZoneOccupancy.IsValid(feetPos, zoneCenter, mapConfig.groundLevelY, matchRules, player.IsAlive, player.IsSpawnProtected))
                 {
                     return true;
                 }
@@ -346,6 +370,8 @@ namespace Updraft.Match
         void EndMatch(MatchOutcome outcome)
         {
             matchEnded = true;
+            flowController.NotifyMatchEnded();
+            ApplyMatchPermissions();
 
             // Stop all gameplay
             foreach (var player in allPlayers)

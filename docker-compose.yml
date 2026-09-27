@@ -15,7 +15,9 @@ services:
       - updraft_pgdata:/var/lib/postgresql/data
 
   backend:
-    build: ./Backend/UpdraftBackend
+    build:
+      context: .
+      dockerfile: Backend/UpdraftBackend/Dockerfile
     depends_on:
       - postgres
     environment:

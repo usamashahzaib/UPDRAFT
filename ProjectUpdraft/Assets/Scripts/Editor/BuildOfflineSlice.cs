@@ -19,6 +19,7 @@ namespace Updraft.Editor
         [MenuItem("Tools/Updraft/Build Offline Slice Scene")]
         public static void Run()
         {
+            SetupProjectLayers.EnsureLayersExist();
             CreateConfigAssets.CreateAllConfigs();
             CreatePrefabs.CreateAllPrefabs();
 

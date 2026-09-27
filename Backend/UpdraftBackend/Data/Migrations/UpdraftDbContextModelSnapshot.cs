@@ -28,10 +28,16 @@ namespace UpdraftBackend.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContactEmail")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContactName")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("PlayerId")
+                    b.Property<Guid?>("PlayerId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -70,7 +76,7 @@ namespace UpdraftBackend.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Reason", "SourceId")
+                    b.HasIndex("PlayerId", "Reason", "SourceId")
                         .IsUnique();
 
                     b.ToTable("CreditLedgerEntries");
@@ -139,6 +145,9 @@ namespace UpdraftBackend.Data.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EquippedCosmeticId")
+                        .HasColumnType("text");
 
                     b.Property<int>("HiddenMatchmakingRating")
                         .HasColumnType("integer");

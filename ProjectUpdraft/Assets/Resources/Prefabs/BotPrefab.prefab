@@ -345,7 +345,7 @@ GameObject:
   - component: {fileID: 647267402231971027}
   - component: {fileID: 1865238273408381449}
   - component: {fileID: 1703774172491365590}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: BotPrefab
   m_TagString: Player
   m_Icon: {fileID: 0}

@@ -166,7 +166,8 @@ namespace Updraft.Core
         {
             // Show menu: Practice or Public Play
             Debug.Log("Tutorial complete - offering practice or public play");
-            // For offline slice, go to practice
+            var tutorial = FindObjectOfType<TutorialController>();
+            tutorial?.Shutdown();
             StartOfflinePractice();
         }
 

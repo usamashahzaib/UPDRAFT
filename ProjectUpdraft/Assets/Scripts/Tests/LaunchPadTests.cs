@@ -17,6 +17,7 @@ namespace Updraft.Tests
             c.launchUpwardVelocity = 12f;
             c.rechargeSeconds = 16f;
             c.perPlayerActivationLockoutSeconds = 1f;
+            c.maxPlacementsPerMatch = 6;
             return c;
         }
 
@@ -84,6 +85,34 @@ namespace Updraft.Tests
             manager.Tick(16.1f);
 
             Assert.IsTrue(manager.HasCharge);
+        }
+
+        [Test]
+        public void PlayerPadManager_ReplacingAfterRecharge_RetiresPreviousPad()
+        {
+            var manager = new PlayerPadManager(NewConfig());
+            var first = manager.PlaceNew(1, 0, Vector3.zero, Vector3.forward);
+            manager.Tick(16.1f);
+
+            var second = manager.PlaceNew(1, 0, Vector3.one, Vector3.forward);
+
+            Assert.IsNotNull(second);
+            Assert.AreEqual(PadState.Expired, first.State);
+            Assert.AreSame(second, manager.ActivePad);
+        }
+
+        [Test]
+        public void PlayerPadManager_EnforcesSixPlacementsPerMatch()
+        {
+            var manager = new PlayerPadManager(NewConfig());
+            for (int i = 0; i < 6; i++)
+            {
+                Assert.IsNotNull(manager.PlaceNew(1, 0, Vector3.right * i, Vector3.forward));
+                manager.Tick(16.1f);
+            }
+
+            Assert.IsNull(manager.PlaceNew(1, 0, Vector3.right * 7, Vector3.forward));
+            Assert.AreEqual(6, manager.PlacementsThisMatch);
         }
     }
 }

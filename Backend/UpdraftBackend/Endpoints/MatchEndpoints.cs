@@ -6,7 +6,7 @@ namespace UpdraftBackend.Endpoints;
 
 public static class MatchEndpoints
 {
-    public static void MapMatchEndpoints(this WebApplication app)
+    public static void MapMatchEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/matches").RequireAuthorization();
 
@@ -42,7 +42,7 @@ public static class MatchEndpoints
 
             await db.SaveChangesAsync();
             return Results.Ok(new { recorded = true });
-        });
+        }).RequireAuthorization(policy => policy.RequireClaim("service", "game-server"));
     }
 
     public record ParticipantResult(Guid PlayerId, bool Won, bool Eligible, bool HadBotSubstitution);

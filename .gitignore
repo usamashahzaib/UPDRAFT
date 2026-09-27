@@ -15,6 +15,8 @@ ProjectUpdraft/.vs/
 Backend/**/bin/
 Backend/**/obj/
 Backend/**/*.user
+Backend/TestOutput/
+Backend/**/TestResults/
 
 # OS / editor
 .DS_Store

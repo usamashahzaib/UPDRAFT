@@ -16,6 +16,9 @@ namespace Updraft.Pads
 
         float _rechargeRemaining;
         float _activationLockoutRemaining;
+        int _placementsThisMatch;
+
+        public int PlacementsThisMatch => _placementsThisMatch;
 
         public PlayerPadManager(PadConfig config)
         {
@@ -45,11 +48,13 @@ namespace Updraft.Pads
         /// <summary>Called once a validated placement lands. Replaces any existing pad owned by this player.</summary>
         public LaunchPad PlaceNew(int ownerId, int teamId, UnityEngine.Vector3 position, UnityEngine.Vector3 forward)
         {
-            if (!HasCharge) return null;
+            if (!HasCharge || _placementsThisMatch >= _config.maxPlacementsPerMatch) return null;
 
+            ActivePad?.Retire();
             ActivePad = new LaunchPad(_config, ownerId, teamId, position, forward);
             HasCharge = false;
             _rechargeRemaining = _config.rechargeSeconds;
+            _placementsThisMatch++;
             return ActivePad;
         }
 
@@ -59,6 +64,22 @@ namespace Updraft.Pads
         public void NotifyActivated()
         {
             _activationLockoutRemaining = _config.perPlayerActivationLockoutSeconds;
+        }
+
+        public void ResetForMatchStart()
+        {
+            ActivePad?.Retire();
+            ActivePad = null;
+            HasCharge = true;
+            _rechargeRemaining = 0f;
+            _activationLockoutRemaining = 0f;
+            _placementsThisMatch = 0;
+        }
+
+        public void EnsureChargeAvailable()
+        {
+            HasCharge = true;
+            _rechargeRemaining = 0f;
         }
     }
 }

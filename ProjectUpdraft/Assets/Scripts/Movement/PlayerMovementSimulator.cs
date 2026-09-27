@@ -24,6 +24,7 @@ namespace Updraft.Movement
 
         public Vector3 Velocity { get; private set; }
         public bool IsGrounded { get; set; } = true;
+        public bool IsLaunched { get; private set; }
 
         public PlayerMovementSimulator(MovementConfig config)
         {
@@ -37,16 +38,21 @@ namespace Updraft.Movement
             Vector3 wishDir = (facingForward * input.moveAxis.y + facingRight * input.moveAxis.x);
             if (wishDir.sqrMagnitude > 1f) wishDir.Normalize();
 
-            Vector3 targetHorizontalVelocity = wishDir * targetSpeed;
             Vector3 currentHorizontal = new Vector3(Velocity.x, 0f, Velocity.z);
+            Vector3 newHorizontal = currentHorizontal;
 
-            Vector3 newHorizontal = Vector3.MoveTowards(
-                currentHorizontal, targetHorizontalVelocity, _config.groundAcceleration * deltaTime);
+            if (!IsLaunched)
+            {
+                Vector3 targetHorizontalVelocity = wishDir * targetSpeed;
+                newHorizontal = Vector3.MoveTowards(
+                    currentHorizontal, targetHorizontalVelocity, _config.groundAcceleration * deltaTime);
+            }
 
             float verticalVelocity = Velocity.y;
 
             if (IsGrounded)
             {
+                IsLaunched = false;
                 verticalVelocity = 0f;
                 if (input.jumpOrLaunchPressed)
                     verticalVelocity = _config.jumpUpwardVelocity;
@@ -64,6 +70,7 @@ namespace Updraft.Movement
         {
             Velocity = launchVelocity;
             IsGrounded = false;
+            IsLaunched = true;
         }
 
         /// <summary>Spec section 7: limited air steering while preserving launch horizontal speed.</summary>
@@ -81,6 +88,13 @@ namespace Updraft.Movement
 
             Vector3 newHorizontal = newDir * speed; // horizontal speed preserved, only direction steers
             Velocity = new Vector3(newHorizontal.x, Velocity.y, newHorizontal.z);
+        }
+
+        public void Reset()
+        {
+            Velocity = Vector3.zero;
+            IsGrounded = true;
+            IsLaunched = false;
         }
     }
 }

@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.AI;
 using Updraft.Config;
 using Updraft.Bots;
 using Updraft.Movement;
@@ -58,8 +57,7 @@ namespace Updraft.Bots
         Vector3 lastPosition;
         int botSeed;
 
-        // Pathfinding for route following
-        NavMeshAgent navAgent;
+        // Authored route target used by the current graybox navigation.
         Vector3 currentRouteTarget;
         bool hasRouteTarget;
         bool routeTargetIsPad;
@@ -81,13 +79,6 @@ namespace Updraft.Bots
             botSeed = Random.Range(0, int.MaxValue);
             decisionMaker = new BotDecisionMaker(botConfig, botSeed);
             perception = new BotPerception();
-
-            // Get NavMeshAgent for pathfinding (disabled, used for path calculation only)
-            navAgent = gameObject.AddComponent<NavMeshAgent>();
-            navAgent.enabled = false;
-            navAgent.radius = movementConfig.capsuleRadius;
-            navAgent.height = movementConfig.capsuleHeight;
-            navAgent.baseOffset = movementConfig.stepHeight;
 
             // Cache objectives
             centerObjective = mapConfig.centerZone;

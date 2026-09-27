@@ -1,0 +1,6 @@
+﻿<Solution>
+  <Project Path="Updraft.Tests.csproj" />
+  <Project Path="Updraft.Runtime.csproj" />
+  <Project Path="Updraft.Editor.csproj" />
+  <Project Path="Updraft.PlayModeTests.csproj" />
+</Solution>

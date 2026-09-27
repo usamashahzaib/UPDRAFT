@@ -6,7 +6,7 @@ namespace UpdraftBackend.Endpoints;
 
 public static class ProfileEndpoints
 {
-    public static void MapProfileEndpoints(this WebApplication app)
+    public static void MapProfileEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/profile").RequireAuthorization();
 
@@ -30,7 +30,10 @@ public static class ProfileEndpoints
             var owns = await db.InventoryItems.AnyAsync(i => i.PlayerId == playerId && i.CosmeticId == cosmeticId);
             if (!owns) return Results.Forbid();
 
-            // TODO: persist equipped-appearance state once the Appearance data model is added.
+            var account = await db.PlayerAccounts.FindAsync(playerId);
+            if (account is null) return Results.NotFound();
+            account.EquippedCosmeticId = cosmeticId;
+            await db.SaveChangesAsync();
             return Results.Ok(new { equipped = cosmeticId });
         });
     }

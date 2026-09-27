@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="28" result="Passed" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.3330567">
+  <test-suite type="TestSuite" id="1000" name="ProjectUpdraft" fullname="ProjectUpdraft" runstate="Runnable" testcasecount="28" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.333057" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1041" name="Updraft.Tests.dll" fullname="E:/Usama/Game/ProjectUpdraft/Library/ScriptAssemblies/Updraft.Tests.dll" runstate="Runnable" testcasecount="28" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.302186" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="6164" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1042" name="Updraft" fullname="Updraft" runstate="Runnable" testcasecount="28" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.299044" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1043" name="Tests" fullname="Updraft.Tests" runstate="Runnable" testcasecount="28" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.296500" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1008" name="LaunchPadTests" fullname="Updraft.Tests.LaunchPadTests" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.173732" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1012" name="LaunchVelocity_CombinesConfiguredHorizontalAndUpward" fullname="Updraft.Tests.LaunchPadTests.LaunchVelocity_CombinesConfiguredHorizontalAndUpward" methodname="LaunchVelocity_CombinesConfiguredHorizontalAndUpward" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="1700042396" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.075525" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1011" name="Pad_DestroyedWhenHealthReachesZero" fullname="Updraft.Tests.LaunchPadTests.Pad_DestroyedWhenHealthReachesZero" methodname="Pad_DestroyedWhenHealthReachesZero" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="1308880164" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.006855" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1010" name="Pad_ExpiresAfterLifetime" fullname="Updraft.Tests.LaunchPadTests.Pad_ExpiresAfterLifetime" methodname="Pad_ExpiresAfterLifetime" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="1585138192" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001653" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1009" name="Pad_StartsArming_ThenBecomesArmed" fullname="Updraft.Tests.LaunchPadTests.Pad_StartsArming_ThenBecomesArmed" methodname="Pad_StartsArming_ThenBecomesArmed" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="1222427347" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.002829" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1016" name="PlayerPadManager_EnforcesSixPlacementsPerMatch" fullname="Updraft.Tests.LaunchPadTests.PlayerPadManager_EnforcesSixPlacementsPerMatch" methodname="PlayerPadManager_EnforcesSixPlacementsPerMatch" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="1986393434" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.016540" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1014" name="PlayerPadManager_RechargesAfterConfiguredDelay" fullname="Updraft.Tests.LaunchPadTests.PlayerPadManager_RechargesAfterConfiguredDelay" methodname="PlayerPadManager_RechargesAfterConfiguredDelay" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="546738912" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.000990" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1015" name="PlayerPadManager_ReplacingAfterRecharge_RetiresPreviousPad" fullname="Updraft.Tests.LaunchPadTests.PlayerPadManager_ReplacingAfterRecharge_RetiresPreviousPad" methodname="PlayerPadManager_ReplacingAfterRecharge_RetiresPreviousPad" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="1830501396" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.002529" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1013" name="PlayerPadManager_ReplacingPad_RemovesPrevious" fullname="Updraft.Tests.LaunchPadTests.PlayerPadManager_ReplacingPad_RemovesPrevious" methodname="PlayerPadManager_ReplacingPad_RemovesPrevious" classname="Updraft.Tests.LaunchPadTests" runstate="Runnable" seed="2119326480" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001335" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1017" name="PlayerHealthControllerTests" fullname="Updraft.Tests.PlayerHealthControllerTests" classname="Updraft.Tests.PlayerHealthControllerTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.017829" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1018" name="Damage_ReducesHealth_AndDoesNotGoNegative" fullname="Updraft.Tests.PlayerHealthControllerTests.Damage_ReducesHealth_AndDoesNotGoNegative" methodname="Damage_ReducesHealth_AndDoesNotGoNegative" classname="Updraft.Tests.PlayerHealthControllerTests" runstate="Runnable" seed="1615536117" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.005555" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1021" name="NewDamage_InterruptsRegenAndResetsDelay" fullname="Updraft.Tests.PlayerHealthControllerTests.NewDamage_InterruptsRegenAndResetsDelay" methodname="NewDamage_InterruptsRegenAndResetsDelay" classname="Updraft.Tests.PlayerHealthControllerTests" runstate="Runnable" seed="1887507810" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.002125" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1019" name="Regen_DoesNotStart_BeforeDelayElapses" fullname="Updraft.Tests.PlayerHealthControllerTests.Regen_DoesNotStart_BeforeDelayElapses" methodname="Regen_DoesNotStart_BeforeDelayElapses" classname="Updraft.Tests.PlayerHealthControllerTests" runstate="Runnable" seed="1941786167" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001083" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1022" name="Regen_NeverExceedsMaxHealth" fullname="Updraft.Tests.PlayerHealthControllerTests.Regen_NeverExceedsMaxHealth" methodname="Regen_NeverExceedsMaxHealth" classname="Updraft.Tests.PlayerHealthControllerTests" runstate="Runnable" seed="1008154041" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.000841" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1020" name="Regen_StartsAfterDelay_At25PerSecond" fullname="Updraft.Tests.PlayerHealthControllerTests.Regen_StartsAfterDelay_At25PerSecond" methodname="Regen_StartsAfterDelay_At25PerSecond" classname="Updraft.Tests.PlayerHealthControllerTests" runstate="Runnable" seed="1605521213" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.000782" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1023" name="PlayerMovementSimulatorTests" fullname="Updraft.Tests.PlayerMovementSimulatorTests" classname="Updraft.Tests.PlayerMovementSimulatorTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.035992" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1025" name="AirSteer_RotatesWithoutChangingHorizontalSpeed" fullname="Updraft.Tests.PlayerMovementSimulatorTests.AirSteer_RotatesWithoutChangingHorizontalSpeed" methodname="AirSteer_RotatesWithoutChangingHorizontalSpeed" classname="Updraft.Tests.PlayerMovementSimulatorTests" runstate="Runnable" seed="170778865" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.028775" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1024" name="Launch_ReplacesVelocity_AndPreservesHorizontalSpeedDuringTick" fullname="Updraft.Tests.PlayerMovementSimulatorTests.Launch_ReplacesVelocity_AndPreservesHorizontalSpeedDuringTick" methodname="Launch_ReplacesVelocity_AndPreservesHorizontalSpeedDuringTick" classname="Updraft.Tests.PlayerMovementSimulatorTests" runstate="Runnable" seed="1814568397" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.003343" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1026" name="RelayScoringControllerTests" fullname="Updraft.Tests.RelayScoringControllerTests" classname="Updraft.Tests.RelayScoringControllerTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.022263" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1028" name="ContestedZone_DoesNotScore" fullname="Updraft.Tests.RelayScoringControllerTests.ContestedZone_DoesNotScore" methodname="ContestedZone_DoesNotScore" classname="Updraft.Tests.RelayScoringControllerTests" runstate="Runnable" seed="192986824" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.006533" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1029" name="LeavingZone_ResetsIncompleteInterval" fullname="Updraft.Tests.RelayScoringControllerTests.LeavingZone_ResetsIncompleteInterval" methodname="LeavingZone_ResetsIncompleteInterval" classname="Updraft.Tests.RelayScoringControllerTests" runstate="Runnable" seed="452669421" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.000987" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1030" name="ScoreLimit_EndsMatchImmediately" fullname="Updraft.Tests.RelayScoringControllerTests.ScoreLimit_EndsMatchImmediately" methodname="ScoreLimit_EndsMatchImmediately" classname="Updraft.Tests.RelayScoringControllerTests" runstate="Runnable" seed="1902065566" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001056" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1031" name="TiedAtRegulationEnd_EntersOvertimeThenAwardsHold" fullname="Updraft.Tests.RelayScoringControllerTests.TiedAtRegulationEnd_EntersOvertimeThenAwardsHold" methodname="TiedAtRegulationEnd_EntersOvertimeThenAwardsHold" classname="Updraft.Tests.RelayScoringControllerTests" runstate="Runnable" seed="1273151394" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.002216" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1027" name="UncontestedOccupation_ScoresOnePointPerSecond" fullname="Updraft.Tests.RelayScoringControllerTests.UncontestedOccupation_ScoresOnePointPerSecond" methodname="UncontestedOccupation_ScoresOnePointPerSecond" classname="Updraft.Tests.RelayScoringControllerTests" runstate="Runnable" seed="981802209" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001496" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1032" name="ShotResolverTests" fullname="Updraft.Tests.ShotResolverTests" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.035791" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1037" name="Brick_CannotOneShotAFullHealthPlayer_EvenAllHeadshots" fullname="Updraft.Tests.ShotResolverTests.Brick_CannotOneShotAFullHealthPlayer_EvenAllHeadshots" methodname="Brick_CannotOneShotAFullHealthPlayer_EvenAllHeadshots" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="1684199433" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.003320" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1034" name="DamageFallsLinearly_BetweenThresholds" fullname="Updraft.Tests.ShotResolverTests.DamageFallsLinearly_BetweenThresholds" methodname="DamageFallsLinearly_BetweenThresholds" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="105312883" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001455" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1033" name="FullDamage_WithinFullDamageDistance" fullname="Updraft.Tests.ShotResolverTests.FullDamage_WithinFullDamageDistance" methodname="FullDamage_WithinFullDamageDistance" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="41177524" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.005184" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1038" name="HeadshotMultiplier_AppliesToBaseDamage" fullname="Updraft.Tests.ShotResolverTests.HeadshotMultiplier_AppliesToBaseDamage" methodname="HeadshotMultiplier_AppliesToBaseDamage" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="1219480600" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001260" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1035" name="MinimumDamage_HoldsPastFalloffEndpointUntilMaxRange" fullname="Updraft.Tests.ShotResolverTests.MinimumDamage_HoldsPastFalloffEndpointUntilMaxRange" methodname="MinimumDamage_HoldsPastFalloffEndpointUntilMaxRange" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="66401389" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.001003" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1036" name="NoDamage_BeyondMaxRange" fullname="Updraft.Tests.ShotResolverTests.NoDamage_BeyondMaxRange" methodname="NoDamage_BeyondMaxRange" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="26554977" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.000947" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1039" name="Pellets_AreGeneratedForEachConfiguredCount" fullname="Updraft.Tests.ShotResolverTests.Pellets_AreGeneratedForEachConfiguredCount" methodname="Pellets_AreGeneratedForEachConfiguredCount" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="876701245" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.004232" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1040" name="SameSeed_ProducesIdenticalPellets_ForServerClientAgreement" fullname="Updraft.Tests.ShotResolverTests.SameSeed_ProducesIdenticalPellets_ForServerClientAgreement" methodname="SameSeed_ProducesIdenticalPellets_ForServerClientAgreement" classname="Updraft.Tests.ShotResolverTests" runstate="Runnable" seed="550053226" result="Passed" start-time="2026-09-27 12:03:22Z" end-time="2026-09-27 12:03:22Z" duration="0.007147" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[Saving results to: C:/Users/Compilex Technologie/AppData/LocalLow/DefaultCompany/ProjectUpdraft\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

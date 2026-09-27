@@ -383,11 +383,17 @@ namespace Updraft.Core
                 mapConfig.westZone                                     // Bot fight
             };
 
+            // Not parented under "Switchyard": SwitchyardGenerator.GenerateMap()
+            // destroys all of its own children on Awake() to regenerate the
+            // graybox, which would wipe these markers out before Start() ever
+            // looks for them by name.
+            GameObject markersRoot = new GameObject("TutorialMarkers");
+
             for (int i = 0; i < names.Length; i++)
             {
                 GameObject obj = new GameObject(names[i]);
                 obj.transform.position = positions[i];
-                obj.transform.parent = GameObject.Find("Switchyard")?.transform ?? transform;
+                obj.transform.parent = markersRoot.transform;
             }
         }
     }

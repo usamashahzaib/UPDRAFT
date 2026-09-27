@@ -19,7 +19,7 @@ public class UpdraftDbContext : DbContext
     {
         // Spec section 23: a source event can never grant the same ledger reward twice.
         modelBuilder.Entity<CreditLedgerEntry>()
-            .HasIndex(e => new { e.Reason, e.SourceId })
+            .HasIndex(e => new { e.PlayerId, e.Reason, e.SourceId })
             .IsUnique();
 
         modelBuilder.Entity<MatchParticipation>()

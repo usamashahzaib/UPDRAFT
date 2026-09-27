@@ -8,6 +8,7 @@ namespace Updraft.Camera
     /// 55° FOV, 3.2m follow distance, 0.45m shoulder offset, upper-torso pivot,
     /// sphere-cast wall clip prevention, subtle shake (disableable), no combat cinematics.
     /// </summary>
+    [RequireComponent(typeof(UnityEngine.Camera))]
     public class ThirdPersonCamera : MonoBehaviour
     {
         [Header("Config")]
@@ -51,6 +52,9 @@ namespace Updraft.Camera
             UnityEngine.Camera cam = GetComponent<UnityEngine.Camera>();
             if (cam != null)
                 cam.fieldOfView = fieldOfView;
+
+            if (GetComponent<AudioListener>() == null)
+                gameObject.AddComponent<AudioListener>();
 
             // Initialize angles from current transform
             Vector3 euler = transform.eulerAngles;

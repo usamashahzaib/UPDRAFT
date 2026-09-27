@@ -9,6 +9,7 @@ public class PlayerAccount
     public int ProfileXp { get; set; }
     public int Level { get; set; } = 1;
     public int HiddenMatchmakingRating { get; set; } = 1000;
+    public string? EquippedCosmeticId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public bool IsGuest { get; set; } = true;
 }
@@ -71,7 +72,9 @@ public class PlayerReport
 public class AccountDeletionRequest
 {
     public Guid Id { get; set; }
-    public Guid PlayerId { get; set; }
-    public string Status { get; set; } = "requested"; // requested, completed
+    public Guid? PlayerId { get; set; }
+    public string? ContactName { get; set; }
+    public string? ContactEmail { get; set; }
+    public string Status { get; set; } = "requested"; // pending_verification, requested, completed
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

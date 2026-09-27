@@ -6,7 +6,7 @@ public static class MatchmakingEndpoints
     // evaluator (2s interval, rating-window widening, latency preference) needs
     // a background worker; this exposes the API shape now so the client can be
     // built against it while that worker is implemented.
-    public static void MapMatchmakingEndpoints(this WebApplication app)
+    public static void MapMatchmakingEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/matchmaking").RequireAuthorization();
 

@@ -203,7 +203,7 @@ namespace Updraft.Tutorial
             }
 
             // Ensure player has pad charge
-            localPlayer.PadManager.GetType().GetField("HasCharge", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)?.SetValue(localPlayer.PadManager, true);
+            localPlayer.PadManager.EnsureChargeAvailable();
         }
 
         void SetupRidePadStep()
@@ -230,8 +230,7 @@ namespace Updraft.Tutorial
                 padBehaviour.Initialize(padData);
                 enemyPad = padBehaviour;
 
-                // Force pad to armed state
-                padData.GetType().GetField("State", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(padData, PadState.Armed);
+                padData.CompleteArming();
             }
 
             // Move player near enemy pad
@@ -416,6 +415,14 @@ namespace Updraft.Tutorial
             // Restart
             tutorialSkipped = false;
             InitializeTutorial();
+        }
+
+        public void Shutdown()
+        {
+            if (localPlayer != null) Destroy(localPlayer.gameObject);
+            if (tutorialBot != null) Destroy(tutorialBot.gameObject);
+            CleanupStepObjects();
+            Destroy(gameObject);
         }
 
         void CleanupStepObjects()

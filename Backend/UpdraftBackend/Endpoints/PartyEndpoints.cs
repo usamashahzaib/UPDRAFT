@@ -13,7 +13,7 @@ public static class PartyEndpoints
     // serve any party. Not wired up yet; documented as a TODO, not faked.
     static readonly Dictionary<string, PartyState> Parties = new();
 
-    public static void MapPartyEndpoints(this WebApplication app)
+    public static void MapPartyEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/party").RequireAuthorization();
 
@@ -44,7 +44,9 @@ public static class PartyEndpoints
             return Results.Ok(party);
         });
 
-        group.MapPost("/{code}/ready", (string code, bool ready, HttpContext ctx) =>
+        // A bare `bool ready` parameter binds from the query string, not a JSON
+        // body — no realistic client sends it that way. Bind explicitly from body.
+        group.MapPost("/{code}/ready", (string code, [Microsoft.AspNetCore.Mvc.FromBody] bool ready, HttpContext ctx) =>
         {
             if (!Parties.TryGetValue(code, out var party)) return Results.NotFound();
             var playerId = ctx.User.FindFirst("player_id")!.Value;

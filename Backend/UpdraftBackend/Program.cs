@@ -30,3 +30,5 @@ app.MapCommerceEndpoints();
 app.MapSupportEndpoints();
 
 app.Run();
+
+public partial class Program;

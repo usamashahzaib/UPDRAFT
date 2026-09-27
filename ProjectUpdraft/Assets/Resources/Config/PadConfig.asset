@@ -21,6 +21,7 @@ MonoBehaviour:
   launchHorizontalVelocity: 14
   launchUpwardVelocity: 12
   maxActivePadsPerOwner: 1
+  maxPlacementsPerMatch: 6
   perPlayerActivationLockoutSeconds: 1
   placementForwardOffset: 1.6
   previewHoldThresholdSeconds: 0.18

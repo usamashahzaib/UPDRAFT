@@ -49,6 +49,7 @@ namespace Updraft.Input
         public bool ReloadPressed { get; private set; }
         public bool PingPressed { get; private set; }
         public bool PausePressed { get; private set; }
+        public float AimSensitivityScale { get; set; } = 1f;
 
         // Touch tracking
         Touchscreen touchscreen;
@@ -78,7 +79,7 @@ namespace Updraft.Input
         void Awake()
         {
             touchscreen = Touchscreen.current;
-            dpiScale = Screen.dpi / 160f; // mdpi baseline
+            dpiScale = Screen.dpi > 0f ? Mathf.Max(1f, Screen.dpi / 160f) : 1f; // mdpi baseline
             RecalculateButtonRects();
             LoadSettings();
         }
@@ -156,8 +157,13 @@ namespace Updraft.Input
                 UnityEngine.Input.gyro.enabled = true;
                 var rot = UnityEngine.Input.gyro.attitude;
                 // Convert gyro to aim delta (simplified)
-                AimDelta += new Vector2(rot.y, -rot.x) * aimSensitivity * 50f * Time.deltaTime;
+                Vector2 gyroDelta = new Vector2(rot.y, -rot.x) * aimSensitivity * AimSensitivityScale * 50f * Time.deltaTime;
+                if (invertY) gyroDelta.y = -gyroDelta.y;
+                AimDelta += gyroDelta;
             }
+
+            if (PingPressed)
+                OnPingWorldPositionRequested?.Invoke(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
         }
 
         bool CheckButtonTouch(TouchControl touch, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
@@ -172,7 +178,7 @@ namespace Updraft.Input
 
             if (phase == UnityEngine.InputSystem.TouchPhase.Began)
             {
-                if (insideFire) { fireTouchId = id; FireHeld = true; FirePressedThisFrame = true; return true; }
+                if (insideFire) { fireTouchId = id; fireStartPos = pos; FireHeld = true; FirePressedThisFrame = true; return true; }
                 if (insideJump) { JumpPressed = true; return true; }
                 if (insidePad) { PadPressed = true; return true; }
                 if (insideReload) { ReloadPressed = true; return true; }
@@ -193,7 +199,7 @@ namespace Updraft.Input
                 if (id == fireTouchId)
                 {
                     // Fire button drag also aims
-                    AimDelta += (pos - fireStartPos) * aimSensitivity * 0.01f * dpiScale;
+                    AimDelta += ScaleAimDelta(pos - fireStartPos);
                     fireStartPos = pos;
                     return true;
                 }
@@ -266,7 +272,7 @@ namespace Updraft.Input
                     {
                         aimCurrentPos = pos;
                         Vector2 delta = aimCurrentPos - aimStartPos;
-                        AimDelta += delta * aimSensitivity * 0.01f * dpiScale;
+                        AimDelta += ScaleAimDelta(delta);
                         aimStartPos = aimCurrentPos;
                     }
                     break;
@@ -279,6 +285,13 @@ namespace Updraft.Input
                     }
                     break;
             }
+        }
+
+        Vector2 ScaleAimDelta(Vector2 delta)
+        {
+            Vector2 scaled = delta * aimSensitivity * AimSensitivityScale * 0.01f * dpiScale;
+            if (invertY) scaled.y = -scaled.y;
+            return scaled;
         }
 
         void RecalculateButtonRects()

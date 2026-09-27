@@ -18,6 +18,7 @@ namespace Updraft.Match
         public int ScoreA { get; private set; }
         public int ScoreB { get; private set; }
         public MatchOutcome Outcome { get; private set; } = MatchOutcome.InProgress;
+        public bool IsInOvertime => _inOvertime;
 
         // Continuous occupation timer, reset whenever occupation becomes invalid,
         // contested, or the controlling team changes (spec: "resets the incomplete

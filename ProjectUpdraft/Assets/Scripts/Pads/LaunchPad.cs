@@ -52,6 +52,20 @@ namespace Updraft.Pads
             if (Health <= 0f) State = PadState.Destroyed;
         }
 
+        /// <summary>Removes a replaced pad without treating it as enemy damage.</summary>
+        public void Retire()
+        {
+            if (State != PadState.Destroyed && State != PadState.Expired)
+                State = PadState.Expired;
+        }
+
+        /// <summary>Used by the authored tutorial when it spawns a ready-to-use demonstration pad.</summary>
+        public void CompleteArming()
+        {
+            if (State == PadState.Arming)
+                State = PadState.Armed;
+        }
+
         /// <summary>Anyone (either team) can trigger this while armed. Friendly fire never damages pads.</summary>
         public bool CanBeUsed => State == PadState.Armed;
 

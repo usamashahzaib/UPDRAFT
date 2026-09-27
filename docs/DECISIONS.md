@@ -2,6 +2,71 @@
 
 Working title per spec; check name availability before publishing.
 
+## Outsourced work + parallel session (2026-09-27, later same day)
+
+Delegated two self-contained tasks to other CLI agents (ChatGPT CLI, Kimi
+Code) working in this same repo concurrently, plus the user/another session
+made further direct Unity gameplay improvements. All work was reviewed and
+verified before landing, not taken on faith:
+
+- **Backend integration tests** (ChatGPT CLI): added a full xUnit +
+  `WebApplicationFactory<Program>` test suite (`AuthEndpointsTests`,
+  `PartyEndpointsTests`, `ProfileEndpointsTests`, `MatchEndpointsTests`,
+  `MatchmakingEndpointsTests`, `CommerceEndpointsTests`,
+  `SupportEndpointsTests`, `TestHost.cs`). Iterating on this surfaced —
+  and fixed — real production bugs, not just test-harness plumbing:
+  - `Backend/UpdraftBackend/Endpoints/AuthEndpoints.cs`: `/refresh`,
+    `/revoke`, and `/link-google-play` had **no authorization requirement at
+    all** — anyone could call session-management endpoints unauthenticated.
+    Fixed with a properly separate authenticated route group (a first
+    attempt calling `.RequireAuthorization()` on the same group builder as
+    `/guest` retroactively locked `/guest` too, since route-group
+    conventions apply to every endpoint on that builder regardless of
+    registration order).
+  - `PartyEndpoints.cs`: `/{code}/ready` took a bare `bool ready` parameter,
+    which Minimal APIs bind from the **query string**, not a JSON body — no
+    realistic client could have called it. Fixed with `[FromBody]`.
+  - Widened all `Map*Endpoints` extension methods from
+    `this WebApplication app` to `this IEndpointRouteBuilder app` — the
+    correct, idiomatic Minimal API signature, and a real testability fix
+    (the narrower type made them uncallable from a test host).
+  - `Program.cs` gained `public partial class Program;` — the standard
+    fix that lets `WebApplicationFactory<Program>` use the real entry point
+    directly instead of needing a hand-rolled host.
+  - The test factory itself went through several iterations (dual EF Core
+    provider registration conflicts, missing schema creation, wrong SDK type
+    on the test csproj preventing ASP.NET Core's implicit usings from
+    resolving `WebApplication`/`IEndpointRouteBuilder`) before settling on a
+    correct, working setup. **Verified**: `dotnet test` → 43/43 passing.
+  - Hit a Windows **Smart App Control** block (`VerifiedAndReputablePolicyState
+    = 1` in the registry) intermittently preventing the freshly-built test
+    DLL from loading at all, unrelated to the code; resolved itself after a
+    clean rebuild. Flagging in case it recurs — it's an OS-level policy, not
+    fixable from here.
+- **Legal/store docs** (Kimi Code): `docs/legal/PRIVACY_POLICY.md`,
+  `TERMS_OF_SERVICE.md`, `account-deletion.html` (Milestone G prep, section
+  31). The backend now serves `account-deletion.html` as static content
+  (`Dockerfile`/`.csproj` updated to copy it in), directly satisfying
+  `SupportEndpoints.cs`'s existing public GET placeholder.
+- **Unity gameplay** (parallel direct edits, not delegated by name):
+  implemented the spec's 6-pads-per-match cap (`PadConfig.
+  maxPlacementsPerMatch`, `PlayerPadManager.PlacementsThisMatch`,
+  `LaunchPad.Retire()` distinct from destruction so replacing your own pad
+  isn't misattributed as enemy damage), an `IsLaunched` state on
+  `PlayerMovementSimulator` so normal movement input doesn't fight a pad
+  launch's velocity, `RelayScoringController`/`BotController`/
+  `PlayerController` refinements, and **tightened the PlayMode smoke test**
+  with real assertions (exactly one `PlayerController`, no player + separate
+  practice match both starting, exactly one `AudioListener`) instead of just
+  "did it throw." **Verified**: 28/28 EditMode tests passing (up from 24 —
+  new coverage for the pad cap), PlayMode smoke test still passing.
+
+**Current state — both stacks fully green**: Unity compiles clean (28
+EditMode + 1 PlayMode test passing), backend compiles clean (43/43 tests
+passing). The Photon Fusion App ID (`a91a9f6e-7470-44fb-a32d-de6db0a910ef`)
+is recorded above; the SDK itself still needs downloading before Milestone C
+integration can start.
+
 ## Milestone A/B: Unity Editor compiles clean, all tests pass (2026-09-27)
 
 User installed Unity 6.3 LTS (6000.3.25f1) and the .NET SDK. A separate
@@ -84,14 +149,65 @@ exceptions and produced:
 Recompiled and reran the EditMode suite once more afterward (24/24 still
 pass) to confirm generating the scene didn't disturb anything.
 
-**Still not verified**: nobody has pressed Play and watched a match actually
-run — batchmode confirms the scene builds and the assembly compiles, not
-that gameplay behaves correctly at runtime (materials are unassigned so
-everything will render as default-magenta/white primitives; that's expected
-for a graybox and doesn't block a Play Mode functional test). Also still
-missing: an actual Android build (needs Android Build Support installed via
-Unity Hub, and PlayerSettings configured per `MILESTONE_STATUS.md`'s
-checklist), and Photon Fusion 2 for Milestone C.
+### Play Mode actually runs now (real verification, not just a compile check)
+
+Added a PlayMode test assembly (`Assets/Scripts/Tests/PlayMode/
+Updraft.PlayModeTests.asmdef`) and `OfflineSliceSmokeTest.cs`: loads
+`Main.unity` and runs it for 5 seconds. Unity's Test Framework fails a
+PlayMode test on any logged error or exception, so a pass here is a real
+assertion that GameBootstrap → SwitchyardGenerator → TutorialController →
+PlayerController/BotController survive Awake/Start/Update, not a guess.
+
+It took five iterations to actually get there, each catching a genuine bug:
+1. **Missing project layers**: `SwitchyardGenerator`/`PlayerController`
+   assign `GameObject.layer` via `LayerMask.NameToLayer("Ground"/"Player"/
+   "Pad"/"Zone"/"Cover"/"SpawnBarrier")`, but a fresh project defines none of
+   them — `NameToLayer` returns -1, and assigning that logs an error on
+   every single object. Added `SetupProjectLayers.cs`
+   (`Tools/Updraft/Setup Project Layers`) to register them via
+   `SerializedObject` edits on `ProjectSettings/TagManager.asset`.
+2. **Tutorial markers destroyed on spawn**: `SceneSetup` parented the
+   `TutorialStart`/`TutorialMoveTarget`/etc. markers under the "Switchyard"
+   GameObject, but `SwitchyardGenerator.GenerateMap()` destroys all of its
+   own children on `Awake()` to regenerate the graybox procedurally — wiping
+   the markers out before `TutorialController.Start()` could `GameObject.Find`
+   them, causing a `NullReferenceException`. Fixed by parenting markers under
+   a separate, untouched `TutorialMarkers` root instead.
+3. **TextMeshPro's first-run popup**: any TMP component triggers an
+   "Import Essential Resources?" prompt if those resources aren't already in
+   the project; that prompt tries to open an `EditorWindow`, which needs a
+   graphics device and throws under `-nographics`. Added
+   `SetupTmpEssentials.cs` (`Tools/Updraft/Setup TMP Essential Resources`),
+   which imports `TMP Essential Resources.unitypackage` from the package
+   cache non-interactively. `AssetDatabase.ImportPackage` is asynchronous, so
+   this hooks `importPackageCompleted`/`Failed`/`Cancelled` and calls
+   `EditorApplication.Exit()` itself — running it with `-quit` on the command
+   line let the process exit before the import actually finished the first
+   time.
+4. **Undefined `"Head"` tag**: `PlayerController.ProcessPellet` calls
+   `hit.collider.CompareTag("Head")` for headshot detection; `"Head"` isn't
+   one of Unity's built-in tags. Folded tag registration into
+   `SetupProjectLayers.cs` alongside the layers.
+
+`BuildOfflineSlice.Run` now calls `SetupProjectLayers.EnsureLayersExist()`
+first, so a from-scratch project run produces a scene that actually plays.
+
+**Verified end to end**: EditMode suite 24/24 passing, PlayMode smoke test
+passing (scene loads, tutorial initializes, a bot fires a shot, zero errors
+over 5 real seconds of simulation).
+
+**Still not done**: nobody has watched the tutorial actually complete
+end-to-end with real input (the smoke test doesn't drive touch input, so it
+only proves the scene survives running, not that a person can play through
+it) — materials are unassigned so everything renders as default-magenta/
+white primitives, expected for a graybox. Also still missing: an actual
+Android build (Android Build Support module is present per the Editor log,
+but PlayerSettings — package name, API levels, IL2CPP, ARM64 — haven't been
+configured or tested), and Photon Fusion 2 (Milestone C) — the user has now
+created a Photon account and provided a Fusion App ID
+(`a91a9f6e-7470-44fb-a32d-de6db0a910ef`); the Fusion 2 SDK itself still
+needs to be downloaded (manual, from the Photon dashboard) before it can be
+imported and configured.
 
 ## Spec revision: now building the "FINAL MASTER SPECIFICATION (v1.0)"
 

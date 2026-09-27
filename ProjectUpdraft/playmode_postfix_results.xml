@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 12:04:52Z" end-time="2026-09-27 12:04:59Z" duration="6.8315257">
+  <test-suite type="TestSuite" id="1010" name="ProjectUpdraft" fullname="ProjectUpdraft" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 12:04:52Z" end-time="2026-09-27 12:04:59Z" duration="6.831526" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1006" name="Updraft.PlayModeTests.dll" fullname="E:/Usama/Game/ProjectUpdraft/Library/ScriptAssemblies/Updraft.PlayModeTests.dll" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 12:04:52Z" end-time="2026-09-27 12:04:59Z" duration="6.802196" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="14888" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1007" name="Updraft" fullname="Updraft" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 12:04:52Z" end-time="2026-09-27 12:04:59Z" duration="6.800117" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1008" name="Tests" fullname="Updraft.Tests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 12:04:52Z" end-time="2026-09-27 12:04:59Z" duration="6.799266" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1009" name="PlayMode" fullname="Updraft.Tests.PlayMode" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 12:04:52Z" end-time="2026-09-27 12:04:59Z" duration="6.798280" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1004" name="OfflineSliceSmokeTest" fullname="Updraft.Tests.PlayMode.OfflineSliceSmokeTest" classname="Updraft.Tests.PlayMode.OfflineSliceSmokeTest" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 12:04:52Z" end-time="2026-09-27 12:04:59Z" duration="6.794409" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1005" name="MainScene_LoadsAndRunsForFiveSeconds_WithoutErrors" fullname="Updraft.Tests.PlayMode.OfflineSliceSmokeTest.MainScene_LoadsAndRunsForFiveSeconds_WithoutErrors" methodname="MainScene_LoadsAndRunsForFiveSeconds_WithoutErrors" classname="Updraft.Tests.PlayMode.OfflineSliceSmokeTest" runstate="Runnable" seed="2068524717" result="Passed" start-time="2026-09-27 12:04:53Z" end-time="2026-09-27 12:04:59Z" duration="6.736805" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <reason>
+                  <message><![CDATA[Scene ran for 5 seconds without a logged error or exception.]]></message>
+                </reason>
+                <output><![CDATA[Saving results to: C:/Users/Compilex Technologie/AppData/LocalLow/DefaultCompany/ProjectUpdraft\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
