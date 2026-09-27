@@ -27,6 +27,27 @@ Working title per spec; check name availability before publishing.
 - `Assets/Scripts/Weapons/ShotResolver.cs` — ARC/ZIP/BRICK damage falloff,
   head multiplier, seeded evenly-distributed pellet spread for BRICK
   (section 8).
+- `Assets/Scripts/Match/MatchFlowController.cs` — preparation (8s, no
+  damage/pad placement) → countdown (3s) → in-progress/overtime → results
+  phase machine (section 5).
+- Remaining config groups from section 33: `MapConfig` (Switchyard graybox
+  coordinates, section 10), `BotConfig`, `MatchmakingConfig`,
+  `ProgressionConfig`, `GraphicsConfig`, `CatalogConfig` (cosmetic bundles,
+  shop disabled by default until the section 26 validation gate passes).
+- `Assets/Scripts/Tests/RelayScoringControllerTests.cs` — NUnit EditMode
+  tests for scoring/contest/reset/win/overtime behavior. Source only; not yet
+  run (no Unity Editor/Test Framework available in this environment).
+- `Backend/UpdraftBackend/` — ASP.NET Core (net10.0) Minimal API skeleton:
+  `Program.cs` wiring the section 23 endpoint groups (auth, profile, party,
+  matchmaking, matches, commerce, support) over a single `UpdraftDbContext`
+  (Npgsql/PostgreSQL 16), entities for the section 23 persistent records, a
+  unique `(Reason, SourceId)` index on the credit ledger so a source event
+  can never double-grant a reward, and ownership derived from a `player_id`
+  session claim rather than request-body IDs. `Dockerfile` + root
+  `docker-compose.yml` wire it to a local Postgres container (section 21).
+  Every genuinely external call (Google Play identity verification, Google
+  Play purchase verification, game-server service-credential auth) is a
+  `TODO` comment naming the exact dependency, not a fabricated success path.
 
 These are deliberately plain C# (no `MonoBehaviour`/Fusion coupling) so the
 same rules can run in offline practice and on the dedicated server, per
@@ -45,10 +66,12 @@ section 21 ("keep presentation separate from authoritative gameplay rules").
   Photon account + Fusion App ID (photonengine.com). Cannot be fabricated;
   Fusion isn't distributable via the standard Unity Package Manager registry
   and needs manual import once the App ID exists.
-- ASP.NET Core backend (`Backend/UpdraftBackend`) — folder created, project
-  not yet scaffolded.
-- Mobile touch input, camera, tutorial, bots, UI screens, matchmaking,
-  progression, shop, telemetry — later sections, not started.
+- Backend auth is unsigned/unverified: session issuance has no real JWT
+  signing key, and Google Play identity/purchase verification calls are
+  `TODO`s. **Blocked on**: a signing-key strategy and a Google Play Console
+  service-account credential.
+- Mobile touch input, camera, tutorial, bots, UI screens, cosmetic-shop UI,
+  telemetry — later sections, not started.
 
 ### Standing decisions (recorded per section 34: "for ordinary unspecified
 implementation details, choose the simplest solution and record it")
@@ -73,11 +96,21 @@ None of these are needed to keep writing gameplay-rule code, so that work
 continues in parallel.
 
 ## Next steps
-1. Add an EditMode test assembly (`Assets/Tests`) covering
-   `RelayScoringController`, `ShotResolver`, and pad placement — cheapest way
-   to prove the rules are correct before any scene exists.
-2. Scaffold the ASP.NET Core backend skeleton (accounts/parties/matchmaking
-   stubs) so API shapes exist even before Postgres is provisioned.
-3. Once Unity Editor is available: open the project, add the packages in
+1. Add an `.asmdef` for `Assets/Scripts/Tests` referencing `UnityEngine.TestRunner`/
+   NUnit once Unity is available, and actually run the EditMode tests.
+2. Add EditMode tests for `LaunchPad`/`PadPlacementValidator`/`ShotResolver`/
+   `PlayerHealthController` to match the coverage `RelayScoringController` has.
+3. Player movement controller (KCC-style ground/air movement matching section
+   6's speed/acceleration/gravity/jump numbers) — next gameplay piece to write.
+4. Bot decision logic (perception via line-of-sight, route-following,
+   objective-seeking) per section 13 — needs `MapConfig` route data first.
+5. Once Unity Editor is available: open the project, add the packages in
    `Packages/manifest.json`, build the Switchyard graybox from section 10's
    coordinates, and wire prefabs to the scripts above.
+6. Once the .NET SDK is available: `dotnet build`/`dotnet test` the backend —
+   it has not been compiled in this environment yet.
+
+### Git identity note
+Commits in this repo use a project-local identity (`Project UPDRAFT
+<devnull@projectupdraft.local>`), not the user's personal email, per explicit
+instruction.
