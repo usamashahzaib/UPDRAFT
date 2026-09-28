@@ -5,6 +5,14 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $project = $PSScriptRoot
+# Pre-flight (2026-09-28 recovery): the two historical startup failures were a
+# zombie Unity.Licensing.Client and a stale Temp/UnityLockfile (PM IPC stream
+# connect timing out after 30s). Guard instead of guessing.
+$editors = Get-Process | Where-Object { $_.Name -eq 'Unity' }
+if ($editors) { throw "A Unity editor process is running (ids: $($editors.Id -join ', ')). One owner at a time; stop it first (Stop-Process -Id <id> -Force)." }
+$licenseClients = Get-Process | Where-Object { $_.Name -like 'Unity.Licensing.Client*' }
+if ($licenseClients) { Write-Warning "Stale Unity.Licensing.Client (ids: $($licenseClients.Id -join ', ')) - stop it (Stop-Process -Id <id> -Force) if licensing handshakes fail; Git Bash taskkill mangles /PID switches." }
+if (Test-Path (Join-Path $project 'Temp\UnityLockfile')) { Write-Warning "Stale Temp/UnityLockfile - delete the Temp folder before running if the project lock is not held." }
 $results = Join-Path $project "TestResults\$Platform.xml"
 $log = Join-Path $project "TestResults\$Platform.log"
 New-Item -ItemType Directory -Force -Path (Split-Path $results) | Out-Null
