@@ -55,6 +55,23 @@ namespace Updraft.Config
             return null;
         }
 
+        /// <summary>The zone that scores at this time. Overtime continues on the last regulation zone.</summary>
+        public ZoneId GetScoringZone(float matchTime)
+        {
+            var active = GetActiveZone(matchTime);
+            if (active.HasValue) return active.Value;
+            return matchTime >= regulationDurationSeconds && schedule.Length > 0 ? schedule[schedule.Length - 1].zone : ZoneId.Center;
+        }
+
+        /// <summary>Seconds until the active zone changes, or -1 when no later zone is scheduled.</summary>
+        public float SecondsUntilRotation(float matchTime)
+        {
+            foreach (var entry in schedule)
+                if (matchTime >= entry.startTime && matchTime < entry.endTime)
+                    return entry.endTime < regulationDurationSeconds ? entry.endTime - matchTime : -1f;
+            return -1f;
+        }
+
         public ZoneId? GetUpcomingZone(float matchTime)
         {
             foreach (var entry in schedule)

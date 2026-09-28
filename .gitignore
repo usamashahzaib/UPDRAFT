@@ -34,3 +34,14 @@ Backend/**/TestResults/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Photon App ID lives only in this generated settings asset; keep it out of
+# source control (spec section 20). Supply it via UPDRAFT_FUSION_APP_ID or the
+# local asset; see docs/NETWORK.md.
+ProjectUpdraft/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset
+ProjectUpdraft/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset.meta
+
+# Local test/build outputs
+ProjectUpdraft/TestResults/
+ProjectUpdraft/*.log
+ProjectUpdraft/.utmp/

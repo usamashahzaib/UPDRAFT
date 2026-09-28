@@ -57,13 +57,7 @@ namespace Updraft.Editor
             var pc = player.AddComponent<PlayerController>();
 
             // Body visual (capsule primitive for graybox)
-            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(player.transform, false);
-            body.transform.localPosition = new Vector3(0, 0.9f, 0);
-            body.transform.localScale = new Vector3(0.7f, 1.8f, 0.7f);
-            // Remove collider from visual (CharacterController handles collision)
-            Object.DestroyImmediate(body.GetComponent<CapsuleCollider>());
+            GameObject body = CreateSportAvatar(player.transform);
 
             // Weapon attachment points (3 weapons)
             GameObject[] weaponMeshes = new GameObject[3];
@@ -78,6 +72,7 @@ namespace Updraft.Editor
                 weapon.SetActive(i == 0); // Only ARC visible by default
                 Object.DestroyImmediate(weapon.GetComponent<BoxCollider>());
                 weaponMeshes[i] = weapon;
+                weapon.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Equipment.mat");
             }
 
             // Muzzle transform
@@ -91,7 +86,8 @@ namespace Updraft.Editor
             camPivot.transform.localPosition = new Vector3(0, 1.45f, 0);
 
             // Materials (will be assigned at runtime)
-            var bodyRenderer = body.GetComponent<Renderer>();
+            var bodyRenderer = body.GetComponentInChildren<Renderer>();
+            bodyRenderer.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Friendly.mat");
 
             // Set up PlayerController references via SerializedObject
             var so = new SerializedObject(pc);
@@ -111,6 +107,8 @@ namespace Updraft.Editor
             for (int i = 0; i < 3; i++)
                 so.FindProperty("weaponMeshes").GetArrayElementAtIndex(i).objectReferenceValue = weaponMeshes[i];
             so.FindProperty("bodyRenderer").objectReferenceValue = bodyRenderer;
+            so.FindProperty("friendlyMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Friendly.mat");
+            so.FindProperty("enemyMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Enemy.mat");
             so.ApplyModifiedProperties();
 
             // Tag and layer
@@ -148,12 +146,7 @@ namespace Updraft.Editor
             var bc = bot.AddComponent<BotController>();
 
             // Body visual
-            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(bot.transform, false);
-            body.transform.localPosition = new Vector3(0, 0.9f, 0);
-            body.transform.localScale = new Vector3(0.7f, 1.8f, 0.7f);
-            Object.DestroyImmediate(body.GetComponent<CapsuleCollider>());
+            GameObject body = CreateSportAvatar(bot.transform);
 
             // Weapon meshes
             GameObject[] weaponMeshes = new GameObject[3];
@@ -168,6 +161,7 @@ namespace Updraft.Editor
                 weapon.SetActive(i == 0);
                 Object.DestroyImmediate(weapon.GetComponent<BoxCollider>());
                 weaponMeshes[i] = weapon;
+                weapon.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Equipment.mat");
             }
 
             // Muzzle
@@ -180,7 +174,8 @@ namespace Updraft.Editor
             camPivot.transform.SetParent(bot.transform, false);
             camPivot.transform.localPosition = new Vector3(0, 1.45f, 0);
 
-            var bodyRenderer = body.GetComponent<Renderer>();
+            var bodyRenderer = body.GetComponentInChildren<Renderer>();
+            bodyRenderer.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Friendly.mat");
 
             // Set up PlayerController
             var pcSo = new SerializedObject(pc);
@@ -200,6 +195,8 @@ namespace Updraft.Editor
             for (int i = 0; i < 3; i++)
                 pcSo.FindProperty("weaponMeshes").GetArrayElementAtIndex(i).objectReferenceValue = weaponMeshes[i];
             pcSo.FindProperty("bodyRenderer").objectReferenceValue = bodyRenderer;
+            pcSo.FindProperty("friendlyMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Friendly.mat");
+            pcSo.FindProperty("enemyMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Enemy.mat");
             pcSo.ApplyModifiedProperties();
 
             // Set up BotController
@@ -227,6 +224,32 @@ namespace Updraft.Editor
             return null;
         }
 
+        static GameObject CreateSportAvatar(Transform parent)
+        {
+            var root = new GameObject("Body");
+            root.transform.SetParent(parent, false);
+            var motion = root.AddComponent<SportAvatarAnimation>();
+            Part(root.transform, "Sport vest", new Vector3(0, 1.13f, 0), new Vector3(0.56f, 0.65f, 0.34f), "Friendly");
+            Part(root.transform, "Helmet", new Vector3(0, 1.61f, 0), new Vector3(0.39f, 0.34f, 0.36f), "Structure");
+            Part(root.transform, "Visor", new Vector3(0, 1.63f, 0.185f), new Vector3(0.34f, 0.12f, 0.04f), "Equipment");
+            Part(root.transform, "Left sleeve", new Vector3(-0.34f, 1.1f, 0.12f), new Vector3(0.17f, 0.52f, 0.2f), "Equipment").localRotation = Quaternion.Euler(-45, 0, -8);
+            Part(root.transform, "Right sleeve", new Vector3(0.34f, 1.1f, 0.12f), new Vector3(0.17f, 0.52f, 0.2f), "Equipment").localRotation = Quaternion.Euler(-45, 0, 8);
+            motion.leftLeg = Part(root.transform, "Left boot and leg", new Vector3(-0.16f, 0.42f, 0), new Vector3(0.23f, 0.7f, 0.28f), "Equipment");
+            motion.rightLeg = Part(root.transform, "Right boot and leg", new Vector3(0.16f, 0.42f, 0), new Vector3(0.23f, 0.7f, 0.28f), "Equipment");
+            Part(root.transform, "Utility pack", new Vector3(0, 1.15f, -0.24f), new Vector3(0.36f, 0.43f, 0.16f), "Equipment");
+            return root;
+        }
+
+        static Transform Part(Transform parent, string name, Vector3 position, Vector3 size, string material)
+        {
+            var part = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            part.name = name; part.transform.SetParent(parent, false);
+            part.transform.localPosition = position; part.transform.localScale = size;
+            part.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/" + material + ".mat");
+            Object.DestroyImmediate(part.GetComponent<Collider>());
+            return part.transform;
+        }
+
         static GameObject CreateTutorialTargetPrefab()
         {
             GameObject target = new GameObject("TutorialTarget");
@@ -238,6 +261,7 @@ namespace Updraft.Editor
             visual.transform.SetParent(target.transform, false);
             visual.transform.localScale = new Vector3(1f, 2f, 0.5f);
             visual.transform.localPosition = new Vector3(0, 1f, 0);
+            visual.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Enemy.mat");
 
             // TutorialTarget script
             var tt = target.AddComponent<TutorialTarget>();
@@ -262,6 +286,7 @@ namespace Updraft.Editor
             visual.transform.SetParent(marker.transform, false);
             visual.transform.localScale = new Vector3(2f, 0.1f, 2f);
             visual.transform.localPosition = new Vector3(0, 0.05f, 0);
+            visual.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Objective.mat");
             
             // Make it a trigger
             var col = visual.GetComponent<Collider>();

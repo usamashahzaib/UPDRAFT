@@ -1,5 +1,6 @@
 using UpdraftBackend.Data;
 using UpdraftBackend.Domain;
+using UpdraftBackend.Services;
 
 namespace UpdraftBackend.Endpoints;
 
@@ -12,16 +13,34 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/api/auth");
 
-        group.MapPost("/guest", async (UpdraftDbContext db) =>
+        group.MapPost("/guest", async (UpdraftDbContext db, AuthTokenService tokens, MatchResultProcessor progression,
+            CancellationToken cancellationToken) =>
         {
-            var account = new PlayerAccount { Id = Guid.NewGuid(), IsGuest = true };
+            var account = new PlayerAccount { Id = Guid.NewGuid(), IsGuest = true, Alias = AliasGenerator.Next() };
             db.PlayerAccounts.Add(account);
-            await db.SaveChangesAsync();
+            await progression.GrantStarterSetAsync(account.Id, db, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            var session = await tokens.IssueAsync(account.Id, db, cancellationToken);
+            return Results.Ok(session);
+        }).RequireRateLimiting("auth");
 
-            // TODO: issue a short-lived session token once JWT signing key infra exists
-            // (external dependency: signing key management, not fabricated here).
-            return Results.Ok(new { playerId = account.Id });
-        });
+        group.MapPost("/refresh", async (RefreshSessionRequest request, UpdraftDbContext db,
+            AuthTokenService tokens, CancellationToken cancellationToken) =>
+        {
+            var session = await tokens.RefreshAsync(request.RefreshToken, db, cancellationToken);
+            return session is null ? Results.Unauthorized() : Results.Ok(session);
+        }).RequireRateLimiting("auth");
+
+        // Dedicated game servers exchange their configured secret for a short-lived
+        // service token. Fails closed when no secret is configured.
+        group.MapPost("/server-token", (HttpContext ctx, MatchTicketService tickets, ServerTokenRequest request) =>
+        {
+            if (!tickets.ServerAuthConfigured)
+                return Results.Json(new { error = "server_auth_not_configured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+            if (!tickets.IsValidServerKey(ctx.Request.Headers["X-Server-Key"].ToString())) return Results.Unauthorized();
+            if (string.IsNullOrWhiteSpace(request.ServerId) || request.ServerId.Length > 64) return Results.BadRequest();
+            return Results.Ok(new { token = tickets.IssueServerToken(request.ServerId), expiresInSeconds = (int)MatchTicketService.ServerTokenLifetime.TotalSeconds });
+        }).RequireRateLimiting("auth");
 
         // Linking, refreshing, and revoking all act on an existing session
         // (spec section 23: "ownership from validated session only") — unlike
@@ -40,9 +59,16 @@ public static class AuthEndpoints
             return Results.StatusCode(StatusCodes.Status501NotImplemented);
         });
 
-        authenticatedGroup.MapPost("/refresh", () => Results.Ok(new { note = "session refresh — pending signing-key infra" }));
-        authenticatedGroup.MapPost("/revoke", () => Results.Ok(new { revoked = true }));
+        authenticatedGroup.MapPost("/revoke", async (HttpContext ctx, UpdraftDbContext db,
+            AuthTokenService tokens, CancellationToken cancellationToken) =>
+        {
+            var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
+            await tokens.RevokePlayerAsync(playerId, db, cancellationToken);
+            return Results.Ok(new { revoked = true });
+        });
     }
 
     public record LinkGooglePlayRequest(string ServerAuthCode, string? VerifiedPlatformId);
+    public record RefreshSessionRequest(string RefreshToken);
+    public record ServerTokenRequest(string ServerId);
 }

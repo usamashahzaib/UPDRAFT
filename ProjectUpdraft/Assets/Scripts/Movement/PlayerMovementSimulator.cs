@@ -90,6 +90,14 @@ namespace Updraft.Movement
             Velocity = new Vector3(newHorizontal.x, Velocity.y, newHorizontal.z);
         }
 
+        /// <summary>Load replicated state before re-simulating a tick (network prediction/rollback).</summary>
+        public void Restore(Vector3 velocity, bool grounded, bool launched)
+        {
+            Velocity = velocity;
+            IsGrounded = grounded;
+            IsLaunched = launched;
+        }
+
         public void Reset()
         {
             Velocity = Vector3.zero;

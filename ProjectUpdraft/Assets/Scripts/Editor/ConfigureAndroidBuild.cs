@@ -19,6 +19,11 @@ namespace Updraft.Editor
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
             EditorUserBuildSettings.buildAppBundle = true;
+            // Unity derives the default package from productName unless stored
+            // explicitly. Keep device upgrades on the original development ID.
+            string currentId = PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Android);
+            if (currentId.StartsWith("com.DefaultCompany."))
+                PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.DefaultCompany.ProjectUpdraft");
 
             // A build-time placeholder only — Unity refuses to build Android
             // without SOME applicationIdentifier set. The real publisher-owned

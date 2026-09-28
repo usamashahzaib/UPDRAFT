@@ -21,6 +21,42 @@ namespace Updraft.UI
 
         TutorialController controller;
 
+        public static TutorialUI CreateView(Transform canvas, TutorialController tutorial)
+        {
+            var panel = new GameObject("Training instruction", typeof(RectTransform), typeof(Image), typeof(TutorialUI));
+            panel.transform.SetParent(canvas, false);
+            var rect = panel.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1);
+            rect.anchoredPosition = new Vector2(0, -280);
+            rect.sizeDelta = new Vector2(850, 120);
+            var image = panel.GetComponent<Image>();
+            image.color = new Color(0.063f, 0.094f, 0.153f, 0.93f);
+            image.raycastTarget = false;
+            var ui = panel.GetComponent<TutorialUI>();
+            ui.instructionText = Label(panel.transform, "Instruction", new Vector2(0, -10), new Vector2(650, 65), 24);
+            ui.stepCounterText = Label(panel.transform, "Progress", new Vector2(0, 38), new Vector2(650, 25), 16);
+            var buttonObj = new GameObject("Skip training", typeof(RectTransform), typeof(Image), typeof(Button));
+            buttonObj.transform.SetParent(panel.transform, false);
+            var br = buttonObj.GetComponent<RectTransform>();
+            br.anchoredPosition = new Vector2(345, 0); br.sizeDelta = new Vector2(135, 90);
+            buttonObj.GetComponent<Image>().color = new Color(0.106f, 0.161f, 0.251f);
+            ui.skipButton = buttonObj.GetComponent<Button>();
+            ui.skipButton.targetGraphic = buttonObj.GetComponent<Image>();
+            Label(buttonObj.transform, "Skip label", Vector2.zero, new Vector2(125, 60), 20).text = "SKIP";
+            return ui;
+        }
+
+        static TextMeshProUGUI Label(Transform parent, string name, Vector2 position, Vector2 size, float fontSize)
+        {
+            var obj = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+            obj.transform.SetParent(parent, false);
+            var rt = obj.GetComponent<RectTransform>(); rt.anchoredPosition = position; rt.sizeDelta = size;
+            var text = obj.GetComponent<TextMeshProUGUI>();
+            text.fontSize = fontSize; text.alignment = TextAlignmentOptions.Center; text.raycastTarget = false;
+            text.color = new Color(0.957f, 0.969f, 0.984f);
+            return text;
+        }
+
         public void Initialize(TutorialController tutorialController)
         {
             controller = tutorialController;
@@ -98,7 +134,7 @@ namespace Updraft.UI
         void OnPracticeClicked()
         {
             // Load offline practice scene
-            UnityEngine.SceneManagement.SceneManager.LoadScene("OfflinePractice");
+            Updraft.Core.GameBootstrap.Instance.StartOfflinePractice();
         }
     }
 }

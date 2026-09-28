@@ -2,7 +2,10 @@
     "name": "Updraft.Editor",
     "rootNamespace": "Updraft.Editor",
     "references": [
-        "Updraft.Runtime"
+        "Updraft.Runtime",
+        "Photon.Realtime",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [
         "Editor"

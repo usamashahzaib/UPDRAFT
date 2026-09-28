@@ -41,5 +41,27 @@ namespace Updraft.Config
 
         [Header("Sightline Blockers")]
         public float sightlineBlockerZ = 20f; // placed at Z = +/-20 between each spawn and Center
+
+        /// <summary>Spawn point just inside exit 0..2 of a team's spawn room, facing the arena (team 0 = north).</summary>
+        public Pose SpawnExit(int team, int exit)
+        {
+            Vector3 center = team == 0 ? northSpawnCenter : southSpawnCenter;
+            float facing = team == 0 ? -1f : 1f;
+            var position = center + new Vector3((exit % 3 - 1) * 6f, groundLevelY + 0.55f, facing * (spawnRoomSize.y * 0.5f - 2f));
+            return new Pose(position, Quaternion.Euler(0, team == 0 ? 180f : 0f, 0));
+        }
+
+        public Vector3 ZoneCenter(ZoneId zone) => zone switch
+        {
+            ZoneId.West => westZone,
+            ZoneId.East => eastZone,
+            _ => centerZone,
+        };
+
+        public bool IsInsideSpawnRoom(int team, Vector3 position)
+        {
+            Vector3 center = team == 0 ? northSpawnCenter : southSpawnCenter;
+            return Mathf.Abs(position.x - center.x) <= spawnRoomSize.x * 0.5f && Mathf.Abs(position.z - center.z) <= spawnRoomSize.y * 0.5f;
+        }
     }
 }

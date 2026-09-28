@@ -154,7 +154,7 @@ namespace Updraft.Editor
             config.launchHorizontalVelocity = 14f;
             config.launchUpwardVelocity = 12f;
             config.maxActivePadsPerOwner = 1;
-            config.maxPlacementsPerMatch = 6;
+            config.maxActivePadsPerMatch = 6;
             config.perPlayerActivationLockoutSeconds = 1f;
             config.placementForwardOffset = 1.6f;
             config.previewHoldThresholdSeconds = 0.18f;

@@ -15,22 +15,23 @@ com.unity.textmeshpro | Unity Registry | Unity Companion License | Yes | Yes | v
 com.unity.ugui | Unity Registry | Unity Companion License | Yes | Yes | v2.0.0
 
 ## PHOTON FUSION 2 (Milestone C - External Dependency)
-Photon Fusion 2 | Photon Engine | Photon SDK License | Yes* | PENDING | *Requires Photon account + App ID. Not in UPM. Manual import needed. BLOCKS Milestone C.
+Photon Fusion 2.1.3 Stable 2390 | User-supplied official Unity package | Photon SDK/service terms | Subject to Photon terms | Imported; publisher terms review pending | Original vendor assets/metas retained. App ID configured; networking not yet implemented.
+Fusion Simple KCC 2.1.1 build 1273 | User-supplied official Simple KCC sample, addon subtree only | Photon addon terms | Subject to Photon terms | Imported; publisher terms review pending | DLLs/metas/build information retained; sample scene/art not imported. Gameplay adapter not yet implemented.
 
 ## FONTS
-TBD - Need to select a commercial-friendly font for UI
-- Option: Inter (SIL Open Font License) - free commercial
-- Option: Roboto (Apache 2.0) - free commercial
-- Option: Noto Sans (SIL OFL) - free commercial
+Liberation Sans | Bundled TextMesh Pro font | SIL Open Font License 1.1 | Yes | Yes | License retained at Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt; reserved font name unchanged.
+The prototype uses the bundled font above. Any production font replacement needs its own retained license.
 
 ## AUDIO (Placeholders - to be replaced with original/licensed)
-All audio currently: Unity built-in / generated silence
-- Footsteps: NEED LICENSED OR ORIGINAL
-- Weapon fire (ARC/ZIP/BRICK): NEED LICENSED OR ORIGINAL
-- Reload sounds: NEED LICENSED OR ORIGINAL
-- Pad deploy/arm/launch/destroy: NEED LICENSED OR ORIGINAL
-- Hit/elimination confirm: NEED LICENSED OR ORIGINAL
-- Damage taken/low HP: NEED LICENSED OR ORIGINAL
+Original synthetic effects | Assets/Scripts/Core/OriginalGameAudio.cs | Project-original generated samples | Yes | Yes | Prototype weapon, footsteps, damage, reload and pad cues; final mix and complete audio coverage remain pending.
+
+## ORIGINAL PROTOTYPE PRESENTATION
+Switchyard geometry and palette | Project-authored C# and saved Unity materials | Project-original | Yes | Yes | Simple industrial geometry; no downloaded environment art.
+Utility-sport silhouette and cosmetic walk motion | CreatePrefabs.cs / SportAvatarAnimation.cs | Project-original geometry and animation code | Yes | Yes | Prototype, not the final production rig or twelve-animation set.
+Touch control disc and HUD/home layout | TouchInputManager.cs / SceneSetup.cs / OfflineHomeScreen.cs | Project-original | Yes | Yes | Generated disc, typography uses bundled Liberation Sans.
+
+Footsteps, weapon fire, reload, basic damage/hit/elimination and pad cues now use original synthetic prototype samples. These are not a completed production mix.
+- Low-HP warning: NEED ORIGINAL OR LICENSED
 - Zone activate/contest/milestone: NEED LICENSED OR ORIGINAL
 - Countdown/result: NEED LICENSED OR ORIGINAL
 - UI sounds: NEED LICENSED OR ORIGINAL
@@ -102,7 +103,7 @@ Docker | Docker Inc. | Apache 2.0 | Yes | Yes | For deployment
 ## VERIFICATION CHECKLIST PER MILESTONE
 Milestone A (Foundation): ✓ Unity packages only
 Milestone B (Combat Slice): ✓ Unity packages only (primitives, no external assets)
-Milestone C (Network): ⚠ Photon Fusion 2 - BLOCKED on account/App ID
+Milestone C (Network): ⚠ Fusion SDK/App ID and Simple KCC imported; authority, adapter, Linux server and six-client acceptance remain open
 Milestone D (Validation): ⚠ Audio/VFX placeholders - NEED ORIGINAL OR LICENSED before external playtest
 Milestone E (Product Shell): ⚠ Fonts, icons, UI graphics - NEED LICENSED
 Milestone F (Monetization): ⚠ Google Play / AdMob - BLOCKED on accounts
@@ -118,7 +119,8 @@ Milestone H (Release): COMPLETE REGISTER REQUIRED FOR STORE SUBMISSION
 [ ] Create or license pad mesh
 [ ] Create or license ~15-20 modular environment pieces
 [ ] Create or license icon set
-[ ] Obtain Photon Fusion 2 App ID (for Milestone C)
+[x] Import user-supplied Photon Fusion 2 and Simple KCC; configure supplied App ID
+[ ] Review publisher obligations under Photon SDK/addon/service terms before release
 [ ] Set up Google Play Console (for Milestone F+)
 [ ] Set up AdMob account (for Milestone F+)
 [ ] Verify every asset license before Milestone G

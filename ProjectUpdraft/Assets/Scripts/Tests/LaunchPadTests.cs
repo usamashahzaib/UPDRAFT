@@ -17,7 +17,7 @@ namespace Updraft.Tests
             c.launchUpwardVelocity = 12f;
             c.rechargeSeconds = 16f;
             c.perPlayerActivationLockoutSeconds = 1f;
-            c.maxPlacementsPerMatch = 6;
+            c.maxActivePadsPerMatch = 6;
             return c;
         }
 
@@ -62,6 +62,18 @@ namespace Updraft.Tests
         }
 
         [Test]
+        public void Pad_UsableByBothTeams_WhenArmed()
+        {
+            var config = NewConfig();
+            var pad = new LaunchPad(config, ownerId: 1, teamId: 0, Vector3.zero, Vector3.forward);
+            pad.Tick(0.8f); // Arm pad
+
+            Assert.AreEqual(PadState.Armed, pad.State);
+            // Owner team (team 0) and enemy team (team 1) can both use the armed pad
+            Assert.IsTrue(pad.CanBeUsed, "Pad must be usable by friendly and enemy players alike");
+        }
+
+        [Test]
         public void PlayerPadManager_ReplacingPad_RemovesPrevious()
         {
             var manager = new PlayerPadManager(NewConfig());
@@ -102,7 +114,7 @@ namespace Updraft.Tests
         }
 
         [Test]
-        public void PlayerPadManager_EnforcesSixPlacementsPerMatch()
+        public void PlayerPadManager_CanKeepReplacingAfterSixPlacements()
         {
             var manager = new PlayerPadManager(NewConfig());
             for (int i = 0; i < 6; i++)
@@ -111,8 +123,8 @@ namespace Updraft.Tests
                 manager.Tick(16.1f);
             }
 
-            Assert.IsNull(manager.PlaceNew(1, 0, Vector3.right * 7, Vector3.forward));
-            Assert.AreEqual(6, manager.PlacementsThisMatch);
+            Assert.IsNotNull(manager.PlaceNew(1, 0, Vector3.right * 7, Vector3.forward));
+            Assert.AreEqual(7, manager.PlacementsThisMatch);
         }
     }
 }

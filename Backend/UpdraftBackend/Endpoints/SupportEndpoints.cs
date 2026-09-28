@@ -74,6 +74,41 @@ public static class SupportEndpoints
                 "text/html");
         }).AllowAnonymous();
 
+        group.MapDelete("/account", async (HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
+        {
+            var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
+            var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
+            if (account is null) return Results.NotFound();
+
+            var membership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
+            if (membership is not null)
+            {
+                var party = await db.Parties.FindAsync([membership.PartyId], cancellationToken);
+                db.PartyMembers.Remove(membership);
+                await db.SaveChangesAsync(cancellationToken);
+                var remaining = await db.PartyMembers.Where(m => m.PartyId == membership.PartyId).ToListAsync(cancellationToken);
+                if (party is not null && remaining.Count == 0) db.Parties.Remove(party);
+                else if (party is not null && party.LeaderId == playerId) party.LeaderId = remaining.OrderBy(m => m.JoinedAt).First().PlayerId;
+            }
+
+            db.PlayerSessions.RemoveRange(db.PlayerSessions.Where(s => s.PlayerId == playerId));
+            db.InventoryItems.RemoveRange(db.InventoryItems.Where(i => i.PlayerId == playerId));
+            db.CreditLedgerEntries.RemoveRange(db.CreditLedgerEntries.Where(e => e.PlayerId == playerId));
+            db.MatchParticipations.RemoveRange(db.MatchParticipations.Where(m => m.PlayerId == playerId));
+            db.PlayerReports.RemoveRange(db.PlayerReports.Where(r => r.ReportingPlayerId == playerId || r.ReportedPlayerId == playerId));
+            db.AnalyticsEvents.RemoveRange(db.AnalyticsEvents.Where(e => e.PlayerId == playerId));
+            db.PlayerAccounts.Remove(account);
+
+            var requests = await db.AccountDeletionRequests.Where(r => r.PlayerId == playerId).ToListAsync(cancellationToken);
+            foreach (var request in requests) request.Status = "completed";
+            if (requests.Count == 0)
+                db.AccountDeletionRequests.Add(new AccountDeletionRequest { Id = Guid.NewGuid(), PlayerId = playerId, Status = "completed" });
+
+            // Purchase records are deliberately retained for accounting/legal obligations.
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new { deleted = true, retainedPurchaseRecords = true });
+        }).RequireAuthorization();
+
         // Public, unauthenticated path per Play policy — a player must be able
         // to request deletion without the app installed.
         group.MapGet("/account-deletion", () =>

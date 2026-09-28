@@ -48,7 +48,7 @@ namespace Updraft.Pads
         /// <summary>Called once a validated placement lands. Replaces any existing pad owned by this player.</summary>
         public LaunchPad PlaceNew(int ownerId, int teamId, UnityEngine.Vector3 position, UnityEngine.Vector3 forward)
         {
-            if (!HasCharge || _placementsThisMatch >= _config.maxPlacementsPerMatch) return null;
+            if (!HasCharge) return null;
 
             ActivePad?.Retire();
             ActivePad = new LaunchPad(_config, ownerId, teamId, position, forward);

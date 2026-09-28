@@ -3,6 +3,9 @@
     "rootNamespace": "Updraft.Tests.PlayMode",
     "references": [
         "Updraft.Runtime",
+        "Unity.InputSystem",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

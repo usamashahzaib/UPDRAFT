@@ -157,6 +157,33 @@ public class SupportEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
         Assert.Equal("pending_verification", request.Status);
     }
 
+    [Fact]
+    public async Task Delete_Support_Account_RemovesPlayerData_ButRetainsPurchaseRecord()
+    {
+        var playerId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId });
+            db.InventoryItems.Add(new InventoryItem { PlayerId = playerId, CosmeticId = "starter", AcquiredVia = "starter" });
+            db.CreditLedgerEntries.Add(new CreditLedgerEntry { PlayerId = playerId, ChangeAmount = 10, Reason = "test", SourceId = Guid.NewGuid().ToString() });
+            db.PurchaseTransactions.Add(new PurchaseTransaction { Id = Guid.NewGuid(), PlayerId = playerId, ProductId = "signal", GooglePurchaseToken = Guid.NewGuid().ToString() });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        var response = await client.DeleteAsync("/api/support/account");
+        response.EnsureSuccessStatusCode();
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        Assert.Null(await verifyDb.PlayerAccounts.FindAsync(playerId));
+        Assert.False(await verifyDb.InventoryItems.AnyAsync(i => i.PlayerId == playerId));
+        Assert.False(await verifyDb.CreditLedgerEntries.AnyAsync(i => i.PlayerId == playerId));
+        Assert.True(await verifyDb.PurchaseTransactions.AnyAsync(i => i.PlayerId == playerId));
+        Assert.Equal("completed", (await verifyDb.AccountDeletionRequests.SingleAsync(r => r.PlayerId == playerId)).Status);
+    }
+
     private record SubmitReportRequest(Guid ReportedPlayerId, string Reason, Guid? MatchId);
     private record ReportResponse(bool Submitted);
     private record DeletionResponse(bool Requested);

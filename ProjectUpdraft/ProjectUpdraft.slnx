@@ -1,6 +1,11 @@
 ﻿<Solution>
+  <Project Path="Fusion.Unity.Editor.csproj" />
+  <Project Path="Fusion.Unity.csproj" />
+  <Project Path="Photon.Realtime.csproj" />
   <Project Path="Updraft.Tests.csproj" />
   <Project Path="Updraft.Runtime.csproj" />
   <Project Path="Updraft.Editor.csproj" />
+  <Project Path="Updraft.Network.csproj" />
   <Project Path="Updraft.PlayModeTests.csproj" />
+  <Project Path="Unity.Fusion.CodeGen.csproj" />
 </Solution>

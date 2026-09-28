@@ -61,7 +61,7 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
     }
 
     [Fact]
-    public async Task Get_Matchmaking_Status_ReturnsSearching()
+    public async Task Get_Matchmaking_Status_ReturnsIdleWhenNeverQueued()
     {
         // Arrange
         var playerId = Guid.NewGuid();
@@ -74,8 +74,68 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("searching", result.State);
+        Assert.Equal("idle", result.State);
         Assert.Equal(0, result.ElapsedSeconds);
+    }
+
+    [Fact]
+    public async Task Get_Matchmaking_Status_ReturnsSearchingAfterEnqueue()
+    {
+        // Arrange
+        var playerId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            await db.SaveChangesAsync();
+        }
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        (await client.PostAsJsonAsync("/api/matchmaking/enqueue", new { })).EnsureSuccessStatusCode();
+
+        // Act
+        var response = await client.GetAsync("/api/matchmaking/status");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<StatusResponse>();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("searching", result.State);
+    }
+
+    [Fact]
+    public async Task Enqueue_Twice_ReturnsConflict()
+    {
+        var playerId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            await db.SaveChangesAsync();
+        }
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        (await client.PostAsJsonAsync("/api/matchmaking/enqueue", new { })).EnsureSuccessStatusCode();
+
+        var second = await client.PostAsJsonAsync("/api/matchmaking/enqueue", new { });
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cancel_StopsFurtherComposition()
+    {
+        var playerId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            await db.SaveChangesAsync();
+        }
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        (await client.PostAsJsonAsync("/api/matchmaking/enqueue", new { })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync("/api/matchmaking/cancel", new { })).EnsureSuccessStatusCode();
+
+        var status = await client.GetAsync("/api/matchmaking/status");
+        var result = await status.Content.ReadFromJsonAsync<StatusResponse>();
+        Assert.Equal("idle", result!.State);
     }
 
     [Fact]

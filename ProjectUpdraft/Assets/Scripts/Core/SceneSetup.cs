@@ -104,7 +104,10 @@ namespace Updraft.Core
             GameObject canvasObj = new GameObject("HUDCanvas");
             var canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasObj.AddComponent<UnityEngine.UI.CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            var scaler = canvasObj.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
             canvasObj.AddComponent<UnityEngine.UI.GraphicRaycaster>();
 
             // EventSystem
@@ -112,7 +115,7 @@ namespace Updraft.Core
             {
                 GameObject es = new GameObject("EventSystem");
                 es.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+                es.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
             }
 
             // MatchHUD
@@ -120,15 +123,18 @@ namespace Updraft.Core
             matchHUD.graphicsConfig = graphicsConfig;
             matchHUD.matchRules = matchRules;
             bootstrap.matchController.matchHUD = matchHUD;
+            bootstrap.matchHUD = matchHUD;
 
             // Create HUD UI elements programmatically
             CreateHUDElements(canvasObj.transform, matchHUD);
+            foreach (var graphic in canvasObj.GetComponentsInChildren<Graphic>(true))
+                graphic.raycastTarget = graphic.GetComponent<Button>() != null;
         }
 
         void CreateHUDElements(Transform canvasTransform, MatchHUD hud)
         {
             // Top Center - Scores & Timer
-            GameObject topCenter = CreateUIPanel("TopCenter", canvasTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, -100), new Vector2(400, 80));
+            GameObject topCenter = CreateUIPanel("TopCenter", canvasTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -80), new Vector2(400, 100));
             
             GameObject scoreAObj = CreateText("ScoreA", topCenter.transform, "0", 36, TextAlignmentOptions.Center, new Vector2(-150, 0));
             GameObject scoreBObj = CreateText("ScoreB", topCenter.transform, "0", 36, TextAlignmentOptions.Center, new Vector2(150, 0));
@@ -137,6 +143,8 @@ namespace Updraft.Core
 
             hud.scoreAText = scoreAObj.GetComponent<TextMeshProUGUI>();
             hud.scoreBText = scoreBObj.GetComponent<TextMeshProUGUI>();
+            hud.scoreAText.color = new Color(0.188f, 0.835f, 0.91f);
+            hud.scoreBText.color = new Color(1f, 0.388f, 0.463f);
             hud.timerText = timerObj.GetComponent<TextMeshProUGUI>();
             hud.phaseText = phaseObj.GetComponent<TextMeshProUGUI>();
 
@@ -157,9 +165,18 @@ namespace Updraft.Core
             hpFillImage.fillMethod = Image.FillMethod.Horizontal;
             hpSlider.fillRect = hpFill.GetComponent<RectTransform>();
             hpSlider.targetGraphic = hpFillImage;
+            hpSlider.interactable = false;
+            hpSlider.transition = Selectable.Transition.None;
+            hpFillImage.color = new Color(0.188f, 0.835f, 0.91f);
+            hpFill.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 12);
             
             hud.healthSlider = hpSlider;
             hud.healthFill = hpFillImage;
+            hud.healthGradient = new Gradient();
+            hud.healthGradient.SetKeys(new[] {
+                new GradientColorKey(new Color(1f, 0.388f, 0.463f), 0),
+                new GradientColorKey(new Color(0.188f, 0.835f, 0.91f), 1)
+            }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(1, 1) });
 
             // Ammo (near fire button - bottom right)
             GameObject ammoPanel = CreateUIPanel("AmmoPanel", canvasTransform, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-200, 200), new Vector2(150, 60));
@@ -177,6 +194,7 @@ namespace Updraft.Core
             GameObject padReady = CreateText("PadReady", padPanel.transform, "✓", 24, TextAlignmentOptions.Center, Vector2.zero);
             padReady.SetActive(false);
             hud.padReadyIndicator = padReady;
+            padPanel.SetActive(false); // State is drawn on the actual adjustable pad control.
 
             // Weapon Select Panel (Preparation)
             GameObject weaponSelectPanel = CreateUIPanel("WeaponSelect", canvasTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(600, 300));
@@ -219,6 +237,11 @@ namespace Updraft.Core
             hud.preparationPanel = prepPanel;
             hud.preparationText = prepText.GetComponent<TextMeshProUGUI>();
 
+            GameObject feedback = CreateText("CombatFeedback", canvasTransform, "", 30, TextAlignmentOptions.Center, Vector2.zero);
+            feedback.GetComponent<RectTransform>().sizeDelta = new Vector2(700, 140);
+            feedback.SetActive(false);
+            hud.combatFeedbackText = feedback.GetComponent<TextMeshProUGUI>();
+
             // Overtime Panel
             GameObject otPanel = CreateUIPanel("Overtime", canvasTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 150), new Vector2(300, 100));
             otPanel.SetActive(false);
@@ -231,17 +254,19 @@ namespace Updraft.Core
             hud.zoneProgressFill = otFill;
 
             // Teammate Status (Upper Left)
-            GameObject teamPanel = CreateUIPanel("Teammates", canvasTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(120, -120), new Vector2(200, 160));
+            GameObject teamPanel = CreateUIPanel("Teammates", canvasTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(160, -260), new Vector2(220, 160));
             hud.teammatePanel = teamPanel;
             
             for (int i = 0; i < 2; i++)
             {
                 GameObject slot = CreateUIPanel($"Teammate_{i}", teamPanel.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -30 - i * 70), new Vector2(180, 60));
-                GameObject teammateHpFill = CreateUIElement("HPFill", slot.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                GameObject teammateHpFill = CreateUIElement("HPFill", slot.transform, new Vector2(.05f, .1f), new Vector2(.95f, .3f), Vector2.zero, Vector2.zero);
                 var fillImg = teammateHpFill.AddComponent<Image>();
                 fillImg.type = Image.Type.Filled;
                 fillImg.fillMethod = Image.FillMethod.Horizontal;
-                GameObject nameText = CreateText("Name", slot.transform, $"TEAMMATE {i+1}", 16, TextAlignmentOptions.Left, new Vector2(-80, 20));
+                fillImg.color = new Color(.188f, .835f, .91f);
+                GameObject nameText = CreateText("Name", slot.transform, $"TEAMMATE {i+1}", 16, TextAlignmentOptions.Left, new Vector2(0, 12));
+                nameText.GetComponent<RectTransform>().sizeDelta = new Vector2(160, 24);
                 GameObject deadOverlay = CreateUIElement("DeadOverlay", slot.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 var deadImg = deadOverlay.AddComponent<Image>();
                 deadImg.color = new Color(1, 0, 0, 0.5f);
@@ -265,6 +290,9 @@ namespace Updraft.Core
             rt.anchorMax = anchorMax;
             rt.anchoredPosition = anchoredPos;
             rt.sizeDelta = size;
+            var background = obj.AddComponent<Image>();
+            background.color = new Color(0.063f, 0.094f, 0.153f, 0.82f);
+            background.raycastTarget = false;
             return obj;
         }
 
@@ -293,6 +321,7 @@ namespace Updraft.Core
             tmp.fontSize = fontSize;
             tmp.alignment = alignment;
             tmp.color = Color.white;
+            tmp.raycastTarget = false;
             tmp.enableAutoSizing = true;
             tmp.fontSizeMin = 10;
             tmp.fontSizeMax = fontSize;
@@ -303,8 +332,9 @@ namespace Updraft.Core
         {
             GameObject obj = CreateUIPanel(name, parent, Vector2.one * 0.5f, Vector2.one * 0.5f, anchoredPos, size);
             var btn = obj.AddComponent<Button>();
-            var img = obj.AddComponent<Image>();
-            img.color = new Color(0.2f, 0.2f, 0.3f, 0.9f);
+            var img = obj.GetComponent<Image>();
+            img.color = new Color(0.106f, 0.161f, 0.251f, 0.96f);
+            btn.targetGraphic = img;
             GameObject textObj = CreateText("Label", obj.transform, label, 20, TextAlignmentOptions.Center, Vector2.zero);
             return obj;
         }
@@ -329,7 +359,7 @@ namespace Updraft.Core
 
                 GameObject exit = new GameObject($"TeamA_Exit_{i}");
                 exit.transform.parent = matchController.transform;
-                exit.transform.position = northCenter + new Vector3(xOffset, 1f, spawnHalfDepth + 1f);
+                exit.transform.position = northCenter + new Vector3((i - 1) * 6f, 0.55f, -spawnHalfDepth + 2f);
                 exit.transform.rotation = Quaternion.Euler(0, 180f, 0); // facing south
                 teamAExits[i] = exit.transform;
             }
@@ -345,7 +375,7 @@ namespace Updraft.Core
 
                 GameObject exit = new GameObject($"TeamB_Exit_{i}");
                 exit.transform.parent = matchController.transform;
-                exit.transform.position = southCenter + new Vector3(xOffset, 1f, -spawnHalfDepth - 1f);
+                exit.transform.position = southCenter + new Vector3((i - 1) * 6f, 0.55f, spawnHalfDepth - 2f);
                 exit.transform.rotation = Quaternion.Euler(0, 0f, 0); // facing north
                 teamBExits[i] = exit.transform;
             }
@@ -373,12 +403,12 @@ namespace Updraft.Core
             };
 
             Vector3[] positions = {
-                mapConfig.northSpawnCenter + new Vector3(0, 2, -10),  // Start near north spawn
-                mapConfig.northSpawnCenter + new Vector3(10, 2, -15), // Move target
-                mapConfig.northSpawnCenter + new Vector3(0, 2, -25),  // Shoot target
-                mapConfig.centerZone + new Vector3(-15, 0.1f, 0),     // Pad place
-                mapConfig.platformCenters[0],                          // Pad launch target (first platform)
-                mapConfig.centerZone + new Vector3(15, 0.1f, 0),      // Enemy pad
+                mapConfig.northSpawnCenter + new Vector3(0, 0.05f, -10),  // Start near north spawn
+                mapConfig.northSpawnCenter + new Vector3(10, 0.05f, -15), // Move target
+                mapConfig.northSpawnCenter + new Vector3(0, 0.05f, -25),  // Shoot target
+                mapConfig.centerZone + new Vector3(-10, 0.05f, 5),   // Clear legal launch lane
+                mapConfig.platformCenters[1],                       // North-west platform
+                mapConfig.centerZone + new Vector3(12, 0.05f, -10), // Clear of cover and zones
                 mapConfig.centerZone,                                  // Capture zone
                 mapConfig.westZone                                     // Bot fight
             };
@@ -393,6 +423,12 @@ namespace Updraft.Core
             {
                 GameObject obj = new GameObject(names[i]);
                 obj.transform.position = positions[i];
+                if (i == 0) obj.transform.rotation = Quaternion.Euler(0, 180f, 0);
+                if (i == 3)
+                {
+                    Vector3 launchDirection = positions[4] - positions[3]; launchDirection.y = 0;
+                    obj.transform.rotation = Quaternion.LookRotation(launchDirection);
+                }
                 obj.transform.parent = markersRoot.transform;
             }
         }

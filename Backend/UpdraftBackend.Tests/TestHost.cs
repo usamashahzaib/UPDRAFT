@@ -38,6 +38,7 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
             serviceHeader.FirstOrDefault() == "game-server")
         {
             claims.Add(new Claim("service", "game-server"));
+            claims.Add(new Claim("server_id", "test-server"));
         }
 
         if (claims.Count == 0)
@@ -51,6 +52,7 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
 
 public class UpdraftWebApplicationFactory : WebApplicationFactory<Program>
 {
+    public const string TestServerKey = "test-only-game-server-key";
     readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     public UpdraftWebApplicationFactory()
@@ -61,6 +63,8 @@ public class UpdraftWebApplicationFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("Features:PurchasesEnabled", "true");
+        builder.UseSetting("GameServer:ApiKey", TestServerKey);
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IDbContextOptionsConfiguration<UpdraftDbContext>>();

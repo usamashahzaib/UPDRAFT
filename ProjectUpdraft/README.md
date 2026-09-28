@@ -27,9 +27,9 @@ Key pillars:
 
 | Gate | Deliverable | Status |
 |------|-------------|--------|
-| **A** | Foundation: project, Android build, graybox, movement, camera | ✅ Code Ready |
-| **B** | Offline combat slice: 3 weapons, HP, respawn, pads, bots, scoring, full loop | ✅ Code Ready |
-| **C** | Network slice: dedicated server, 6 clients, scoring, reconnect | ⏳ Blocked on Photon Fusion 2 |
+| **A** | Foundation: project, Android build, graybox, movement, camera | APK recovered and device defects found; repaired build under verification |
+| **B** | Offline combat slice: 3 weapons, HP, respawn, pads, bots, scoring, full loop | Editor full-loop test passed; device/tutorial acceptance remains |
+| **C** | Network slice: dedicated server, 6 clients, scoring, reconnect | Server-authoritative Fusion gameplay and ticket flow are implemented; six-client, network-condition, and Linux headless acceptance remain |
 | **D** | Gameplay validation: tutorial, sound, placeholder art, telemetry + pad A/B study | ⏳ After C |
 | **E** | Product shell: accounts, parties, progression, settings, bot-filled lobbies | ⏳ After D |
 | **F** | Monetization: rewarded ads + catalog + purchase lifecycle | ⏳ After D |
@@ -37,6 +37,8 @@ Key pillars:
 | **H** | Controlled one-market release | ⏳ After G |
 
 **Pre-D freeze:** No clans, maps, or battle pass while D is unresolved.
+
+Latest evidence and ordered remaining work: [`../docs/PROGRESS_2026-09-28.md`](../docs/PROGRESS_2026-09-28.md). Source files and placeholder screens are not milestone acceptance.
 
 ---
 
@@ -52,22 +54,20 @@ Key pillars:
 # 1. Open in Unity Editor
 #    Unity Hub → Add project → Select ProjectUpdraft/ folder
 
-# 2. In Unity Editor, run menu commands (in order):
-#    Tools/Updraft/Create Config Assets
-#    Tools/Updraft/Create Prefabs
-#    (Add SceneSetup to empty GameObject) → Tools/Updraft/Setup Scene
+# 2. In Unity Editor, regenerate the slice:
+#    Tools/Updraft/Build Offline Slice Scene
 
-# 3. Assign materials on SwitchyardGenerator
-#    Ground, Platform, Cover, SpawnBarrier, Zone, Friendly, Enemy
+# 3. Mobile URP, landscape, original materials and prefabs are generated.
 
 # 4. Configure PlayerSettings for Android:
 #    - Minimum API: 28 (Android 9)
-#    - Target API: 36 (Android 14)
+#    - Target API: highest installed supported SDK (automatic)
 #    - Scripting Backend: IL2CPP
 #    - Architecture: ARM64
 #    - Build Format: AAB
 
-# 5. Build and Run on device
+# 5. For a local device APK, run Build-AndroidDev.ps1 in PowerShell.
+#    Store AAB/signing are a separate publisher-owned release workflow.
 ```
 
 ### Backend (for Milestone C+)

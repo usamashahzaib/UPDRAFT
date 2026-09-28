@@ -17,7 +17,7 @@ namespace Updraft.Match
     /// 3s countdown → Match → Results → Play again/Home.
     /// This is the offline practice version; networked version uses Fusion.
     /// </summary>
-    public class MatchController : MonoBehaviour
+    public class MatchController : MonoBehaviour, IMatchView
     {
         // Bootstrap/scene-setup wiring assigns these from outside (GameBootstrap,
         // SceneSetup), so they're public rather than SerializeField-private.
@@ -61,9 +61,25 @@ namespace Updraft.Match
         float matchStartTime;
         bool matchEnded;
         MatchPhase previousPhase;
+        static bool loadBudgetLogged;
 
         public int ActivePlayerCount => allPlayers.Count;
         public MatchPhase CurrentPhase => flowController?.Phase ?? MatchPhase.Preparation;
+        public static MatchController Current { get; private set; }
+        public float MatchTime => flowController?.MatchTime ?? 0f;
+        public ZoneId ScoringZone => matchRules.GetScoringZone(MatchTime);
+        public Vector3 ActiveObjectivePosition => ZoneCenter(ScoringZone);
+        public IReadOnlyList<PlayerController> Players => allPlayers;
+        public PlayerController LocalPlayer => localPlayer;
+
+        void OnEnable() { Current = this; MatchView.Register(this); }
+        void OnDisable() { if (Current == this) Current = null; MatchView.Unregister(this); }
+
+        MatchRulesConfig IMatchView.Rules => matchRules;
+        bool IMatchView.IsLiveMatch => allPlayers.Count > 0;
+        IMatchParticipant IMatchView.LocalParticipant => localPlayer;
+        IReadOnlyList<IMatchParticipant> IMatchView.Participants => allPlayers;
+        IMatchParticipant IMatchView.SpectatedTeammate => SpectatedTeammate;
 
         // Events
         public System.Action<MatchOutcome, int, int> OnMatchEnded; // outcome, scoreA, scoreB
@@ -122,12 +138,22 @@ namespace Updraft.Match
             localPlayer.OnPadPlaced += (pad) => matchHUD?.UpdatePadState(pad);
             localPlayer.OnPadActivated += (pad) => matchHUD?.ShowPadActivated();
             localPlayer.OnPadChargeReady += () => matchHUD?.ShowPadReady();
+            localPlayer.OnShotBlocked += () => matchHUD?.ShowBlockedShot();
+            localPlayer.OnPadRejected += reason => matchHUD?.ShowPadRejected(reason);
+            localPlayer.OnHitConfirmed += () => matchHUD?.ShowHitConfirmed();
+            localPlayer.OnEliminated += (killerId, weapon) =>
+            {
+                var killer = PlayerController.Find(killerId);
+                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer.DisplayName : "", weapon);
+            };
 
             // Initialize
             WeaponDefinition startingWeapon = weaponDefinitions[localPlayerWeaponIndex];
             localPlayer.Initialize(0, localPlayerTeam, startingWeapon);
+            localPlayer.DisplayName = LocalAlias();
             matchHUD?.Initialize(this, localPlayer);
 
+            TrackPadEvents(localPlayer);
             allPlayers.Add(localPlayer);
             if (localPlayerTeam == 0) teamAPlayers.Add(localPlayer);
             else teamBPlayers.Add(localPlayer);
@@ -147,33 +173,67 @@ namespace Updraft.Match
                 bool easyDifficulty = (teamId == localPlayerTeam); // easy bots on player's team
 
                 botController.Initialize(playerId, teamId, weapon, easyDifficulty);
+                playerController.IsBot = true;
+                playerController.DisplayName = "[BOT] " + OfflineAlias.Next(playerId * 7919 + teamId);
 
                 // Subscribe to events
                 playerController.OnDeath += OnPlayerDeath;
                 playerController.OnRespawn += OnPlayerRespawn;
+                var victim = playerController;
+                playerController.OnEliminated += (killerId, weapon) =>
+                {
+                    if (localPlayer != null && killerId == localPlayer.PlayerId) matchHUD?.ShowEliminationConfirmed(victim.DisplayName);
+                };
 
+                TrackPadEvents(playerController);
                 allPlayers.Add(playerController);
                 teamList.Add(playerController);
                 bots.Add(botController);
             }
         }
 
+        // Offline pad facts for the pad study; online, the server records these.
+        void TrackPadEvents(PlayerController player)
+        {
+            player.OnPadPlaced += pad => Updraft.Core.Telemetry.TrackOfflineMatchFact("pad_placed",
+                ("byBot", player.IsBot), ("team", player.TeamId), ("matchTime", MatchTime),
+                ("x", pad.Position.x), ("z", pad.Position.z));
+            player.OnPadActivated += pad => Updraft.Core.Telemetry.TrackOfflineMatchFact("pad_used",
+                ("byBot", player.IsBot), ("team", player.TeamId), ("padTeam", pad.TeamId), ("ownPad", pad.OwnerId == player.PlayerId),
+                ("matchTime", MatchTime));
+        }
+
         void BeginMatch()
         {
+            Updraft.Core.Telemetry.CurrentMatchId = System.Guid.NewGuid().ToString("N");
+            Updraft.Core.Telemetry.CurrentMatchHasBots = bots.Count > 0;
+            Updraft.Core.Telemetry.TrackOfflineMatchFact("match_started", ("mode", "offline_practice"),
+                ("bots", bots.Count), ("padsEnabled", Updraft.Core.StudySettings.PadsEnabled));
             // Position players at spawn exits
             PositionPlayersAtSpawns();
+            if (localPlayer != null) { mainCamera.SetTarget(localPlayer.transform); mainCamera.SnapBehindTarget(); }
 
             // Reset match state
             flowController = new MatchFlowController(matchRules);
             scoringController = new RelayScoringController(matchRules);
             matchEnded = false;
             previousPhase = flowController.Phase;
+            lastCountdownBeep = -1; lastAudioZone = null; wasContested = false; lastMilestoneA = lastMilestoneB = 0;
 
             ApplyMatchPermissions();
 
             // Start preparation phase
             matchHUD?.ShowPhase(MatchPhase.Preparation, matchRules.preparationSeconds);
-            matchHUD?.ShowNextZone(matchRules.GetUpcomingZone(0));
+            matchHUD?.UpdateScores(0, 0);
+            matchHUD?.UpdateZoneStatus(ActiveObjectivePosition, false, false);
+            matchHUD?.ShowRotation(0f);
+
+            // Gate A budget evidence: measured arena load-in for this mode.
+            if (!loadBudgetLogged)
+            {
+                loadBudgetLogged = true;
+                Debug.Log($"UPDRAFT_BUDGET arena_load={Time.realtimeSinceStartup:F0}s (realtime since script init to first match ready)");
+            }
         }
 
         void PositionPlayersAtSpawns()
@@ -182,22 +242,20 @@ namespace Updraft.Match
             for (int i = 0; i < teamAPlayers.Count; i++)
             {
                 Transform spawn = teamASpawns[i % teamASpawns.Length];
-                teamAPlayers[i].transform.position = spawn.position;
-                teamAPlayers[i].transform.rotation = spawn.rotation;
+                teamAPlayers[i].WarpForTraining(spawn.position, spawn.rotation);
             }
 
             // Team B (South)
             for (int i = 0; i < teamBPlayers.Count; i++)
             {
                 Transform spawn = teamBSpawns[i % teamBSpawns.Length];
-                teamBPlayers[i].transform.position = spawn.position;
-                teamBPlayers[i].transform.rotation = spawn.rotation;
+                teamBPlayers[i].WarpForTraining(spawn.position, spawn.rotation);
             }
         }
 
         void Update()
         {
-            if (matchEnded) return;
+            if (matchEnded || allPlayers.Count == 0) return;
 
             float dt = Time.deltaTime;
             flowController.Tick(dt);
@@ -228,15 +286,77 @@ namespace Updraft.Match
                 EndMatch(scoringController.Outcome);
             }
 
-            // Update next zone warning
-            if (flowController.Phase == MatchPhase.InProgress)
+            if (flowController.Phase == MatchPhase.InProgress || flowController.Phase == MatchPhase.Overtime)
+                matchHUD?.ShowRotation(flowController.MatchTime);
+
+            UpdateSpectatorCamera();
+            UpdateMatchAudio();
+        }
+
+        int lastCountdownBeep = -1;
+        ZoneId? lastAudioZone;
+        bool wasContested;
+        int lastMilestoneA, lastMilestoneB;
+
+        void UpdateMatchAudio()
+        {
+            var phase = flowController.Phase;
+            Updraft.Core.GameAudio.SetMusic(phase == MatchPhase.InProgress || phase == MatchPhase.Overtime);
+            if (phase == MatchPhase.Countdown)
             {
-                var upcoming = matchRules.GetUpcomingZone(flowController.MatchTime);
-                if (upcoming.HasValue)
-                {
-                    matchHUD?.ShowNextZone(upcoming.Value);
-                }
+                int n = Mathf.CeilToInt(matchRules.countdownSeconds - flowController.PhaseElapsed);
+                if (n != lastCountdownBeep && n > 0) { lastCountdownBeep = n; Updraft.Core.GameAudio.Play2D(Updraft.Core.GameCue.Countdown); }
+                return;
             }
+            if (phase != MatchPhase.InProgress && phase != MatchPhase.Overtime) return;
+            if (lastCountdownBeep != 0) { lastCountdownBeep = 0; Updraft.Core.GameAudio.Play2D(Updraft.Core.GameCue.CountdownGo); }
+
+            var zone = ScoringZone;
+            if (lastAudioZone != zone)
+            {
+                if (lastAudioZone.HasValue) Updraft.Core.GameAudio.Play2D(Updraft.Core.GameCue.ZoneActivate);
+                lastAudioZone = zone;
+            }
+            // Milestones every 30 points, so both teams hear the race tighten.
+            int milestoneA = scoringController.ScoreA / 30, milestoneB = scoringController.ScoreB / 30;
+            if (milestoneA > lastMilestoneA || milestoneB > lastMilestoneB) Updraft.Core.GameAudio.Play2D(Updraft.Core.GameCue.ZoneMilestone);
+            lastMilestoneA = milestoneA; lastMilestoneB = milestoneB;
+        }
+
+        void NotifyContest(bool contested)
+        {
+            if (contested && !wasContested) Updraft.Core.GameAudio.Play2D(Updraft.Core.GameCue.ZoneContest);
+            wasContested = contested;
+        }
+
+        public PlayerController SpectatedTeammate { get; private set; }
+
+        // Spec section 10: while waiting to respawn, view a living teammate.
+        void UpdateSpectatorCamera()
+        {
+            if (localPlayer == null || mainCamera == null) return;
+            if (localPlayer.IsAlive)
+            {
+                if (SpectatedTeammate != null) { SpectatedTeammate = null; mainCamera.SetTarget(localPlayer.transform); }
+                return;
+            }
+            if (SpectatedTeammate != null && SpectatedTeammate.IsAlive) return;
+            SpectatedTeammate = null;
+            foreach (var p in allPlayers)
+                if (p != localPlayer && p.TeamId == localPlayer.TeamId && p.IsAlive) { SpectatedTeammate = p; break; }
+            if (SpectatedTeammate != null) mainCamera.SetTarget(SpectatedTeammate.transform);
+        }
+
+        static string LocalAlias()
+        {
+            string alias = PlayerPrefs.GetString("LocalAlias", "");
+            if (string.IsNullOrEmpty(alias))
+            {
+                alias = OfflineAlias.Next(System.Environment.TickCount);
+                PlayerPrefs.SetString("LocalAlias", alias);
+                PlayerPrefs.Save();
+            }
+            return alias;
         }
 
         void HandlePhaseTransitions()
@@ -274,7 +394,10 @@ namespace Updraft.Match
                     break;
                 case MatchPhase.InProgress:
                     foreach (var player in allPlayers)
+                    {
                         player.ResetForMatchStart();
+                        player.ResetStats();
+                    }
                     matchHUD?.OnMatchStart();
                     matchStartTime = Time.time;
                     break;
@@ -298,8 +421,8 @@ namespace Updraft.Match
         {
             // Check zone occupancy for each team
             Vector3 activeZoneCenter = GetActiveZoneCenter();
-            bool teamAPresent = CheckTeamInZone(teamAPlayers, activeZoneCenter);
-            bool teamBPresent = CheckTeamInZone(teamBPlayers, activeZoneCenter);
+            bool teamAPresent = CheckTeamInZone(teamAPlayers, activeZoneCenter, dt);
+            bool teamBPresent = CheckTeamInZone(teamBPlayers, activeZoneCenter, dt);
 
             scoringController.Tick(teamAPresent, teamBPresent, flowController.MatchTime, dt);
 
@@ -309,38 +432,32 @@ namespace Updraft.Match
             // Update HUD scores
             matchHUD?.UpdateScores(scoringController.ScoreA, scoringController.ScoreB);
             matchHUD?.UpdateZoneStatus(activeZoneCenter, teamAPresent, teamBPresent);
+            NotifyContest(teamAPresent && teamBPresent);
         }
 
-        Vector3 GetActiveZoneCenter()
-        {
-            var activeZone = matchRules.GetActiveZone(flowController.MatchTime);
-            if (activeZone.HasValue)
-            {
-                switch (activeZone.Value)
-                {
-                    case ZoneId.Center: return mapConfig.centerZone;
-                    case ZoneId.West: return mapConfig.westZone;
-                    case ZoneId.East: return mapConfig.eastZone;
-                }
-            }
-            return mapConfig.centerZone;
-        }
+        Vector3 GetActiveZoneCenter() => ZoneCenter(matchRules.GetScoringZone(flowController.MatchTime));
 
-        bool CheckTeamInZone(List<PlayerController> team, Vector3 zoneCenter)
+        public Vector3 ZoneCenter(ZoneId zone) => zone switch
         {
+            ZoneId.West => mapConfig.westZone,
+            ZoneId.East => mapConfig.eastZone,
+            _ => mapConfig.centerZone,
+        };
+
+        bool CheckTeamInZone(List<PlayerController> team, Vector3 zoneCenter, float dt)
+        {
+            bool present = false;
             foreach (var player in team)
             {
                 if (!player.IsAlive) continue;
-
-                // Check if player has spawn protection (simplified)
-                // Valid occupation check
-                Vector3 feetPos = player.transform.position; // Simplified - should be feet position
-                if (ZoneOccupancy.IsValid(feetPos, zoneCenter, mapConfig.groundLevelY, matchRules, player.IsAlive, player.IsSpawnProtected))
+                // The controller's pivot is at the feet (CharacterController centre is raised by half height).
+                if (ZoneOccupancy.IsValid(player.transform.position, zoneCenter, mapConfig.groundLevelY, matchRules, player.IsAlive, player.IsSpawnProtected))
                 {
-                    return true;
+                    player.ObjectiveSeconds += dt;
+                    present = true;
                 }
             }
-            return false;
+            return present;
         }
 
         float GetDisplayTime()
@@ -363,8 +480,14 @@ namespace Updraft.Match
             // Respawn at team spawn
             Transform[] spawns = player.TeamId == 0 ? teamASpawns : teamBSpawns;
             Transform spawn = spawns[Random.Range(0, spawns.Length)];
-            player.transform.position = spawn.position;
-            player.transform.rotation = spawn.rotation;
+            player.WarpForTraining(spawn.position, spawn.rotation);
+            if (player == localPlayer)
+            {
+                matchHUD?.HideCombatFeedback();
+                SpectatedTeammate = null;
+                mainCamera.SetTarget(localPlayer.transform);
+                mainCamera.SnapBehindTarget();
+            }
         }
 
         void EndMatch(MatchOutcome outcome)
@@ -388,13 +511,30 @@ namespace Updraft.Match
                          (outcome == MatchOutcome.TeamBWins && localPlayerTeam == 1);
             bool isDraw = outcome == MatchOutcome.Draw;
 
-            matchHUD?.ShowResults(isWin, isDraw, scoringController.ScoreA, scoringController.ScoreB);
+            if (SpectatedTeammate != null) { SpectatedTeammate = null; mainCamera.SetTarget(localPlayer.transform); }
+            Updraft.Core.GameAudio.SetMusic(false);
+            Updraft.Core.GameAudio.Play2D(isDraw || !isWin ? Updraft.Core.GameCue.Defeat : Updraft.Core.GameCue.Victory);
+            Updraft.UI.PingSystem.Instance?.Clear();
+            int padsPlaced = 0, padsUsed = 0;
+            foreach (var p in allPlayers) padsUsed += p.PadLaunches;
+            foreach (var p in allPlayers) padsPlaced += p.PadManager.PlacementsThisMatch;
+            Updraft.Core.Telemetry.TrackOfflineMatchFact("match_completed",
+                ("outcome", isDraw ? "draw" : isWin ? "win" : "loss"), ("scoreAlly", localPlayerTeam == 0 ? scoringController.ScoreA : scoringController.ScoreB),
+                ("scoreEnemy", localPlayerTeam == 0 ? scoringController.ScoreB : scoringController.ScoreA),
+                ("matchSeconds", flowController.MatchTime), ("overtime", flowController.MatchTime > matchRules.regulationDurationSeconds),
+                ("localElims", localPlayer.Eliminations), ("localDeaths", localPlayer.Deaths),
+                ("localZoneSeconds", localPlayer.ObjectiveSeconds), ("localPadLaunches", localPlayer.PadLaunches),
+                ("localWeapon", localPlayer.CurrentWeapon.id.ToString()), ("padsPlaced", padsPlaced), ("padsUsed", padsUsed),
+                ("padsEnabled", Updraft.Core.StudySettings.PadsEnabled));
+            matchHUD?.ShowResults(isWin, isDraw, scoringController.ScoreA, scoringController.ScoreB, allPlayers,
+                "OFFLINE PRACTICE  ·  NO RATING OR CURRENCY");
 
             OnMatchEnded?.Invoke(outcome, scoringController.ScoreA, scoringController.ScoreB);
         }
 
         public void OnPlayAgain()
         {
+            Updraft.Core.Telemetry.Track("results_play_again_clicked");
             // Reset and restart
             matchEnded = false;
 
@@ -417,17 +557,28 @@ namespace Updraft.Match
 
         public void OnReturnHome()
         {
-            // Load home scene
-            UnityEngine.SceneManagement.SceneManager.LoadScene("Home");
+            Updraft.Core.GameBootstrap.Instance.ReturnToHome();
+        }
+
+        public void StopOfflinePractice()
+        {
+            matchEnded = true;
+            Updraft.Core.GameAudio.SetMusic(false);
+            Updraft.UI.PingSystem.Instance?.Clear();
+            foreach (var player in allPlayers) if (player != null) Destroy(player.gameObject);
+            foreach (var pad in FindObjectsByType<Updraft.Pads.LaunchPadBehaviour>(FindObjectsSortMode.None)) Destroy(pad.gameObject);
+            allPlayers.Clear(); teamAPlayers.Clear(); teamBPlayers.Clear(); bots.Clear();
+            localPlayer = null;
         }
 
         public void SetLocalWeapon(int weaponIndex)
         {
             localPlayerWeaponIndex = weaponIndex;
-            if (localPlayer != null && flowController.Phase == MatchPhase.Preparation)
-            {
+            Updraft.Core.Telemetry.Track("weapon_selected", ("weapon", weaponDefinitions[weaponIndex].id.ToString()),
+                ("whileDead", localPlayer != null && !localPlayer.IsAlive));
+            // Spec section 7/10: no switching while alive; choose during preparation or while waiting to respawn.
+            if (localPlayer != null && (flowController.Phase == MatchPhase.Preparation || !localPlayer.IsAlive))
                 localPlayer.SetWeapon(weaponIndex);
-            }
         }
     }
 }

@@ -20,7 +20,8 @@ namespace Updraft.Config
         public float launchHorizontalVelocity = 14f;
         public float launchUpwardVelocity = 12f;
         public int maxActivePadsPerOwner = 1;
-        public int maxPlacementsPerMatch = 6;
+        [UnityEngine.Serialization.FormerlySerializedAs("maxPlacementsPerMatch")]
+        public int maxActivePadsPerMatch = 6;
         public float perPlayerActivationLockoutSeconds = 1f;
 
         [Header("Placement")]

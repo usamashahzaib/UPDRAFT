@@ -20,8 +20,11 @@ public static class CommerceEndpoints
             bundles = new[] { "signal", "foundry", "skyline" },
         }));
 
-        group.MapPost("/verify-purchase", async (VerifyPurchaseRequest request, HttpContext ctx, UpdraftDbContext db) =>
+        group.MapPost("/verify-purchase", async (VerifyPurchaseRequest request, HttpContext ctx, UpdraftDbContext db,
+            Microsoft.Extensions.Options.IOptionsMonitor<UpdraftBackend.Services.FeatureFlags> features) =>
         {
+            if (!features.CurrentValue.PurchasesEnabled)
+                return Results.Json(new { error = "purchases_disabled" }, statusCode: StatusCodes.Status503ServiceUnavailable);
             var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
 
             var existing = await db.PurchaseTransactions

@@ -17,6 +17,13 @@ public static class ProfileEndpoints
             return account is null ? Results.NotFound() : Results.Ok(account);
         });
 
+        group.MapGet("/wallet", async (HttpContext ctx, UpdraftDbContext db) =>
+        {
+            var playerId = RequireOwnerId(ctx);
+            var credits = await db.CreditLedgerEntries.Where(e => e.PlayerId == playerId).SumAsync(e => (int?)e.ChangeAmount) ?? 0;
+            return Results.Ok(new { credits });
+        });
+
         group.MapGet("/inventory", async (HttpContext ctx, UpdraftDbContext db) =>
         {
             var playerId = RequireOwnerId(ctx);

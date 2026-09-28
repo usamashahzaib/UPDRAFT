@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UpdraftBackend.Data;
 using UpdraftBackend.Domain;
+using UpdraftBackend.Services;
 
 namespace UpdraftBackend.Endpoints;
 
@@ -10,41 +11,92 @@ public static class MatchEndpoints
     {
         var group = app.MapGroup("/api/matches").RequireAuthorization();
 
-        group.MapPost("/{matchId}/reconnect", (Guid matchId, HttpContext ctx) =>
+        // Spec section 10: a player may rejoin the same avatar until match end.
+        // The dedicated-server allocator that issues the connection itself is
+        // Milestone C work; this only confirms the caller belongs to the match.
+        group.MapPost("/{matchId}/reconnect", async (Guid matchId, HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
         {
-            // TODO: hand back a rejoin ticket for the same avatar in the dedicated
-            // server session — requires the Fusion game-server allocator to exist.
-            return Results.Ok(new { matchId, reconnectAllowed = true });
+            var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
+            bool reserved = await db.MatchmakingTickets.AnyAsync(t => t.MatchId == matchId && t.PlayerId == playerId && t.Status == "matched", cancellationToken);
+            bool finished = await db.MatchParticipations.AnyAsync(m => m.MatchId == matchId, cancellationToken);
+            if (!reserved) return Results.Forbid();
+            return Results.Ok(new { matchId, reconnectAllowed = !finished });
         });
 
-        // Spec section 23: "Submit authoritative result — server only." This must
-        // be callable only by the dedicated game-server process, authenticated with
-        // its own service credential, never by a player client.
-        group.MapPost("/{matchId}/result", async (Guid matchId, SubmitResultRequest request, UpdraftDbContext db) =>
+        // Dedicated server admits a client only after the backend confirms its join ticket.
+        group.MapPost("/validate-ticket", async (ValidateTicketRequest request, MatchTicketService tickets, UpdraftDbContext db,
+            CancellationToken cancellationToken) =>
         {
-            // TODO: authenticate caller as the game server (service credential), not a player session.
-            foreach (var p in request.Participants)
-            {
-                bool alreadyRecorded = await db.MatchParticipations
-                    .AnyAsync(m => m.MatchId == matchId && m.PlayerId == p.PlayerId);
-                if (alreadyRecorded) continue; // duplicate result submission must not duplicate rewards
+            var principal = tickets.ValidateJoinTicket(request.Ticket);
+            if (principal is null) return Results.Unauthorized();
+            var playerId = Guid.Parse(principal.FindFirst("player_id")!.Value);
+            var matchId = Guid.Parse(principal.FindFirst("match_id")!.Value);
+            if (request.MatchId != matchId) return Results.Forbid();
+            bool reserved = await db.MatchmakingTickets.AnyAsync(t => t.MatchId == matchId && t.PlayerId == playerId && t.Status == "matched", cancellationToken);
+            if (!reserved) return Results.Forbid();
+            var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
+            return Results.Ok(new { playerId, matchId, team = principal.FindFirst("team")!.Value, alias = account?.Alias });
+        }).RequireAuthorization(policy => policy.RequireClaim("service", "game-server"));
 
-                db.MatchParticipations.Add(new MatchParticipation
+        // Spec sections 20/29: an idle dedicated server claims the oldest composed match
+        // that has no server yet. Capped by Allocator:MaxConcurrentMatches (cost control).
+        group.MapPost("/claim", async (HttpContext ctx, UpdraftDbContext db, AllocatorOptions allocator, CancellationToken cancellationToken) =>
+        {
+            string? serverId = ctx.User.FindFirst("server_id")?.Value;
+            if (string.IsNullOrEmpty(serverId)) return Results.Forbid();
+            var staleBefore = DateTimeOffset.UtcNow - AllocationTimeout;
+            var active = await db.MatchAllocations.Where(a => a.CompletedAt == null).ToListAsync(cancellationToken);
+            if (active.Count(a => a.ClaimedAt > staleBefore) >= allocator.MaxConcurrentMatches)
+                return Results.Json(new { error = "capacity" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+
+            var allocated = await db.MatchAllocations.Select(a => a.MatchId).ToListAsync(cancellationToken);
+            var candidates = await db.MatchmakingTickets
+                .Where(t => t.Status == "matched" && t.MatchId != null)
+                .ToListAsync(cancellationToken);
+            foreach (var match in candidates.Where(t => !allocated.Contains(t.MatchId!.Value))
+                         .GroupBy(t => t.MatchId!.Value).OrderBy(g => g.Min(t => t.UpdatedAt)))
+            {
+                db.MatchAllocations.Add(new MatchAllocation { MatchId = match.Key, ServerId = serverId });
+                try { await db.SaveChangesAsync(cancellationToken); }
+                catch (DbUpdateException)
                 {
-                    MatchId = matchId,
-                    PlayerId = p.PlayerId,
-                    Won = p.Won,
-                    Draw = request.Draw,
-                    Eligible = p.Eligible,
-                    HadBotSubstitution = p.HadBotSubstitution,
+                    // Another server claimed it first; try the next one.
+                    db.ChangeTracker.Clear();
+                    continue;
+                }
+                var ids = match.Select(t => t.PlayerId).ToList();
+                var aliases = await db.PlayerAccounts.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Alias, cancellationToken);
+                return Results.Ok(new
+                {
+                    matchId = match.Key,
+                    session = match.Key.ToString("N"),
+                    region = allocator.FusionRegion,
+                    hasBots = match.Any(t => t.HasBots),
+                    players = match.Select(t => new { playerId = t.PlayerId, team = t.Team, alias = aliases.GetValueOrDefault(t.PlayerId) }),
                 });
             }
+            return Results.NoContent();
+        }).RequireAuthorization(policy => policy.RequireClaim("service", "game-server"));
 
-            await db.SaveChangesAsync();
-            return Results.Ok(new { recorded = true });
+        // Spec section 21: results come only from the authenticated game server.
+        group.MapPost("/{matchId}/result", async (Guid matchId, SubmitResultRequest request, UpdraftDbContext db,
+            MatchResultProcessor processor, CancellationToken cancellationToken) =>
+        {
+            if (request.Participants is null || request.Participants.Count is 0 or > MatchmakingOptions.MatchSize)
+                return Results.BadRequest(new { error = "invalid_participants" });
+            var summaries = await processor.ApplyAsync(matchId, request, db, cancellationToken);
+            var allocation = await db.MatchAllocations.FindAsync([matchId], cancellationToken);
+            if (allocation is { CompletedAt: null })
+            {
+                allocation.CompletedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            return Results.Ok(new { recorded = true, players = summaries });
         }).RequireAuthorization(policy => policy.RequireClaim("service", "game-server"));
     }
 
-    public record ParticipantResult(Guid PlayerId, bool Won, bool Eligible, bool HadBotSubstitution);
-    public record SubmitResultRequest(bool Draw, List<ParticipantResult> Participants);
+    /// <summary>An allocation with no result after this long no longer counts toward capacity (crashed server).</summary>
+    public static readonly TimeSpan AllocationTimeout = TimeSpan.FromMinutes(15);
+
+    public sealed record ValidateTicketRequest(Guid MatchId, string Ticket);
 }

@@ -31,6 +31,9 @@ public class AuthEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
         var result = await response.Content.ReadFromJsonAsync<GuestResponse>();
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.PlayerId);
+        Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
+        Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
+        Assert.True(result.AccessExpiresAt > DateTimeOffset.UtcNow);
 
         // Verify account was actually created in DB
         using var scope = _factory.Services.CreateScope();
@@ -75,16 +78,23 @@ public class AuthEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Post_Auth_Refresh_RequiresAuthorization()
+    public async Task Post_Auth_Refresh_RotatesRefreshToken_AndRejectsReuse()
     {
-        // Arrange
         var client = _factory.CreateUnauthenticatedClient();
+        var guestResponse = await client.PostAsJsonAsync("/api/auth/guest", new { });
+        var guest = await guestResponse.Content.ReadFromJsonAsync<GuestResponse>();
+        Assert.NotNull(guest);
 
-        // Act
-        var response = await client.PostAsJsonAsync("/api/auth/refresh", new { });
+        var response = await client.PostAsJsonAsync("/api/auth/refresh", new { guest.RefreshToken });
 
-        // Assert
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        response.EnsureSuccessStatusCode();
+        var refreshed = await response.Content.ReadFromJsonAsync<GuestResponse>();
+        Assert.NotNull(refreshed);
+        Assert.Equal(guest.PlayerId, refreshed.PlayerId);
+        Assert.NotEqual(guest.RefreshToken, refreshed.RefreshToken);
+
+        var reused = await client.PostAsJsonAsync("/api/auth/refresh", new { guest.RefreshToken });
+        Assert.Equal(HttpStatusCode.Unauthorized, reused.StatusCode);
     }
 
     [Fact]
@@ -100,5 +110,5 @@ public class AuthEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    private record GuestResponse(Guid PlayerId);
+    private record GuestResponse(Guid PlayerId, string AccessToken, string RefreshToken, DateTimeOffset AccessExpiresAt);
 }

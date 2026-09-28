@@ -26,6 +26,7 @@ namespace Updraft.Editor
             // (BuildAndroidTest.Run). Coupling them meant every scene rebuild
             // silently rewrote ProjectSettings.asset.
             SetupProjectLayers.EnsureLayersExist();
+            SetupMobilePresentation.Run();
             CreateConfigAssets.CreateAllConfigs();
             CreatePrefabs.CreateAllPrefabs();
 

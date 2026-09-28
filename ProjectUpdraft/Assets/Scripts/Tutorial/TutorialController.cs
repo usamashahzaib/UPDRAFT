@@ -65,6 +65,7 @@ namespace Updraft.Tutorial
 
         // State
         TutorialStep currentStep = TutorialStep.MoveToMarker;
+        public TutorialStep CurrentStep => currentStep;
         PlayerController localPlayer;
         BotController tutorialBot;
         GameObject currentMarker;
@@ -72,6 +73,8 @@ namespace Updraft.Tutorial
         LaunchPadBehaviour enemyPad;
         bool stepCompleted;
         bool tutorialSkipped;
+        float captureHold;
+        bool usedOwnPad;
 
         // Events
         public System.Action OnTutorialComplete;
@@ -100,6 +103,9 @@ namespace Updraft.Tutorial
             localPlayer.OnAmmoChanged += (cur, max) => matchHUD?.UpdateAmmo(cur, max);
             localPlayer.OnPadPlaced += (pad) => CheckStepCompletion(TutorialStep.PlacePad);
             localPlayer.OnPadActivated += (pad) => CheckPadActivationStep(pad);
+            localPlayer.OnPadRejected += reason => matchHUD?.ShowPadRejected(reason);
+            localPlayer.OnHitConfirmed += () => matchHUD?.ShowHitConfirmed();
+            localPlayer.DisplayName = "YOU";
 
             // Initialize HUD
             matchHUD?.Initialize(null, localPlayer);
@@ -111,8 +117,12 @@ namespace Updraft.Tutorial
             tutorialUI?.ShowStep(currentStep);
 
             // Start first step
+            tutorialStartedAt = Time.time;
+            Updraft.Core.Telemetry.Track("tutorial_started", ("padsEnabled", Updraft.Core.StudySettings.PadsEnabled));
             StartStep(TutorialStep.MoveToMarker);
         }
+
+        float tutorialStartedAt;
 
         void Update()
         {
@@ -125,7 +135,11 @@ namespace Updraft.Tutorial
         void StartStep(TutorialStep step)
         {
             currentStep = step;
+            Updraft.Core.Telemetry.Track("tutorial_step", ("step", step.ToString()), ("index", (int)step),
+                ("seconds", Time.time - tutorialStartedAt));
             stepCompleted = false;
+            captureHold = 0;
+            usedOwnPad = false;
             tutorialUI?.ShowStep(step);
 
             // Clean up previous step objects
@@ -198,8 +212,7 @@ namespace Updraft.Tutorial
             // Move player to pad placement position
             if (padPlacementPosition != null)
             {
-                localPlayer.transform.position = padPlacementPosition.position;
-                localPlayer.transform.rotation = padPlacementPosition.rotation;
+                localPlayer.WarpForTraining(padPlacementPosition.position, padPlacementPosition.rotation);
             }
 
             // Ensure player has pad charge
@@ -236,7 +249,8 @@ namespace Updraft.Tutorial
             // Move player near enemy pad
             if (enemyPadPosition != null)
             {
-                localPlayer.transform.position = enemyPadPosition.position + Vector3.forward * 2f;
+                localPlayer.WarpForTraining(enemyPadPosition.position + enemyPadPosition.forward * 2f,
+                    Quaternion.LookRotation(-enemyPadPosition.forward));
             }
         }
 
@@ -252,8 +266,7 @@ namespace Updraft.Tutorial
             // Move player to capture zone
             if (captureZonePosition != null)
             {
-                localPlayer.transform.position = captureZonePosition.position;
-                localPlayer.transform.rotation = captureZonePosition.rotation;
+                localPlayer.WarpForTraining(captureZonePosition.position, captureZonePosition.rotation);
             }
 
             currentMarker = Instantiate(markerPrefab, captureZonePosition.position, Quaternion.identity);
@@ -270,6 +283,8 @@ namespace Updraft.Tutorial
 
                 tutorialBot.Initialize(1, 1, weaponDefinitions[0], true); // easy difficulty
                 botPlayer.Initialize(1, 1, weaponDefinitions[0]);
+                botPlayer.IsBot = true;
+                botPlayer.DisplayName = "[BOT] Trainer";
 
                 localPlayer.OnDeath += _ => { /* respawn handled */ };
                 botPlayer.OnDeath += _ => CheckStepCompletion(TutorialStep.BotFight);
@@ -278,6 +293,7 @@ namespace Updraft.Tutorial
 
         void CheckStepConditions()
         {
+            if (stepCompleted) return;
             switch (currentStep)
             {
                 case TutorialStep.MoveToMarker:
@@ -288,7 +304,7 @@ namespace Updraft.Tutorial
                     break;
 
                 case TutorialStep.ReloadWeapon:
-                    if (localPlayer.IsReloading || localPlayer.CurrentAmmo == localPlayer.CurrentWeapon.magazineSize)
+                    if (!localPlayer.IsReloading && localPlayer.CurrentAmmo == localPlayer.CurrentWeapon.magazineSize)
                     {
                         CompleteStep();
                     }
@@ -296,7 +312,9 @@ namespace Updraft.Tutorial
 
                 case TutorialStep.RideOwnPad:
                     // Check if player launched and reached target height
-                    if (!localPlayer.IsGrounded && localPlayer.transform.position.y > padLaunchTargetPosition.position.y - 1f)
+                    if (usedOwnPad && localPlayer.transform.position.y > padLaunchTargetPosition.position.y - 0.1f &&
+                        Vector2.Distance(new Vector2(localPlayer.transform.position.x, localPlayer.transform.position.z),
+                            new Vector2(padLaunchTargetPosition.position.x, padLaunchTargetPosition.position.z)) < 4f)
                     {
                         CompleteStep();
                     }
@@ -305,9 +323,11 @@ namespace Updraft.Tutorial
                 case TutorialStep.UseEnemyPad:
                     // Check if player used enemy pad
                     // Handled in CheckPadActivationStep
+                    if (enemyPad == null) SetupUseEnemyPadStep();
                     break;
 
                 case TutorialStep.DestroyEnemyPad:
+                    if (enemyPad == null) SetupDestroyEnemyPadStep();
                     if (enemyPad != null && enemyPad.PadData.State == PadState.Destroyed)
                     {
                         CompleteStep();
@@ -318,7 +338,8 @@ namespace Updraft.Tutorial
                     // Check if player is in zone
                     Vector3 zoneCenter = captureZonePosition.position;
                     bool inZone = ZoneOccupancy.IsValid(localPlayer.transform.position, zoneCenter, mapConfig.groundLevelY, matchRules, localPlayer.IsAlive, false);
-                    if (inZone)
+                    captureHold = inZone ? captureHold + Time.deltaTime : 0;
+                    if (captureHold >= 3f)
                     {
                         CompleteStep();
                     }
@@ -341,7 +362,7 @@ namespace Updraft.Tutorial
                 // Check if this was player's own pad
                 if (pad.OwnerId == localPlayer.PlayerId)
                 {
-                    CompleteStep();
+                    usedOwnPad = true;
                 }
             }
             else if (currentStep == TutorialStep.UseEnemyPad)
@@ -356,6 +377,7 @@ namespace Updraft.Tutorial
 
         void CompleteStep()
         {
+            if (stepCompleted) return;
             stepCompleted = true;
 
             TutorialStep nextStep = GetNextStep(currentStep);
@@ -381,7 +403,8 @@ namespace Updraft.Tutorial
             {
                 case TutorialStep.MoveToMarker: return TutorialStep.KillStationaryTarget;
                 case TutorialStep.KillStationaryTarget: return TutorialStep.ReloadWeapon;
-                case TutorialStep.ReloadWeapon: return TutorialStep.PlacePad;
+                // The no-pad study version (spec section 25) skips the four pad lessons.
+                case TutorialStep.ReloadWeapon: return Updraft.Core.StudySettings.PadsEnabled ? TutorialStep.PlacePad : TutorialStep.CaptureZone;
                 case TutorialStep.PlacePad: return TutorialStep.RideOwnPad;
                 case TutorialStep.RideOwnPad: return TutorialStep.UseEnemyPad;
                 case TutorialStep.UseEnemyPad: return TutorialStep.DestroyEnemyPad;
@@ -394,6 +417,8 @@ namespace Updraft.Tutorial
 
         void FinishTutorial()
         {
+            Updraft.Core.Telemetry.Track("tutorial_completed", ("skipped", tutorialSkipped),
+                ("skippedAtStep", currentStep.ToString()), ("seconds", Time.time - tutorialStartedAt));
             currentStep = TutorialStep.Complete;
             tutorialUI?.ShowComplete();
             OnTutorialComplete?.Invoke();
@@ -419,6 +444,8 @@ namespace Updraft.Tutorial
 
         public void Shutdown()
         {
+            StopAllCoroutines();
+            if (tutorialUI != null) Destroy(tutorialUI.gameObject);
             if (localPlayer != null) Destroy(localPlayer.gameObject);
             if (tutorialBot != null) Destroy(tutorialBot.gameObject);
             CleanupStepObjects();

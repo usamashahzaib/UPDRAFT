@@ -1,79 +1,132 @@
 using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
+using UpdraftBackend.Data;
+using UpdraftBackend.Domain;
 
 namespace UpdraftBackend.Endpoints;
 
 public static class PartyEndpoints
 {
-    // Spec section 14: party of up to 3, joined via 8-character invite code,
-    // no contact upload, leader starts matchmaking, all members must be ready,
-    // party survives results and requeueing.
-    //
-    // In-memory placeholder store — real implementation needs a shared cache
-    // (e.g. the same Postgres instance or Redis) so any backend instance can
-    // serve any party. Not wired up yet; documented as a TODO, not faked.
-    static readonly Dictionary<string, PartyState> Parties = new();
-
     public static void MapPartyEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/party").RequireAuthorization();
 
-        group.MapPost("/create", (HttpContext ctx) =>
+        group.MapPost("/create", async (HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
         {
-            var code = GenerateInviteCode();
-            var leaderId = ctx.User.FindFirst("player_id")!.Value;
-            Parties[code] = new PartyState(code, leaderId);
-            return Results.Ok(Parties[code]);
+            var playerId = PlayerId(ctx);
+            var existingMembership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
+            if (existingMembership is not null)
+            {
+                var existingParty = await db.Parties.SingleAsync(p => p.Id == existingMembership.PartyId, cancellationToken);
+                return Results.Conflict(new { error = "already_in_party", code = existingParty.Code });
+            }
+
+            var party = new Party { Id = Guid.NewGuid(), Code = await GenerateUniqueInviteCode(db, cancellationToken), LeaderId = playerId };
+            db.Parties.Add(party);
+            db.PartyMembers.Add(new PartyMember { PartyId = party.Id, PlayerId = playerId });
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(await ToResponse(party, db, cancellationToken));
         });
 
-        group.MapPost("/{code}/join", (string code, HttpContext ctx) =>
+        group.MapPost("/{code}/join", async (string code, HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
         {
-            if (!Parties.TryGetValue(code, out var party)) return Results.NotFound();
-            if (party.MemberIds.Count >= 3) return Results.BadRequest(new { error = "party_full" });
+            var party = await FindParty(code, db, cancellationToken);
+            if (party is null) return Results.NotFound();
 
-            var playerId = ctx.User.FindFirst("player_id")!.Value;
-            party.MemberIds.Add(playerId);
-            return Results.Ok(party);
+            var playerId = PlayerId(ctx);
+            var existingMembership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
+            if (existingMembership is not null)
+            {
+                if (existingMembership.PartyId == party.Id) return Results.Ok(await ToResponse(party, db, cancellationToken));
+                return Results.Conflict(new { error = "already_in_party" });
+            }
+
+            if (await db.PartyMembers.CountAsync(m => m.PartyId == party.Id, cancellationToken) >= 3)
+                return Results.BadRequest(new { error = "party_full" });
+
+            db.PartyMembers.Add(new PartyMember { PartyId = party.Id, PlayerId = playerId });
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(await ToResponse(party, db, cancellationToken));
         });
 
-        group.MapPost("/{code}/leave", (string code, HttpContext ctx) =>
+        group.MapPost("/{code}/leave", async (string code, HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
         {
-            if (!Parties.TryGetValue(code, out var party)) return Results.NotFound();
-            var playerId = ctx.User.FindFirst("player_id")!.Value;
-            party.MemberIds.Remove(playerId);
-            party.ReadyIds.Remove(playerId);
-            return Results.Ok(party);
+            var party = await FindParty(code, db, cancellationToken);
+            if (party is null) return Results.NotFound();
+
+            var playerId = PlayerId(ctx);
+            var member = await db.PartyMembers.SingleOrDefaultAsync(m => m.PartyId == party.Id && m.PlayerId == playerId, cancellationToken);
+            if (member is null) return Results.Forbid();
+
+            db.PartyMembers.Remove(member);
+            await db.SaveChangesAsync(cancellationToken);
+            var remaining = (await db.PartyMembers.Where(m => m.PartyId == party.Id).ToListAsync(cancellationToken))
+                .OrderBy(m => m.JoinedAt).ToList();
+            if (remaining.Count == 0)
+            {
+                db.Parties.Remove(party);
+                await db.SaveChangesAsync(cancellationToken);
+                return Results.Ok(new PartyResponse(code.ToUpperInvariant(), playerId.ToString(), [], []));
+            }
+
+            if (party.LeaderId == playerId)
+            {
+                party.LeaderId = remaining[0].PlayerId;
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            return Results.Ok(await ToResponse(party, db, cancellationToken));
         });
 
-        // A bare `bool ready` parameter binds from the query string, not a JSON
-        // body — no realistic client sends it that way. Bind explicitly from body.
-        group.MapPost("/{code}/ready", (string code, [Microsoft.AspNetCore.Mvc.FromBody] bool ready, HttpContext ctx) =>
+        group.MapPost("/{code}/ready", async (string code, [Microsoft.AspNetCore.Mvc.FromBody] bool ready,
+            HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
         {
-            if (!Parties.TryGetValue(code, out var party)) return Results.NotFound();
-            var playerId = ctx.User.FindFirst("player_id")!.Value;
-            if (ready) party.ReadyIds.Add(playerId); else party.ReadyIds.Remove(playerId);
-            return Results.Ok(party);
+            var party = await FindParty(code, db, cancellationToken);
+            if (party is null) return Results.NotFound();
+            var playerId = PlayerId(ctx);
+            var member = await db.PartyMembers.SingleOrDefaultAsync(m => m.PartyId == party.Id && m.PlayerId == playerId, cancellationToken);
+            if (member is null) return Results.Forbid();
+            member.IsReady = ready;
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(await ToResponse(party, db, cancellationToken));
+        });
+
+        group.MapGet("/current", async (HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
+        {
+            var playerId = PlayerId(ctx);
+            var membership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
+            if (membership is null) return Results.NotFound();
+            var party = await db.Parties.SingleAsync(p => p.Id == membership.PartyId, cancellationToken);
+            return Results.Ok(await ToResponse(party, db, cancellationToken));
         });
     }
 
-    static string GenerateInviteCode()
+    static Guid PlayerId(HttpContext ctx) => Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
+
+    static Task<Party?> FindParty(string code, UpdraftDbContext db, CancellationToken cancellationToken) =>
+        db.Parties.SingleOrDefaultAsync(p => p.Code == code.ToUpper(), cancellationToken);
+
+    static async Task<PartyResponse> ToResponse(Party party, UpdraftDbContext db, CancellationToken cancellationToken)
     {
-        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
-        var bytes = RandomNumberGenerator.GetBytes(8);
-        return new string(bytes.Select(b => alphabet[b % alphabet.Length]).ToArray());
+        var members = (await db.PartyMembers.Where(m => m.PartyId == party.Id).ToListAsync(cancellationToken))
+            .OrderBy(m => m.JoinedAt).ToList();
+        return new PartyResponse(
+            party.Code,
+            party.LeaderId.ToString(),
+            members.Select(m => m.PlayerId.ToString()).ToList(),
+            members.Where(m => m.IsReady).Select(m => m.PlayerId.ToString()).ToList());
     }
 
-    public class PartyState
+    static async Task<string> GenerateUniqueInviteCode(UpdraftDbContext db, CancellationToken cancellationToken)
     {
-        public string Code { get; }
-        public string LeaderId { get; }
-        public List<string> MemberIds { get; } = new();
-        public HashSet<string> ReadyIds { get; } = new();
-
-        public PartyState(string code, string leaderId)
+        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        for (var attempt = 0; attempt < 10; attempt++)
         {
-            Code = code;
-            LeaderId = leaderId;
-            MemberIds.Add(leaderId);
+            var bytes = RandomNumberGenerator.GetBytes(8);
+            var code = new string(bytes.Select(b => alphabet[b % alphabet.Length]).ToArray());
+            if (!await db.Parties.AnyAsync(p => p.Code == code, cancellationToken)) return code;
         }
+        throw new InvalidOperationException("Could not allocate a unique party code.");
     }
+
+    public sealed record PartyResponse(string Code, string LeaderId, List<string> MemberIds, List<string> ReadyIds);
 }

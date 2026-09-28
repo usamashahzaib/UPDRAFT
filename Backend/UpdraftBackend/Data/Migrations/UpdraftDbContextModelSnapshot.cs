@@ -49,6 +49,108 @@ namespace UpdraftBackend.Data.Migrations
                     b.ToTable("AccountDeletionRequests");
                 });
 
+            modelBuilder.Entity("UpdraftBackend.Domain.AnalyticsDailyAggregate", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("DeviceTier")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("EventCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("EventDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("EventName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Region")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventDate", "EventName", "Region", "DeviceTier")
+                        .IsUnique();
+
+                    b.ToTable("AnalyticsDailyAggregates");
+                });
+
+            modelBuilder.Entity("UpdraftBackend.Domain.AnalyticsEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BalanceVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BuildVersion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Cohort")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeviceTier")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EventName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("HasBots")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PartySize")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Region")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Timestamp");
+
+                    b.ToTable("AnalyticsEvents");
+                });
+
             modelBuilder.Entity("UpdraftBackend.Domain.CreditLedgerEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -106,7 +208,33 @@ namespace UpdraftBackend.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PlayerId", "CosmeticId")
+                        .IsUnique();
+
                     b.ToTable("InventoryItems");
+                });
+
+            modelBuilder.Entity("UpdraftBackend.Domain.MatchAllocation", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ClaimedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ServerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("MatchId");
+
+                    b.HasIndex("ServerId");
+
+                    b.ToTable("MatchAllocations");
                 });
 
             modelBuilder.Entity("UpdraftBackend.Domain.MatchParticipation", b =>
@@ -137,11 +265,110 @@ namespace UpdraftBackend.Data.Migrations
                     b.ToTable("MatchParticipations");
                 });
 
+            modelBuilder.Entity("UpdraftBackend.Domain.MatchmakingTicket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("EnqueuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("HasBots")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PartyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Region")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Team")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartyId");
+
+                    b.HasIndex("PlayerId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("MatchmakingTickets");
+                });
+
+            modelBuilder.Entity("UpdraftBackend.Domain.Party", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LeaderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Parties");
+                });
+
+            modelBuilder.Entity("UpdraftBackend.Domain.PartyMember", b =>
+                {
+                    b.Property<Guid>("PartyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsReady")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("PartyId", "PlayerId");
+
+                    b.HasIndex("PlayerId")
+                        .IsUnique();
+
+                    b.ToTable("PartyMembers");
+                });
+
             modelBuilder.Entity("UpdraftBackend.Domain.PlayerAccount", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -198,6 +425,38 @@ namespace UpdraftBackend.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PlayerReports");
+                });
+
+            modelBuilder.Entity("UpdraftBackend.Domain.PlayerSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RefreshTokenHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RefreshTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("PlayerId", "ExpiresAt");
+
+                    b.ToTable("PlayerSessions");
                 });
 
             modelBuilder.Entity("UpdraftBackend.Domain.PurchaseTransaction", b =>

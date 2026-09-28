@@ -2,30 +2,31 @@
 
 **Specification:** FINAL MASTER SPECIFICATION v1.0
 
-**Audit date:** 2026-09-27
+**Audit date:** 2026-09-28
 
-**Detailed evidence:** [`../docs/IMPLEMENTATION_AUDIT.md`](../docs/IMPLEMENTATION_AUDIT.md)
+**Latest detailed evidence:** [`../docs/PROGRESS_2026-09-28.md`](../docs/PROGRESS_2026-09-28.md). Acceptance record: [`../docs/acceptance/STEP_0.md`](../docs/acceptance/STEP_0.md).
 
 This file replaces the earlier “code ready = complete” assessment. A milestone is complete only when its exit condition in the master specification has been demonstrated.
 
 | Milestone | Current status | Exit condition |
 |---|---|---|
-| A — Foundation | **Implemented, not accepted** | Android settings and the graybox slice exist, but no build has been played on the reference phone. |
-| B — Offline combat slice | **Functional prototype, not accepted** | Core logic and scene smoke tests pass; a human still needs to complete a full match on-device, including the tutorial and touch controls. |
-| C — Network slice | **Not implemented** | Photon Fusion server authority, allocator, six clients, reconnect, and network-condition tests are absent. |
+| A — Foundation | **Device repair verification in progress** | APKs have installed/launched on the Samsung A06. Initial build was broken; repaired iteration has landscape and working URP rendering. Final movement/camera/device checks remain. |
+| B — Offline combat slice | **Functional prototype, not accepted** | Expanded editor test verifies all nine tutorial stages, real firing, enemy-pad launch, pause, complete accelerated match and rematch. Human touch acceptance and remaining HUD/pad features are open. |
+| C — Network slice | **Runtime implementation present; acceptance incomplete** | Fusion session/server, backend ticket admission, authoritative player/match/pad logic, reconnect handling, and client HUD/input adapters exist in `Assets/Scripts/Network`. No accepted six-client run, network-condition report, Linux headless deployment, or server operations evidence is recorded. |
 | D — Gameplay validation | **Not started** | No external pad A/B study, device performance report, telemetry dataset, KPI review, or go/kill decision exists. |
-| E — Product shell | **Scaffold only** | Backend route shapes/configs exist; production auth, persistent parties/matchmaking, progression journey, and public bot-filled lobbies do not. |
+| E — Product shell | **Backend prototype; client journey incomplete** | Auth sessions, persistent parties, deletion and analytics have implementation/tests; matchmaking/commerce remain scaffolds and no deployed end-to-end player journey is accepted. |
 | F — Monetization | **Intentionally gated** | Google Play purchase verification, restore/refund handling, and approved catalog are not production-ready. Ads and shop must remain disabled until D passes. |
 | G — Launch readiness | **Drafts only** | Legal drafts and deletion page exist; publisher identity, signing, store listing, Data safety, operations, and closed testing remain. |
+| H — Controlled release | **Not started** | No launch cohort, measured acquisition economics or release-scale retention evidence exists. |
 
-## Verified on 2026-09-27
+## Verified on 2026-09-28
 
-- Unity EditMode: **28/28 passed**.
-- Unity PlayMode: **1/1 passed** (Main scene loads and runs five seconds without logged errors; startup has one tutorial player and one audio listener).
-- Backend integration/unit tests: **44/44 passed**.
+- Unity EditMode: **29/29 passed**, including native Input System configuration.
+- Unity PlayMode: **1/1 passed**, expanded 31.80-second regression covers all nine tutorial stages, startup/skip, map geometry, real target damage, enemy-pad activation, pause, Home, six players, Results and rematch.
+- Backend integration/unit tests: **48/48 passed**.
 - Android project settings: API 28 minimum, automatic current installed target API, IL2CPP, ARM64; AAB is selected by the build configuration helper.
 
-These tests establish a stable desktop-editor prototype and backend scaffold. They are not substitutes for the milestone device, multiplayer, playtest, security, or operations gates.
+These recorded tests establish a desktop-editor prototype and backend scaffold. They are not substitutes for the milestone device, multiplayer, playtest, security, or operations gates. The acceptance record reports a different backend test total (71 versus 48 here); reconcile the evidence before sign-off.
 
 ## Next gate
 

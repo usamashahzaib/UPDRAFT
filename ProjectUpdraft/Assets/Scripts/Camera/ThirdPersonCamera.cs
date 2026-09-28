@@ -42,6 +42,7 @@ namespace Updraft.Camera
         Vector3 currentVelocity;
         float shakeTimer;
         Vector3 shakeOffset;
+        readonly RaycastHit[] aimHits = new RaycastHit[64];
 
         public Vector3 AimDirection => transform.forward;
         public Vector3 AimPosition => transform.position;
@@ -49,6 +50,8 @@ namespace Updraft.Camera
 
         void Awake()
         {
+            if (obstructionMask.value == 0)
+                obstructionMask = LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
             UnityEngine.Camera cam = GetComponent<UnityEngine.Camera>();
             if (cam != null)
                 cam.fieldOfView = fieldOfView;
@@ -68,12 +71,21 @@ namespace Updraft.Camera
             if (target != null)
             {
                 // Initialize behind target
-                Vector3 dir = -target.forward;
+                Vector3 dir = target.forward;
                 dir.y = 0;
                 dir.Normalize();
                 targetYaw = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
                 targetPitch = 15f; // slight downward angle
             }
+        }
+
+        /// <summary>Face the direction the target faces immediately (spawns/respawns), without a swing.</summary>
+        public void SnapBehindTarget()
+        {
+            if (target == null) return;
+            SetTarget(target);
+            currentYaw = targetYaw;
+            currentPitch = targetPitch;
         }
 
         public void AddYawPitch(float yawDelta, float pitchDelta)
@@ -146,11 +158,18 @@ namespace Updraft.Camera
         public Vector3 GetAimPoint(float maxRange, LayerMask aimMask)
         {
             Ray ray = new Ray(transform.position, transform.forward);
-            if (Physics.Raycast(ray, out RaycastHit hit, maxRange, aimMask, QueryTriggerInteraction.Ignore))
+            int count = Physics.RaycastNonAlloc(ray, aimHits, maxRange, aimMask, QueryTriggerInteraction.Ignore);
+            float nearest = maxRange;
+            Vector3 point = ray.GetPoint(maxRange);
+            var owner = target != null ? target.GetComponent<Updraft.Player.PlayerController>() : null;
+            for (int i = 0; i < count; i++)
             {
-                return hit.point;
+                var player = aimHits[i].collider.GetComponentInParent<Updraft.Player.PlayerController>();
+                if (player != null && (player == owner || (owner != null && player.TeamId == owner.TeamId))) continue;
+                if (aimHits[i].distance >= nearest) continue;
+                nearest = aimHits[i].distance; point = aimHits[i].point;
             }
-            return ray.GetPoint(maxRange);
+            return point;
         }
 
         /// <summary>

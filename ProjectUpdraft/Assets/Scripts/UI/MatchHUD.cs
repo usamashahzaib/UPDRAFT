@@ -9,13 +9,20 @@ using Updraft.Pads;
 namespace Updraft.UI
 {
     /// <summary>
-    /// Spec section 18: Gameplay HUD.
-    /// Scores+clock top-center; active zone + rotation countdown under;
-    /// teammate status upper-left; HP low-center; ammo by fire;
-    /// pad state on button; objective edge marker; network warning not over crosshair.
+    /// Spec section 17 gameplay HUD: scores + clock top-center; active zone and
+    /// rotation countdown under it; teammate status upper-left; HP low-center;
+    /// ammo by fire (drawn on the touch control); pad state on its button;
+    /// objective edge marker. Colour is always paired with a text label.
     /// </summary>
     public class MatchHUD : MonoBehaviour
     {
+        public static readonly Color Friendly = new Color(0.188f, 0.835f, 0.91f);
+        public static readonly Color Enemy = new Color(1f, 0.388f, 0.463f);
+        public static readonly Color Objective = new Color(1f, 0.82f, 0.4f);
+        public static readonly Color MainText = new Color(0.957f, 0.969f, 0.984f);
+        public static readonly Color SecondaryText = new Color(0.733f, 0.776f, 0.847f);
+        public static readonly Color PanelBg = new Color(0.106f, 0.161f, 0.251f, 0.92f);
+
         [Header("Config")]
         [SerializeField] public GraphicsConfig graphicsConfig;
         [SerializeField] public MatchRulesConfig matchRules;
@@ -29,17 +36,17 @@ namespace Updraft.UI
         [Header("Active Zone & Rotation")]
         [SerializeField] public TextMeshProUGUI activeZoneText;
         [SerializeField] public TextMeshProUGUI nextZoneText;
-        [SerializeField] public Image zoneProgressFill; // for overtime hold
+        [SerializeField] public Image zoneProgressFill;
         [SerializeField] public GameObject overtimePanel;
 
         [Header("Upper Left - Teammate Status")]
         [SerializeField] public GameObject teammatePanel;
-        [SerializeField] public TeammateStatusUI[] teammateSlots = new TeammateStatusUI[2]; // 2 teammates max
+        [SerializeField] public TeammateStatusUI[] teammateSlots = new TeammateStatusUI[2];
 
         [Header("Low Center - HP")]
         [SerializeField] public Slider healthSlider;
         [SerializeField] public Image healthFill;
-        [SerializeField] public Gradient healthGradient; // green to red
+        [SerializeField] public Gradient healthGradient;
 
         [Header("By Fire Button - Ammo")]
         [SerializeField] public TextMeshProUGUI ammoText;
@@ -47,15 +54,15 @@ namespace Updraft.UI
         [SerializeField] public GameObject reloadIndicator;
 
         [Header("Pad Button - Pad State")]
-        [SerializeField] public Image padButtonFill; // radial fill for recharge
+        [SerializeField] public Image padButtonFill;
         [SerializeField] public GameObject padReadyIndicator;
         [SerializeField] public TextMeshProUGUI padChargeText;
 
         [Header("Objective Edge Marker")]
         [SerializeField] public GameObject objectiveMarkerPrefab;
         [SerializeField] public Transform markersContainer;
-        [SerializeField] public UnityEngine.Camera mainCamera; // Updraft.Camera (sibling namespace) shadows the bare name
-        [SerializeField] public float markerScreenEdgePadding = 50f;
+        [SerializeField] public UnityEngine.Camera mainCamera;
+        [SerializeField] public float markerScreenEdgePadding = 60f;
 
         [Header("Weapon Select (Preparation Phase)")]
         [SerializeField] public GameObject weaponSelectPanel;
@@ -77,173 +84,492 @@ namespace Updraft.UI
         [SerializeField] public GameObject preparationPanel;
         [SerializeField] public TextMeshProUGUI preparationText;
 
-        // Runtime
-        MatchController matchController;
-        PlayerController localPlayer;
-        GameObject[] objectiveMarkers = new GameObject[3];
+        [Header("Combat Feedback")]
+        [SerializeField] public TextMeshProUGUI combatFeedbackText;
+
+        IMatchParticipant localPlayer;
+        Updraft.Input.TouchInputManager touch;
+        System.Action playAgainAction, homeAction;
+        System.Action<int> selectWeaponAction;
+        bool hasMatch;
+        float combatFeedbackUntil;
+        WeaponDefinition[] weapons;
+
+        // Runtime-built elements.
+        RectTransform canvasRect;
+        RectTransform objectiveMarker;
+        TextMeshProUGUI objectiveMarkerText;
+        GameObject deathPanel;
+        TextMeshProUGUI deathTitle, deathCountdown, deathSpectate;
+        TextMeshProUGUI healthValueText;
+        TextMeshProUGUI resultTableText;
+        TextMeshProUGUI hitMarkerText;
+        float hitMarkerUntil;
+        string lastKillerName = "";
+        string lastWeaponName = "";
+
+        public bool IsDeathPanelVisible => deathPanel != null && deathPanel.activeSelf;
 
         void Awake()
         {
-            // Setup buttons
-            if (playAgainButton != null)
-                playAgainButton.onClick.AddListener(() => matchController?.OnPlayAgain());
-            if (homeButton != null)
-                homeButton.onClick.AddListener(() => matchController?.OnReturnHome());
+            canvasRect = GetComponent<RectTransform>();
+            if (playAgainButton != null) playAgainButton.onClick.AddListener(() => playAgainAction?.Invoke());
+            if (homeButton != null) homeButton.onClick.AddListener(() => homeAction?.Invoke());
 
             for (int i = 0; i < weaponButtons.Length; i++)
             {
                 int idx = i;
-                if (weaponButtons[i] != null && weaponButtons[i].button != null)
-                {
-                    weaponButtons[i].button.onClick.AddListener(() => matchController?.SetLocalWeapon(idx));
-                }
+                if (weaponButtons[i]?.button != null)
+                    weaponButtons[i].button.onClick.AddListener(() => { selectWeaponAction?.Invoke(idx); HighlightWeapon(idx); });
             }
 
-            // Create objective markers
-            for (int i = 0; i < 3; i++)
-            {
-                if (objectiveMarkerPrefab != null && markersContainer != null)
-                {
-                    objectiveMarkers[i] = Instantiate(objectiveMarkerPrefab, markersContainer);
-                    objectiveMarkers[i].SetActive(false);
-                }
-            }
-
+            BuildRuntimeElements();
             HideAllPanels();
         }
 
-        public void Initialize(MatchController controller, PlayerController player)
+        void BuildRuntimeElements()
         {
-            matchController = controller;
-            localPlayer = player;
+            if (mainCamera == null) mainCamera = UnityEngine.Camera.main;
+            if (GetComponent<PingSystem>() == null) gameObject.AddComponent<PingSystem>();
+
+            // Objective edge marker: a diamond plus zone name and distance.
+            var marker = Ui.Rect("ObjectiveMarker", transform, new Vector2(170, 90));
+            objectiveMarker = marker;
+            var diamond = Ui.Rect("Diamond", marker, new Vector2(34, 34));
+            diamond.anchoredPosition = new Vector2(0, 18);
+            diamond.localRotation = Quaternion.Euler(0, 0, 45);
+            var diamondImage = diamond.gameObject.AddComponent<Image>();
+            diamondImage.color = Objective; diamondImage.raycastTarget = false;
+            objectiveMarkerText = Ui.Text("Label", marker, "", 22, Objective);
+            objectiveMarkerText.rectTransform.anchoredPosition = new Vector2(0, -24);
+            objectiveMarkerText.rectTransform.sizeDelta = new Vector2(170, 30);
+            marker.gameObject.SetActive(false);
+
+            // Death / respawn panel.
+            var death = Ui.Panel("DeathPanel", transform, new Vector2(760, 150), PanelBg);
+            death.anchorMin = death.anchorMax = new Vector2(0.5f, 0.5f);
+            death.anchoredPosition = new Vector2(0, 250);
+            deathPanel = death.gameObject;
+            deathTitle = Ui.Text("Title", death, "", 30, Enemy); deathTitle.rectTransform.anchoredPosition = new Vector2(0, 40);
+            deathCountdown = Ui.Text("Countdown", death, "", 26, MainText); deathCountdown.rectTransform.anchoredPosition = new Vector2(0, 0);
+            deathSpectate = Ui.Text("Spectate", death, "", 20, SecondaryText); deathSpectate.rectTransform.anchoredPosition = new Vector2(0, -40);
+            foreach (var t in new[] { deathTitle, deathCountdown, deathSpectate }) t.rectTransform.sizeDelta = new Vector2(740, 36);
+            deathPanel.SetActive(false);
+
+            // Numeric HP next to the bar.
+            if (healthSlider != null)
+            {
+                healthValueText = Ui.Text("HPValue", healthSlider.transform, "100", 22, MainText);
+                // Sit clear above the bar (it overlapped the bar edge on 720p phones) and read over bright floors.
+                healthValueText.rectTransform.anchoredPosition = new Vector2(0, 36);
+                healthValueText.fontStyle = FontStyles.Bold;
+                healthValueText.outlineWidth = 0.25f;
+                healthValueText.outlineColor = new Color32(10, 16, 28, 255);
+                healthValueText.rectTransform.sizeDelta = new Vector2(200, 28);
+            }
+
+            // Hit marker at the crosshair.
+            hitMarkerText = Ui.Text("HitMarker", transform, "X", 34, MainText);
+            hitMarkerText.rectTransform.anchorMin = hitMarkerText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            hitMarkerText.rectTransform.sizeDelta = new Vector2(60, 60);
+            hitMarkerText.gameObject.SetActive(false);
+
+            if (resultsPanel != null)
+            {
+                var rt = resultsPanel.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(1100, 760);
+                if (resultTitleText != null) resultTitleText.rectTransform.anchoredPosition = new Vector2(0, 310);
+                if (resultStatsText != null)
+                {
+                    resultStatsText.rectTransform.anchoredPosition = new Vector2(0, 235);
+                    resultStatsText.rectTransform.sizeDelta = new Vector2(1000, 90);
+                }
+                resultTableText = Ui.Text("Table", resultsPanel.transform, "", 24, MainText);
+                resultTableText.alignment = TextAlignmentOptions.Top;
+                resultTableText.enableAutoSizing = false;
+                resultTableText.rectTransform.anchoredPosition = new Vector2(0, -10);
+                resultTableText.rectTransform.sizeDelta = new Vector2(1000, 390);
+                if (playAgainButton != null) PlaceButton(playAgainButton, new Vector2(-170, -310));
+                if (homeButton != null) PlaceButton(homeButton, new Vector2(170, -310));
+            }
+
+            if (weaponSelectPanel != null)
+            {
+                var rt = weaponSelectPanel.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(900, 260);
+                rt.anchoredPosition = new Vector2(0, -60);
+                for (int i = 0; i < weaponButtons.Length; i++)
+                {
+                    var b = weaponButtons[i];
+                    if (b?.button == null) continue;
+                    var brt = b.button.GetComponent<RectTransform>();
+                    brt.sizeDelta = new Vector2(270, 200);
+                    brt.anchoredPosition = new Vector2(-290 + i * 290, 0);
+                    if (b.nameText != null)
+                    {
+                        b.nameText.rectTransform.anchoredPosition = new Vector2(0, 40);
+                        b.nameText.rectTransform.sizeDelta = new Vector2(250, 50);
+                        b.nameText.fontSize = 34; b.nameText.fontSizeMax = 34;
+                    }
+                    if (b.roleText == null)
+                    {
+                        b.roleText = Ui.Text("Role", b.button.transform, "", 21, SecondaryText);
+                        b.roleText.rectTransform.anchoredPosition = new Vector2(0, -38);
+                        b.roleText.rectTransform.sizeDelta = new Vector2(250, 100);
+                        b.roleText.textWrappingMode = TextWrappingModes.Normal;
+                        b.roleText.fontSizeMin = 17;
+                    }
+                }
+            }
+            if (preparationPanel != null)
+            {
+                var rt = preparationPanel.GetComponent<RectTransform>();
+                rt.anchoredPosition = new Vector2(0, 150);
+                rt.sizeDelta = new Vector2(620, 80);
+                if (preparationText != null)
+                {
+                    preparationText.rectTransform.sizeDelta = new Vector2(600, 70);
+                    preparationText.fontSizeMax = 32; preparationText.fontSizeMin = 20;
+                }
+            }
+            if (countdownText != null) countdownText.rectTransform.sizeDelta = new Vector2(200, 180);
+            if (scoreAText != null && scoreBText != null)
+            {
+                // "ALLY 120" / "120 ENEMY" need room: widen the scoreboard and pin labels to its edges.
+                ((RectTransform)scoreAText.transform.parent).sizeDelta = new Vector2(560, 100);
+                scoreAText.rectTransform.sizeDelta = scoreBText.rectTransform.sizeDelta = new Vector2(190, 50);
+                scoreAText.rectTransform.anchoredPosition = new Vector2(-170, -8);
+                scoreBText.rectTransform.anchoredPosition = new Vector2(170, -8);
+                scoreAText.alignment = TextAlignmentOptions.Left;
+                scoreBText.alignment = TextAlignmentOptions.Right;
+            }
+            if (activeZoneText != null) { activeZoneText.rectTransform.sizeDelta = new Vector2(290, 30); activeZoneText.fontSizeMin = 16; }
+            if (nextZoneText != null) { nextZoneText.rectTransform.sizeDelta = new Vector2(290, 26); nextZoneText.fontSizeMin = 14; }
+            if (combatFeedbackText != null) combatFeedbackText.rectTransform.anchoredPosition = new Vector2(0, 150);
+        }
+
+        static void PlaceButton(Button button, Vector2 position)
+        {
+            var rt = button.GetComponent<RectTransform>();
+            rt.anchoredPosition = position;
+            rt.sizeDelta = new Vector2(300, 90);
+        }
+
+        /// <summary>Offline practice / tutorial (controller null = tutorial).</summary>
+        public void Initialize(MatchController controller, PlayerController player, WeaponDefinition[] weaponDefinitions = null)
+        {
+            Bind(player, player.touchInput, weaponDefinitions ?? controller?.weaponDefinitions, controller != null,
+                controller != null ? controller.OnPlayAgain : null,
+                controller != null ? controller.OnReturnHome : null,
+                controller != null ? controller.SetLocalWeapon : null);
+            UpdateHealth(player.CurrentHealth / player.MaxHealth);
+            UpdateAmmo(player.CurrentAmmo, player.MaxAmmo);
+            HighlightWeapon(System.Array.IndexOf(weapons ?? new WeaponDefinition[0], player.CurrentWeapon));
+        }
+
+        /// <summary>Networked match: same HUD, actions routed to the network session.</summary>
+        public void InitializeNetwork(IMatchParticipant local, Updraft.Input.TouchInputManager touchInput, WeaponDefinition[] weaponDefinitions,
+            System.Action playAgain, System.Action home, System.Action<int> selectWeapon)
+        {
+            Bind(local, touchInput, weaponDefinitions, true, playAgain, home, selectWeapon);
+            UpdateHealth(local.HealthFraction);
+        }
+
+        void Bind(IMatchParticipant local, Updraft.Input.TouchInputManager touchInput, WeaponDefinition[] weaponDefinitions, bool match,
+            System.Action playAgain, System.Action home, System.Action<int> selectWeapon)
+        {
+            localPlayer = local;
+            touch = touchInput;
+            weapons = weaponDefinitions;
+            hasMatch = match;
+            playAgainAction = playAgain;
+            homeAction = home;
+            selectWeaponAction = selectWeapon;
+            if (teammatePanel != null) teammatePanel.SetActive(match);
+            SetZoneInfoVisible(true);
+            if (!match)
+            {
+                // Training has no score, clock or rotation.
+                if (activeZoneText != null) { activeZoneText.text = "TRAINING"; activeZoneText.color = Objective; }
+                if (nextZoneText != null) nextZoneText.text = "";
+                if (timerText != null) timerText.text = "";
+                if (scoreAText != null) scoreAText.text = "";
+                if (scoreBText != null) scoreBText.text = "";
+            }
+            if (weapons != null)
+                for (int i = 0; i < weaponButtons.Length && i < weapons.Length; i++)
+                {
+                    if (weaponButtons[i]?.nameText != null) weaponButtons[i].nameText.text = weapons[i].displayName.ToUpperInvariant();
+                    if (weaponButtons[i]?.roleText != null) weaponButtons[i].roleText.text = weapons[i].roleDescription;
+                }
+        }
+
+        public void HighlightWeapon(int index)
+        {
+            for (int i = 0; i < weaponButtons.Length; i++)
+            {
+                var image = weaponButtons[i]?.button != null ? weaponButtons[i].button.GetComponent<Image>() : null;
+                if (image == null) continue;
+                bool selected = i == index;
+                image.color = selected ? new Color(0.188f, 0.835f, 0.91f, 0.35f) : PanelBg;
+                if (weaponButtons[i].nameText != null)
+                    weaponButtons[i].nameText.text = weapons != null && i < weapons.Length
+                        ? (selected ? "> " : "") + weapons[i].displayName.ToUpperInvariant() + (selected ? " <" : "")
+                        : weaponButtons[i].nameText.text;
+            }
         }
 
         void Update()
         {
+            if (combatFeedbackText != null && combatFeedbackText.gameObject.activeSelf && Time.unscaledTime >= combatFeedbackUntil)
+                combatFeedbackText.gameObject.SetActive(false);
+            if (hitMarkerText != null && hitMarkerText.gameObject.activeSelf && Time.unscaledTime >= hitMarkerUntil)
+                hitMarkerText.gameObject.SetActive(false);
             if (localPlayer == null) return;
 
-            // Update objective markers (edge markers for off-screen objectives)
-            UpdateObjectiveMarkers();
+            UpdateObjectiveMarker();
+            UpdateTeammates();
+            UpdateDeathPanel();
         }
 
-        void UpdateObjectiveMarkers()
+        void UpdateObjectiveMarker()
         {
-            if (mainCamera == null) return;
+            var match = MatchView.Current;
+            // Real matches only: the tutorial points at its own markers.
+            bool show = match != null && match.IsLiveMatch && mainCamera != null && localPlayer.IsAlive &&
+                        (match.CurrentPhase == MatchPhase.InProgress || match.CurrentPhase == MatchPhase.Overtime ||
+                         match.CurrentPhase == MatchPhase.Preparation || match.CurrentPhase == MatchPhase.Countdown);
+            if (objectiveMarker == null) return;
+            if (!show) { objectiveMarker.gameObject.SetActive(false); return; }
 
-            Vector3[] zones = { /* Would get from MapConfig */ };
-            // Simplified - would use actual zone positions
+            Vector3 world = match.ActiveObjectivePosition + Vector3.up * 1.5f;
+            Vector3 screen = mainCamera.WorldToScreenPoint(world);
+            bool behind = screen.z < 0f;
+            if (behind) screen = new Vector3(Screen.width - screen.x, Screen.height - screen.y, 0f);
+
+            Rect safe = Screen.safeArea;
+            float pad = markerScreenEdgePadding * (Screen.height / 1080f);
+            bool onScreen = !behind && safe.Contains(new Vector2(screen.x, screen.y));
+            if (!onScreen)
+            {
+                // Push to the nearest safe-area edge along the direction from screen centre.
+                Vector2 centre = safe.center;
+                Vector2 dir = new Vector2(screen.x, screen.y) - centre;
+                if (behind && dir.sqrMagnitude < 1f) dir = Vector2.down;
+                float sx = (safe.width * 0.5f - pad) / Mathf.Max(0.001f, Mathf.Abs(dir.x));
+                float sy = (safe.height * 0.5f - pad) / Mathf.Max(0.001f, Mathf.Abs(dir.y));
+                Vector2 edge = centre + dir * Mathf.Min(sx, sy);
+                // Keep clear of the HP bar / controls band at the bottom and the scoreboard at the top.
+                edge.y = Mathf.Clamp(edge.y, safe.yMin + safe.height * 0.3f, safe.yMax - safe.height * 0.25f);
+                screen = new Vector3(edge.x, edge.y, 0f);
+            }
+
+            objectiveMarker.gameObject.SetActive(true);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, null, out var local);
+            objectiveMarker.localPosition = local;
+            float distance = Vector3.Distance(localPlayer.Position, match.ActiveObjectivePosition);
+            objectiveMarkerText.text = $"{match.ScoringZone.ToString().ToUpperInvariant()} {distance:0}m";
+        }
+
+        void UpdateTeammates()
+        {
+            var view = MatchView.Current;
+            if (!hasMatch || view == null || teammateSlots == null) return;
+            int slot = 0;
+            var players = view.Participants;
+            for (int i = 0; i < players.Count && slot < teammateSlots.Length; i++)
+            {
+                var p = players[i];
+                if (p == null || ReferenceEquals(p, localPlayer) || p.TeamId != localPlayer.TeamId) continue;
+                var ui = teammateSlots[slot++];
+                if (ui == null) continue;
+                if (ui.nameText != null) ui.nameText.text = p.IsAlive ? p.DisplayName : $"{p.DisplayName}  DOWN {p.RespawnRemaining:0}s";
+                ui.UpdateStatus(p.IsAlive, p.HealthFraction);
+            }
+        }
+
+        void UpdateDeathPanel()
+        {
+            if (deathPanel == null) return;
+            var phase = hasMatch ? MatchView.Current?.CurrentPhase : null;
+            bool dead = !localPlayer.IsAlive && (phase == MatchPhase.InProgress || phase == MatchPhase.Overtime);
+            if (deathPanel.activeSelf != dead)
+            {
+                deathPanel.SetActive(dead);
+                EnableWeaponSelect(dead || phase == MatchPhase.Preparation);
+            }
+            if (!dead) return;
+            deathTitle.text = string.IsNullOrEmpty(lastKillerName)
+                ? "ELIMINATED — LEFT THE ARENA"
+                : $"ELIMINATED BY {lastKillerName}  ·  {lastWeaponName}";
+            deathCountdown.text = $"RESPAWN IN {Mathf.CeilToInt(localPlayer.RespawnRemaining)}   ·   CHANGE WEAPON BELOW";
+            var spectated = MatchView.Current?.SpectatedTeammate;
+            deathSpectate.text = spectated != null ? $"WATCHING {spectated.DisplayName}" : "";
         }
 
         public void UpdateScores(int scoreA, int scoreB)
         {
-            if (scoreAText != null) scoreAText.text = scoreA.ToString();
-            if (scoreBText != null) scoreBText.text = scoreB.ToString();
+            // Local team always on the left in friendly colour.
+            bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
+            if (scoreAText != null) { scoreAText.text = $"ALLY {(localIsA ? scoreA : scoreB)}"; scoreAText.color = Friendly; }
+            if (scoreBText != null) { scoreBText.text = $"{(localIsA ? scoreB : scoreA)} ENEMY"; scoreBText.color = Enemy; }
         }
 
         public void UpdateTimer(float matchTime)
         {
-            if (timerText != null)
+            if (timerText == null || matchRules == null) return;
+            float remaining;
+            string prefix = "";
+            // Only a real (tied) overtime shows the OT clock; a decided match just ends at 0:00.
+            if (matchTime >= matchRules.regulationDurationSeconds && MatchView.Current?.CurrentPhase == MatchPhase.Overtime)
             {
-                int minutes = Mathf.FloorToInt(matchTime / 60f);
-                int seconds = Mathf.FloorToInt(matchTime % 60f);
-                timerText.text = $"{minutes:00}:{seconds:00}";
+                remaining = matchRules.regulationDurationSeconds + matchRules.maxOvertimeSeconds - matchTime;
+                prefix = "OT ";
             }
+            else remaining = matchRules.regulationDurationSeconds - matchTime;
+            remaining = Mathf.Max(0f, remaining);
+            int total = Mathf.CeilToInt(remaining);
+            timerText.text = $"{prefix}{total / 60}:{total % 60:00}";
         }
 
         public void UpdateHealth(float normalizedHealth)
         {
             if (healthSlider != null) healthSlider.value = normalizedHealth;
-            if (healthFill != null && healthGradient != null)
-                healthFill.color = healthGradient.Evaluate(normalizedHealth);
+            if (healthFill != null && healthGradient != null) healthFill.color = healthGradient.Evaluate(normalizedHealth);
+            if (healthValueText != null)
+            {
+                int hp = Mathf.CeilToInt(normalizedHealth * 100f); // spec: 100 HP for everyone
+                healthValueText.text = normalizedHealth <= 0.3f ? $"LOW HP {hp}" : hp.ToString();
+                healthValueText.color = normalizedHealth <= 0.3f ? Enemy : MainText;
+            }
         }
 
         public void UpdateAmmo(int current, int max)
         {
-            if (ammoText != null) ammoText.text = $"{current}/{max}";
-            if (ammoProgressFill != null) ammoProgressFill.fillAmount = (float)current / max;
+            string label = current == 0 ? "RELOADING" : $"{current}/{max}";
+            if (ammoText != null)
+            {
+                ammoText.text = label;
+                // Ammo is drawn on the fire control itself so it never overlaps the button.
+                var panel = ammoText.transform.parent;
+                if (panel != null && panel != transform) panel.gameObject.SetActive(false);
+            }
+            if (touch != null) touch.AmmoLabel = label;
+            if (ammoProgressFill != null) ammoProgressFill.fillAmount = max > 0 ? (float)current / max : 0f;
             if (reloadIndicator != null) reloadIndicator.SetActive(current == 0);
         }
 
-        public void UpdatePadState(LaunchPad pad)
+        public void UpdatePadState(LaunchPad pad) { }
+
+        public void ShowPadReady() => ShowCombatFeedback("PAD READY", Objective, 0.8f);
+
+        public void ShowPadActivated() => ShowCombatFeedback("LAUNCH", Objective, 0.5f);
+
+        public void ShowPadRejected(string reason) => ShowCombatFeedback($"CAN'T PLACE PAD — {reason}", SecondaryText, 1.2f);
+
+        public void ShowBlockedShot() => ShowCombatFeedback("SHOT BLOCKED", new Color(1f, 0.65f, 0.2f), 0.7f);
+
+        public void ShowHitConfirmed()
         {
-            // Update pad button visual
+            if (hitMarkerText == null) return;
+            hitMarkerText.gameObject.SetActive(true);
+            hitMarkerUntil = Time.unscaledTime + 0.15f;
         }
 
-        public void ShowPadReady()
+        /// <summary>killerName empty = left the arena / no killer.</summary>
+        public void ShowEliminated(string killerName, WeaponId weapon)
         {
-            if (padReadyIndicator != null) padReadyIndicator.SetActive(true);
+            lastKillerName = killerName ?? "";
+            lastWeaponName = weapon.ToString().ToUpperInvariant();
+            HideCombatFeedback();
         }
 
-        public void ShowPadActivated()
+        public void ShowEliminationConfirmed(string victimName) => ShowCombatFeedback($"ELIMINATED {victimName}", Friendly, 1.2f);
+
+        public void HideCombatFeedback()
         {
-            // Brief flash
+            if (combatFeedbackText != null) combatFeedbackText.gameObject.SetActive(false);
+        }
+
+        public void ShowCombatFeedback(string message, Color color, float seconds)
+        {
+            if (combatFeedbackText == null) return;
+            combatFeedbackText.text = message;
+            combatFeedbackText.color = color;
+            combatFeedbackText.gameObject.SetActive(true);
+            combatFeedbackUntil = Time.unscaledTime + seconds;
         }
 
         public void UpdateZoneStatus(Vector3 zoneCenter, bool teamAPresent, bool teamBPresent)
         {
-            if (activeZoneText != null)
+            if (activeZoneText == null) return;
+            var match = MatchView.Current;
+            bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
+            bool ally = localIsA ? teamAPresent : teamBPresent;
+            bool enemy = localIsA ? teamBPresent : teamAPresent;
+            string zone = match != null ? match.ScoringZone.ToString().ToUpperInvariant() : "ZONE";
+            string status = ally && enemy ? "CONTESTED" : ally ? "ALLY SCORING" : enemy ? "ENEMY SCORING" : "OPEN";
+            activeZoneText.text = $"{zone}  ·  {status}";
+            activeZoneText.color = ally && enemy ? Objective : ally ? Friendly : enemy ? Enemy : MainText;
+        }
+
+        public void ShowRotation(float matchTime)
+        {
+            if (nextZoneText == null || matchRules == null) return;
+            var upcoming = matchRules.GetUpcomingZone(matchTime);
+            if (upcoming.HasValue)
             {
-                string status = teamAPresent && teamBPresent ? "CONTESTED"
-                            : teamAPresent ? "TEAM A CONTROLS"
-                            : teamBPresent ? "TEAM B CONTROLS"
-                            : "UNCONTROLLED";
-                activeZoneText.text = status;
+                float seconds = matchRules.SecondsUntilRotation(matchTime);
+                nextZoneText.text = $"NEXT: {upcoming.Value.ToString().ToUpperInvariant()} IN {Mathf.CeilToInt(seconds)}s";
+                nextZoneText.color = Objective;
+            }
+            else
+            {
+                nextZoneText.text = matchTime >= matchRules.regulationDurationSeconds ? "OVERTIME — HOLD 3s TO WIN" : "";
+                nextZoneText.color = SecondaryText;
             }
         }
 
         public void ShowPhase(MatchPhase phase, float duration)
         {
             HideAllPanels();
-
             switch (phase)
             {
                 case MatchPhase.Preparation:
                     if (preparationPanel != null)
                     {
                         preparationPanel.SetActive(true);
-                        if (preparationText != null)
-                            preparationText.text = $"PREPARATION\n{duration - 0f:0}s";
+                        if (preparationText != null) preparationText.text = $"CHOOSE YOUR WEAPON  ·  {duration:0}s";
                     }
                     break;
                 case MatchPhase.Countdown:
-                    if (countdownPanel != null)
-                    {
-                        countdownPanel.SetActive(true);
-                    }
+                    if (countdownPanel != null) countdownPanel.SetActive(true);
                     break;
             }
         }
 
         public void ShowPreparationCountdown(float elapsed)
         {
-            if (preparationText != null)
-            {
-                float remaining = matchRules.preparationSeconds - elapsed;
-                preparationText.text = $"PREPARATION\n{remaining:0}s";
-            }
+            if (preparationText != null && matchRules != null)
+                preparationText.text = $"CHOOSE YOUR WEAPON  ·  {Mathf.CeilToInt(matchRules.preparationSeconds - elapsed)}s";
         }
 
         public void ShowCountdown(float elapsed)
         {
-            if (countdownPanel != null && countdownPanel.activeSelf)
-            {
-                int count = 3 - Mathf.FloorToInt(elapsed);
-                if (countdownText != null)
-                    countdownText.text = count > 0 ? count.ToString() : "GO!";
-                if (countdownAnimation != null && count > 0)
-                    countdownAnimation.Play();
-            }
+            if (countdownPanel == null || !countdownPanel.activeSelf) return;
+            int count = Mathf.CeilToInt((matchRules != null ? matchRules.countdownSeconds : 3f) - elapsed);
+            if (countdownText != null) countdownText.text = count > 0 ? count.ToString() : "GO";
         }
 
         public void EnableWeaponSelect(bool enabled)
         {
-            if (weaponSelectPanel != null)
-                weaponSelectPanel.SetActive(enabled);
+            if (weaponSelectPanel != null && weaponSelectPanel.activeSelf != enabled) weaponSelectPanel.SetActive(enabled);
         }
 
         public void OnMatchStart()
         {
             HideAllPanels();
+            ShowCombatFeedback("GO — CAPTURE THE ZONE", Objective, 1.2f);
         }
 
         public void ShowOvertime()
@@ -258,33 +584,65 @@ namespace Updraft.UI
 
         public void ShowNextZone(ZoneId? zone)
         {
-            if (nextZoneText == null) return;
-
-            nextZoneText.text = zone.HasValue ? $"NEXT: {zone.Value.ToString().ToUpper()}" : string.Empty;
+            if (nextZoneText != null && zone.HasValue && MatchView.Current == null)
+                nextZoneText.text = $"NEXT: {zone.Value.ToString().ToUpperInvariant()}";
         }
 
-        public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB)
-        {
-            if (resultsPanel != null) resultsPanel.SetActive(true);
+        public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB) =>
+            ShowResults(isWin, isDraw, scoreA, scoreB, null, "OFFLINE PRACTICE  ·  NO RATING OR CURRENCY");
 
+        public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, System.Collections.Generic.IReadOnlyList<IMatchParticipant> players, string footer)
+        {
+            HideAllPanels();
+            if (deathPanel != null) deathPanel.SetActive(false);
+            if (objectiveMarker != null) objectiveMarker.gameObject.SetActive(false);
+            // The match is over: combat controls and the zone banner would only clutter the results.
+            SetZoneInfoVisible(false);
+            if (touch != null) touch.enabled = false;
+            if (resultsPanel != null) resultsPanel.SetActive(true);
             if (resultTitleText != null)
             {
-                if (isDraw) resultTitleText.text = "DRAW";
-                else resultTitleText.text = isWin ? "VICTORY" : "DEFEAT";
+                resultTitleText.text = isDraw ? "DRAW" : isWin ? "VICTORY" : "DEFEAT";
+                resultTitleText.color = isDraw ? Objective : isWin ? Friendly : Enemy;
             }
 
-            if (resultStatsText != null)
+            bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
+            int ally = localIsA ? scoreA : scoreB, enemy = localIsA ? scoreB : scoreA;
+            if (resultStatsText != null) resultStatsText.text = $"ALLY {ally}  —  {enemy} ENEMY\n<size=70%>{footer}</size>";
+
+            if (resultTableText == null || players == null) return;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<b>PLAYER                           ELIMS   DEATHS   ZONE TIME   LAUNCHES</b>\n");
+            for (int team = 0; team < 2; team++)
             {
-                resultStatsText.text = $"FINAL SCORE\n{scoreA} - {scoreB}";
+                int wanted = team == 0 ? (localIsA ? 0 : 1) : (localIsA ? 1 : 0);
+                sb.Append(team == 0 ? "<color=#30D5E8>ALLY TEAM</color>\n" : "\n<color=#FF6376>ENEMY TEAM</color>\n");
+                foreach (var p in players)
+                {
+                    if (p == null || p.TeamId != wanted) continue;
+                    string name = ReferenceEquals(p, localPlayer) ? $"<b>{p.DisplayName} (YOU)</b>" : p.DisplayName;
+                    sb.Append($"{name,-32}  {p.Eliminations,5}   {p.Deaths,6}   {Mathf.RoundToInt(p.ObjectiveSeconds),7}s   {p.PadLaunches,8}\n");
+                }
             }
+            if (localPlayer != null)
+            {
+                var bests = PersonalBests.Record(localPlayer);
+                if (bests.Length > 0) sb.Append($"\n<color=#FFD166>NEW PERSONAL BEST: {bests}</color>");
+            }
+            resultTableText.text = sb.ToString();
         }
 
         public void UpdateTeammateStatus(int index, bool alive, float health)
         {
             if (index >= 0 && index < teammateSlots.Length && teammateSlots[index] != null)
-            {
                 teammateSlots[index].UpdateStatus(alive, health);
-            }
+        }
+
+        void SetZoneInfoVisible(bool visible)
+        {
+            // Active/next zone texts share the ZoneInfo panel built by SceneSetup.
+            var panel = activeZoneText != null ? activeZoneText.transform.parent : null;
+            if (panel != null && panel != transform && panel.GetComponent<Canvas>() == null) panel.gameObject.SetActive(visible);
         }
 
         public void HideAllPanels()
@@ -294,6 +652,7 @@ namespace Updraft.UI
             if (weaponSelectPanel != null) weaponSelectPanel.SetActive(false);
             if (resultsPanel != null) resultsPanel.SetActive(false);
             if (overtimePanel != null) overtimePanel.SetActive(false);
+            if (deathPanel != null) deathPanel.SetActive(false);
         }
 
         [System.Serializable]
@@ -305,7 +664,7 @@ namespace Updraft.UI
 
             public void UpdateStatus(bool alive, float health)
             {
-                if (healthFill != null) healthFill.fillAmount = health;
+                if (healthFill != null) healthFill.fillAmount = alive ? health : 0f;
                 if (deadOverlay != null) deadOverlay.SetActive(!alive);
             }
         }
@@ -317,6 +676,59 @@ namespace Updraft.UI
             public TextMeshProUGUI nameText;
             public TextMeshProUGUI roleText;
             public Image icon;
+        }
+    }
+
+    /// <summary>Tiny runtime UI helpers shared by HUD pieces.</summary>
+    public static class Ui
+    {
+        public static RectTransform Rect(string name, Transform parent, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.sizeDelta = size;
+            return rt;
+        }
+
+        public static RectTransform Panel(string name, Transform parent, Vector2 size, Color color)
+        {
+            var rt = Rect(name, parent, size);
+            var image = rt.gameObject.AddComponent<Image>();
+            image.color = color; image.raycastTarget = false;
+            return rt;
+        }
+
+        public static TextMeshProUGUI Text(string name, Transform parent, string text, int size, Color color)
+        {
+            var rt = Rect(name, parent, new Vector2(400, size + 12));
+            var tmp = rt.gameObject.AddComponent<TextMeshProUGUI>();
+            tmp.text = text; tmp.fontSize = size; tmp.color = color;
+            tmp.alignment = TextAlignmentOptions.Center; tmp.raycastTarget = false;
+            tmp.enableAutoSizing = true; tmp.fontSizeMin = 12; tmp.fontSizeMax = size;
+            return tmp;
+        }
+    }
+
+    /// <summary>Spec section 18: personal bests (objective time, pad-assisted plays). Local only, no XP.</summary>
+    public static class PersonalBests
+    {
+        public static string Record(IMatchParticipant player)
+        {
+            var sb = new System.Text.StringBuilder();
+            Check("Best.ObjectiveSeconds", Mathf.RoundToInt(player.ObjectiveSeconds), "ZONE TIME", sb);
+            Check("Best.PadLaunches", player.PadLaunches, "PAD LAUNCHES", sb);
+            Check("Best.Eliminations", player.Eliminations, "ELIMINATIONS", sb);
+            PlayerPrefs.Save();
+            return sb.ToString();
+        }
+
+        static void Check(string key, int value, string label, System.Text.StringBuilder sb)
+        {
+            if (value <= 0 || value <= PlayerPrefs.GetInt(key, 0)) return;
+            PlayerPrefs.SetInt(key, value);
+            if (sb.Length > 0) sb.Append("  ·  ");
+            sb.Append($"{label} {value}");
         }
     }
 }
