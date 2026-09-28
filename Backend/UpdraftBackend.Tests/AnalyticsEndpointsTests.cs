@@ -73,6 +73,139 @@ public class AnalyticsEndpointsTests : IClassFixture<UpdraftWebApplicationFactor
     }
 
     [Fact]
+    public async Task ClientBatch_PersistsPseudonymousId_AndClientTimestamp()
+    {
+        var playerId = Guid.NewGuid();
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        // Exactly the line shape the Unity Telemetry queue writes (see Telemetry.cs).
+        string Line(string name, string timestamp) => $$$"""
+            {"eventName":"{{{name}}}","schemaVersion":1,"source":"client","buildVersion":"0.1","balanceVersion":"v1.0-spec",
+             "pseudonymousId":"tester-abc","matchId":"","region":"offline","deviceTier":"low","partySize":1,"hasBots":true,
+             "cohort":"study_pads_on","timestamp":"{{{timestamp}}}","payload":{}}
+            """;
+        var body = new StringContent($"[{Line("first_open", "2026-09-20T08:30:00Z")}]", System.Text.Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync("/api/analytics/events/batch", body);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, result.GetProperty("accepted").GetInt32());
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        var stored = await db.AnalyticsEvents.SingleAsync(e => e.PlayerId == playerId && e.EventName == "first_open");
+        Assert.Equal("tester-abc", stored.PseudonymousId);
+        Assert.Equal(DateTimeOffset.Parse("2026-09-20T08:30:00Z"), stored.ClientTimestamp!.Value);
+    }
+
+    [Fact]
+    public async Task ServerEvents_StoreNoClientIdentity()
+    {
+        var server = _factory.CreateGameServerClient();
+        var response = await server.PostAsJsonAsync("/api/analytics/server-events", Event("match_completed"));
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        var stored = await db.AnalyticsEvents.Where(e => e.Source == "server" && e.EventName == "match_completed")
+            .OrderByDescending(e => e.Id).FirstAsync();
+        Assert.Equal(string.Empty, stored.PseudonymousId);
+        Assert.Null(stored.ClientTimestamp);
+    }
+
+    [Fact]
+    public async Task PresenceRollup_CreatesOneRowPerUserDay_AndIsIdempotent()
+    {
+        // Yesterday 12:00 UTC: always in the past, never near a UTC date boundary.
+        var eventTime = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddDays(-1).AddHours(12);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.AnalyticsEvents.AddRange(
+                SeedEvent("presence-p1", eventTime, clientTimestamp: eventTime.AddMinutes(-3)),
+                SeedEvent("presence-p1", eventTime.AddMinutes(1)),
+                SeedEvent("presence-p2", eventTime.AddMinutes(2)));
+            await db.SaveChangesAsync();
+        }
+
+        var service = new AnalyticsRetentionService(_factory.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AnalyticsRetentionService>.Instance);
+        await service.RunOnce(CancellationToken.None);
+        await service.RunOnce(CancellationToken.None); // rerun must not duplicate user-days
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        var date = DateOnly.FromDateTime(eventTime.UtcDateTime);
+        var rows = await verifyDb.AnalyticsDailyPresence.Where(p => p.EventDate == date).ToListAsync();
+        Assert.Equal(2, rows.Count);
+
+        var p1 = rows.Single(r => r.PseudonymousId == "presence-p1");
+        Assert.Equal("study_pads_on", p1.Cohort);
+        Assert.Equal(eventTime.AddMinutes(-3), p1.FirstSeenAt);
+    }
+
+    [Fact]
+    public async Task PresenceRollup_FoldsLateArrivingOfflineEvents_AfterWatermark()
+    {
+        var service = new AnalyticsRetentionService(_factory.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AnalyticsRetentionService>.Instance);
+        await service.RunOnce(CancellationToken.None); // advances the watermark to now
+
+        // An offline-collected event arrives after the watermark with an old client clock.
+        var eventTime = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddDays(-2).AddHours(9);
+        using (var seedScope = _factory.Services.CreateScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.AnalyticsEvents.Add(SeedEvent("presence-late", eventTime.AddMinutes(5), clientTimestamp: eventTime));
+            await db.SaveChangesAsync();
+        }
+
+        await service.RunOnce(CancellationToken.None);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        var row = await verifyDb.AnalyticsDailyPresence.SingleAsync(p =>
+            p.PseudonymousId == "presence-late" && p.EventDate == DateOnly.FromDateTime(eventTime.UtcDateTime));
+        Assert.Equal(eventTime, row.FirstSeenAt);
+    }
+
+    [Fact]
+    public async Task PresenceRollup_SurvivesRawWindowExpiry()
+    {
+        var oldTime = DateTimeOffset.UtcNow.AddDays(-31);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.AnalyticsEvents.Add(SeedEvent("presence-expired", oldTime, clientTimestamp: oldTime));
+            await db.SaveChangesAsync();
+        }
+
+        var service = new AnalyticsRetentionService(_factory.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AnalyticsRetentionService>.Instance);
+        await service.RunOnce(CancellationToken.None);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-30);
+        Assert.False(await verifyDb.AnalyticsEvents.AnyAsync(e => e.PseudonymousId == "presence-expired" && e.Timestamp < cutoff));
+        var presence = await verifyDb.AnalyticsDailyPresence.Where(p => p.PseudonymousId == "presence-expired")
+            .OrderByDescending(p => p.Id).FirstAsync();
+        Assert.Equal(DateOnly.FromDateTime(oldTime.UtcDateTime), presence.EventDate);
+    }
+
+    static AnalyticsEvent SeedEvent(string pseudonymousId, DateTimeOffset timestamp, string eventName = "tutorial_step", DateTimeOffset? clientTimestamp = null) => new()
+    {
+        EventName = eventName,
+        SchemaVersion = 1,
+        Source = "client",
+        BuildVersion = "test",
+        BalanceVersion = "test",
+        Region = "test",
+        DeviceTier = "low",
+        PartySize = 1,
+        Cohort = "study_pads_on",
+        PseudonymousId = pseudonymousId,
+        Timestamp = timestamp,
+        ClientTimestamp = clientTimestamp,
+    };
+
+    [Fact]
     public async Task ClientBatch_AcceptsQueueFormat_AndDropsServerOwnedFacts()
     {
         var playerId = Guid.NewGuid();

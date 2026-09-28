@@ -19,6 +19,7 @@ public class UpdraftDbContext : DbContext
     public DbSet<AccountDeletionRequest> AccountDeletionRequests => Set<AccountDeletionRequest>();
     public DbSet<AnalyticsEvent> AnalyticsEvents => Set<AnalyticsEvent>();
     public DbSet<AnalyticsDailyAggregate> AnalyticsDailyAggregates => Set<AnalyticsDailyAggregate>();
+    public DbSet<AnalyticsDailyPresence> AnalyticsDailyPresence => Set<AnalyticsDailyPresence>();
     public DbSet<MatchmakingTicket> MatchmakingTickets => Set<MatchmakingTicket>();
     public DbSet<MatchAllocation> MatchAllocations => Set<MatchAllocation>();
 
@@ -72,9 +73,22 @@ public class UpdraftDbContext : DbContext
         modelBuilder.Entity<AnalyticsEvent>()
             .HasIndex(e => e.Timestamp);
 
+        modelBuilder.Entity<AnalyticsEvent>()
+            .HasIndex(e => e.PseudonymousId);
+
+        modelBuilder.Entity<AnalyticsEvent>()
+            .HasIndex(e => new { e.PseudonymousId, e.Timestamp });
+
         modelBuilder.Entity<AnalyticsDailyAggregate>()
             .HasIndex(e => new { e.EventDate, e.EventName, e.Region, e.DeviceTier })
             .IsUnique();
+
+        modelBuilder.Entity<AnalyticsDailyPresence>()
+            .HasIndex(e => new { e.EventDate, e.PseudonymousId })
+            .IsUnique();
+
+        modelBuilder.Entity<AnalyticsDailyPresence>()
+            .HasIndex(e => new { e.PseudonymousId, e.EventDate });
 
         modelBuilder.Entity<InventoryItem>()
             .HasIndex(i => new { i.PlayerId, i.CosmeticId })

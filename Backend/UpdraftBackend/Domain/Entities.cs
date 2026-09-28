@@ -123,6 +123,17 @@ public class AnalyticsEvent
     public string Cohort { get; set; } = string.Empty;
     public DateTimeOffset Timestamp { get; set; }
     public string PayloadJson { get; set; } = "{}";
+
+    // Spec section 164: the pseudonymous ID travels with every event. Retention
+    // (D1/D7/D30), crash-free-per-user and per-user monetization KPIs are only
+    // computable if ingestion persists it; it is pseudonymous, never an account
+    // or device identifier.
+    public string PseudonymousId { get; set; } = string.Empty;
+
+    // Event time as reported by the client. Ingestion stamps Timestamp (server
+    // receive time); offline-collected events must keep their real event time,
+    // so ClientTimestamp preserves the client clock for later analysis.
+    public DateTimeOffset? ClientTimestamp { get; set; }
 }
 
 public class AnalyticsDailyAggregate
@@ -133,6 +144,22 @@ public class AnalyticsDailyAggregate
     public string Region { get; set; } = string.Empty;
     public string DeviceTier { get; set; } = string.Empty;
     public long EventCount { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
+}
+
+/// <summary>
+/// One row per pseudonymous player per UTC day with any analysable activity.
+/// Aggregated (no event detail) so it can outlive the 30-day raw window and
+/// support retention windows up to the 180-day aggregate retention; presence
+/// rows are pseudonymous and carry no payload content.
+/// </summary>
+public class AnalyticsDailyPresence
+{
+    public long Id { get; set; }
+    public DateOnly EventDate { get; set; }
+    public string PseudonymousId { get; set; } = string.Empty;
+    public string Cohort { get; set; } = string.Empty;
+    public DateTimeOffset FirstSeenAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
 }
 

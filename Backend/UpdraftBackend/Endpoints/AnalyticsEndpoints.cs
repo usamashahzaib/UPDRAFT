@@ -38,7 +38,7 @@ public static class AnalyticsEndpoints
                     Guid.TryParse(e.MatchId, out var m) ? m : null, null, e.Payload);
                 var result = Validate(request, ClientEvents);
                 if (result is not null) { rejected++; continue; }
-                db.AnalyticsEvents.Add(ToEntity(request, "client", playerId));
+                db.AnalyticsEvents.Add(ToEntity(request, "client", playerId, e.PseudonymousId, TryParseTimestamp(e.Timestamp)));
                 accepted++;
             }
             await db.SaveChangesAsync();
@@ -66,42 +66,59 @@ public static class AnalyticsEndpoints
         request.Payload.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ? "{}" : request.Payload.GetRawText();
 
     static async Task<IResult> Record(AnalyticsEventRequest request, string source, Guid? playerId,
-        HashSet<string> allowedEvents, UpdraftDbContext db)
-    {
-        var error = Validate(request, allowedEvents);
-        if (error is not null) return Results.BadRequest(new { error });
-        db.AnalyticsEvents.Add(ToEntity(request, source, playerId));
-        await db.SaveChangesAsync();
-        return Results.Accepted(value: new { recorded = true });
-    }
-
-    static AnalyticsEvent ToEntity(AnalyticsEventRequest request, string source, Guid? playerId)
-    {
-        var payload = PayloadText(request);
-        return new AnalyticsEvent
+            HashSet<string> allowedEvents, UpdraftDbContext db,
+            string? pseudonymousId = null, DateTimeOffset? clientTimestamp = null)
         {
-            EventName = request.EventName,
-            SchemaVersion = request.SchemaVersion,
-            Source = source,
-            PlayerId = playerId,
-            MatchId = request.MatchId,
-            BuildVersion = request.BuildVersion,
-            BalanceVersion = request.BalanceVersion,
-            Region = request.Region,
-            DeviceTier = request.DeviceTier,
-            PartySize = request.PartySize,
-            HasBots = request.HasBots,
-            Cohort = request.Cohort,
-            Timestamp = DateTimeOffset.UtcNow,
-            PayloadJson = payload,
-        };
-    }
+            var error = Validate(request, allowedEvents);
+            if (error is not null) return Results.BadRequest(new { error });
+            db.AnalyticsEvents.Add(ToEntity(request, source, playerId, pseudonymousId, clientTimestamp));
+            await db.SaveChangesAsync();
+            return Results.Accepted(value: new { recorded = true });
+        }
+
+        static AnalyticsEvent ToEntity(AnalyticsEventRequest request, string source, Guid? playerId,
+            string? pseudonymousId, DateTimeOffset? clientTimestamp)
+        {
+            var payload = PayloadText(request);
+            return new AnalyticsEvent
+            {
+                EventName = request.EventName,
+                SchemaVersion = request.SchemaVersion,
+                Source = source,
+                PlayerId = playerId,
+                MatchId = request.MatchId,
+                BuildVersion = request.BuildVersion,
+                BalanceVersion = request.BalanceVersion,
+                Region = request.Region,
+                DeviceTier = request.DeviceTier,
+                PartySize = request.PartySize,
+                HasBots = request.HasBots,
+                Cohort = request.Cohort,
+                Timestamp = DateTimeOffset.UtcNow,
+                PayloadJson = payload,
+                // Persist the spec §164 pseudonymous identity and the client clock so
+                // retention and per-user KPIs survive ingestion. Empty/absent for
+                // server-owned events (server facts have no client identity).
+                PseudonymousId = pseudonymousId ?? string.Empty,
+                ClientTimestamp = clientTimestamp,
+            };
+        }
 
     /// <summary>The game client's local queue line format (see Unity Telemetry.cs).</summary>
     public sealed record ClientQueuedEvent(
         string? EventName, int SchemaVersion, string? Source, string? BuildVersion, string? BalanceVersion,
         string? PseudonymousId, string? MatchId, string? Region, string? DeviceTier, int PartySize, bool HasBots,
         string? Cohort, string? Timestamp, JsonElement Payload);
+
+    static DateTimeOffset? TryParseTimestamp(string? timestamp)
+    {
+        if (string.IsNullOrWhiteSpace(timestamp)) return null;
+        return DateTimeOffset.TryParse(
+            timestamp,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind,
+            out var parsed) ? parsed.ToUniversalTime() : null;
+    }
 
     public sealed record AnalyticsEventRequest(
         string EventName, int SchemaVersion, string BuildVersion, string BalanceVersion,

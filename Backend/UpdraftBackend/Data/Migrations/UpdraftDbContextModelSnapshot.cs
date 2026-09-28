@@ -86,6 +86,41 @@ namespace UpdraftBackend.Data.Migrations
                     b.ToTable("AnalyticsDailyAggregates");
                 });
 
+            modelBuilder.Entity("UpdraftBackend.Domain.AnalyticsDailyPresence", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Cohort")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("EventDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PseudonymousId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventDate", "PseudonymousId")
+                        .IsUnique();
+
+                    b.HasIndex("PseudonymousId", "EventDate");
+
+                    b.ToTable("AnalyticsDailyPresence");
+                });
+
             modelBuilder.Entity("UpdraftBackend.Domain.AnalyticsEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -130,6 +165,13 @@ namespace UpdraftBackend.Data.Migrations
                     b.Property<Guid?>("PlayerId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("PseudonymousId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ClientTimestamp")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Region")
                         .IsRequired()
                         .HasColumnType("text");
@@ -147,6 +189,10 @@ namespace UpdraftBackend.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Timestamp");
+
+                    b.HasIndex("PseudonymousId");
+
+                    b.HasIndex("PseudonymousId", "Timestamp");
 
                     b.ToTable("AnalyticsEvents");
                 });
