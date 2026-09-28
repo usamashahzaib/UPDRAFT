@@ -3,7 +3,7 @@ using Updraft.Config;
 
 namespace Updraft.Bots
 {
-    public enum BotIntent { RotateToObjective, EngageEnemy, Retreat, UseRoute }
+    public enum BotIntent { RotateToObjective, EngageEnemy, Retreat }
 
     public struct BotDecisionInputs
     {
@@ -23,11 +23,16 @@ namespace Updraft.Bots
     /// </summary>
     public class BotDecisionMaker
     {
+        const float Epsilon = 1e-5f;
+
         readonly BotConfig _config;
         readonly System.Random _rng;
-        float _reactionTimer;
-        BotIntent _pendingIntent;
-        bool _hasPendingIntent;
+
+        BotIntent _committed;
+        bool _hasCommitted;
+        BotIntent _pending;
+        bool _hasPending;
+        float _reactionRemaining;
 
         public BotDecisionMaker(BotConfig config, int seed)
         {
@@ -35,31 +40,61 @@ namespace Updraft.Bots
             _rng = new System.Random(seed);
         }
 
+        /// <summary>The intent the bot is acting on right now.</summary>
+        public BotIntent Committed => _committed;
+
         /// <summary>
-        /// Call every tick. Reaction delay (600ms easy / 350ms standard) is
-        /// modeled as a hold before a newly-decided intent takes effect,
-        /// matching how a human's reflexes lag a stimulus rather than
-        /// artificially slowing bot movement/aim once committed.
+        /// Call every tick. Reaction delay (easy ~600 ms / standard ~350 ms) is a
+        /// real hold: when the situation changes, the bot keeps acting on its
+        /// previous intent until the delay has elapsed, like a human's reflexes
+        /// lagging a stimulus. A change that reverts before the delay ends is
+        /// never acted on.
         /// </summary>
         public BotIntent Tick(BotDecisionInputs inputs, float deltaTime, bool isEasyDifficulty)
         {
             BotIntent desired = Decide(inputs);
 
-            if (!_hasPendingIntent || desired != _pendingIntent)
+            if (!_hasCommitted)
             {
-                _pendingIntent = desired;
-                _hasPendingIntent = true;
-                _reactionTimer = isEasyDifficulty ? _config.easyPracticeReactionSeconds : _config.standardReactionSeconds;
+                // A freshly spawned bot starts on its first read of the situation.
+                _committed = desired;
+                _hasCommitted = true;
+                return _committed;
             }
 
-            if (_reactionTimer > 0f)
+            if (desired == _committed)
             {
-                _reactionTimer -= deltaTime;
-                // Still acting on whatever intent was already committed while reacting to the new one.
+                _hasPending = false;
+                return _committed;
             }
 
-            return _pendingIntent;
+            if (!_hasPending || desired != _pending)
+            {
+                // New stimulus: start the reaction clock on the following ticks.
+                _pending = desired;
+                _hasPending = true;
+                _reactionRemaining = ReactionSeconds(isEasyDifficulty);
+                return _committed;
+            }
+
+            _reactionRemaining -= deltaTime;
+            if (_reactionRemaining <= Epsilon)
+            {
+                _committed = _pending;
+                _hasPending = false;
+            }
+            return _committed;
         }
+
+        /// <summary>Forget the current intent (e.g. after respawning).</summary>
+        public void Reset()
+        {
+            _hasCommitted = false;
+            _hasPending = false;
+        }
+
+        public float ReactionSeconds(bool isEasyDifficulty) =>
+            isEasyDifficulty ? _config.easyPracticeReactionSeconds : _config.standardReactionSeconds;
 
         BotIntent Decide(BotDecisionInputs inputs)
         {
@@ -74,12 +109,12 @@ namespace Updraft.Bots
 
         /// <summary>
         /// Spec section 12: "avoid perfectly synchronized team focus fire."
-        /// Call once per bot when a team-wide "focus this target" signal fires;
-        /// some bots intentionally hold back this tick.
+        /// Extra delay (0 when this bot does not desync) added to a new target's reaction.
         /// </summary>
-        public bool ShouldDesyncFromTeamFocusFire()
+        public float FocusFireDesyncSeconds()
         {
-            return _rng.NextDouble() < _config.focusFireDesyncChance;
+            if (_rng.NextDouble() >= _config.focusFireDesyncChance) return 0f;
+            return Mathf.Lerp(_config.focusFireDesyncMinSeconds, _config.focusFireDesyncMaxSeconds, (float)_rng.NextDouble());
         }
     }
 }

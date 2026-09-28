@@ -75,6 +75,7 @@ namespace Updraft.Input
         public string PadPreviewReason { get; set; }
         int padTouchId = -1;
         float padTouchStart;
+        Vector2 padLastPos;
         int lastPadSeconds = -1;
         string padLabel = "PAD";
 
@@ -258,7 +259,7 @@ namespace Updraft.Input
             {
                 if (insideFire) { fireTouchId = id; fireStartPos = pos; FireHeld = true; FirePressedThisFrame = true; return true; }
                 if (insideJump) { consumedTouches.Add(id); JumpPressed = true; Vibrate(); return true; }
-                if (insidePad && Updraft.Core.StudySettings.PadsEnabled) { padTouchId = id; padTouchStart = Time.unscaledTime; PadCancelled = false; Vibrate(); return true; }
+                if (insidePad && Updraft.Core.StudySettings.PadsEnabled) { padTouchId = id; padTouchStart = Time.unscaledTime; padLastPos = pos; PadCancelled = false; Vibrate(); return true; }
                 if (insideReload) { consumedTouches.Add(id); ReloadPressed = true; Vibrate(); return true; }
                 if (insidePing) { consumedTouches.Add(id); PingPressed = true; Vibrate(); return true; }
                 if (insidePause) { consumedTouches.Add(id); PausePressed = true; return true; }
@@ -283,6 +284,9 @@ namespace Updraft.Input
                     Rect cancelBounds = new Rect(padButtonRect.x - padButtonRect.width * 0.5f, padButtonRect.y - padButtonRect.height * 0.5f,
                         padButtonRect.width * 2f, padButtonRect.height * 2f);
                     if (!cancelBounds.Contains(pos) && !PadCancelled) { PadCancelled = true; PadPreviewActive = false; Vibrate(); }
+                    // Spec 6: while the preview shows, the same finger steers the camera (and so the launch direction).
+                    else if (PadPreviewActive) AimDelta += ScaleAimDelta(pos - padLastPos);
+                    padLastPos = pos;
                     return true;
                 }
                 if (id == fireTouchId)

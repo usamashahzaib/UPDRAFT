@@ -393,6 +393,9 @@ namespace UpdraftBackend.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("LinkedPlatformIdentity")
+                        .IsUnique();
+
                     b.ToTable("PlayerAccounts");
                 });
 

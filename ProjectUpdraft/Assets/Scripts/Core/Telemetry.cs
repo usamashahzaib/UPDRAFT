@@ -25,16 +25,21 @@ namespace Updraft.Core
         const long MaxQueueBytes = 4 * 1024 * 1024;
         const string PseudonymKey = "Telemetry.PseudonymousId";
         public const string CohortKey = "Study.Cohort";
+        public const string IncentivizedTesterKey = "Study.IncentivizedTester";
 
         public static string BalanceVersion = "v1.0-spec";
         public static string CurrentMatchId = "";
         public static bool CurrentMatchHasBots;
+        public static bool CurrentMatchIsBotSubstituted;
+        public static int CurrentMatchBotCount;
         public static int PartySize = 1;
 
         static string pseudonymousId;
         static readonly StringBuilder sb = new StringBuilder(512);
 
         public static string QueuePath => Path.Combine(Application.persistentDataPath, QueueFileName);
+
+        public static bool IncentivizedTester => PlayerPrefs.GetInt(IncentivizedTesterKey, 0) != 0;
 
         public static string PseudonymousId
         {
@@ -88,6 +93,9 @@ namespace Updraft.Core
                 Field("deviceTier", DeviceTier); sb.Append(',');
                 sb.Append("\"partySize\":").Append(PartySize).Append(',');
                 sb.Append("\"hasBots\":").Append(CurrentMatchHasBots ? "true" : "false").Append(',');
+                sb.Append("\"botSubstituted\":").Append(CurrentMatchIsBotSubstituted ? "true" : "false").Append(',');
+                sb.Append("\"botCount\":").Append(CurrentMatchBotCount).Append(',');
+                sb.Append("\"incentivizedTester\":").Append(IncentivizedTester ? "true" : "false").Append(',');
                 Field("cohort", Cohort); sb.Append(',');
                 Field("timestamp", DateTime.UtcNow.ToString("o")); sb.Append(',');
                 sb.Append("\"payload\":{");

@@ -51,7 +51,6 @@ namespace Updraft.Map
             GenerateZones();
             GenerateSightlineBlockers();
             GenerateOuterLaneBreakers();
-            GenerateSpawnBarriers();
             SetupLighting();
             if (Application.isPlaying)
             {
@@ -214,17 +213,21 @@ namespace Updraft.Map
 
         void GenerateRamps()
         {
-            // Each platform has two walkable ramps
+            // Each platform has two walkable ramps, both facing the middle of the arena, so the
+            // layout mirrors across X = 0 and Z = 0 and neither team gets a better route (spec 9).
             foreach (Vector3 platformCenter in mapConfig.platformCenters)
             {
-                // Ramp 1: from ground to platform on +X side
-                CreateRamp(new Vector3(platformCenter.x + mapConfig.platformSize.x * 0.5f + 7f, mapConfig.groundLevelY, platformCenter.z),
-                    platformCenter + new Vector3(mapConfig.platformSize.x * 0.5f, 0, 0),
+                float towardCenterX = -Mathf.Sign(platformCenter.x);
+                float towardCenterZ = -Mathf.Sign(platformCenter.z);
+
+                // Ramp 1: X side facing the centre line
+                CreateRamp(new Vector3(platformCenter.x + towardCenterX * (mapConfig.platformSize.x * 0.5f + 7f), mapConfig.groundLevelY, platformCenter.z),
+                    platformCenter + new Vector3(towardCenterX * mapConfig.platformSize.x * 0.5f, 0, 0),
                     new Vector3(6f, mapConfig.platformHeight, 4f));
 
-                // Ramp 2: from ground to platform on -Z side
-                CreateRamp(new Vector3(platformCenter.x, mapConfig.groundLevelY, platformCenter.z - mapConfig.platformSize.y * 0.5f - 7f),
-                    platformCenter + new Vector3(0, 0, -mapConfig.platformSize.y * 0.5f),
+                // Ramp 2: Z side facing midfield
+                CreateRamp(new Vector3(platformCenter.x, mapConfig.groundLevelY, platformCenter.z + towardCenterZ * (mapConfig.platformSize.y * 0.5f + 7f)),
+                    platformCenter + new Vector3(0, 0, towardCenterZ * mapConfig.platformSize.y * 0.5f),
                     new Vector3(4f, mapConfig.platformHeight, 6f));
             }
         }
@@ -320,9 +323,10 @@ namespace Updraft.Map
 
         void GenerateSightlineBlockers()
         {
-            // Central sightline blocker per spawn (Z = +/-20)
+            // Central sightline blocker per spawn (Z = +/-20). 18 m wide so no line from any of the
+            // three exits (X = -8..8) reaches the other team's exits (spec 9: no spawn-to-spawn shot).
             float blockerHeight = 5f;
-            float blockerWidth = 8f;
+            float blockerWidth = 18f;
             float blockerDepth = 2f;
 
             // North spawn blocker (between north spawn and center)
@@ -378,13 +382,6 @@ namespace Updraft.Map
                     breaker.layer = LayerMask.NameToLayer("Cover");
                 }
             }
-        }
-
-        void GenerateSpawnBarriers()
-        {
-            // Barriers at spawn exits that block shots both ways
-            // Enemies can't enter; barriers block shots both ways; can't fire out from inside
-            // These are created as part of spawn room walls with SpawnBarrier layer
         }
     }
 

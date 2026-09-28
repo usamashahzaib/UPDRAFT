@@ -53,12 +53,14 @@ namespace Updraft.Pads
                     return "INSIDE A CAPTURE ZONE";
 
             int groundMask = LayerMask.GetMask("Ground");
+            // The rim of a disc on a legal (<= max tilt) plane sits up to r*tan(tilt) off the centre height.
+            float rimTolerance = pad.diameter * 0.5f * Mathf.Tan(pad.maxSurfaceTiltDegrees * Mathf.Deg2Rad) + 0.02f;
             for (int i = 0; i < 8; i++)
             {
                 float angle = i * Mathf.PI * 0.25f;
                 Vector3 edge = position + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * pad.diameter * 0.5f;
                 if (!physics.Raycast(edge + Vector3.up * 0.5f, Vector3.down, out var support, 1f, groundMask, QueryTriggerInteraction.Ignore) ||
-                    Mathf.Abs(support.point.y - hit.point.y) > 0.05f) return "DOESN'T FIT";
+                    Mathf.Abs(support.point.y - hit.point.y) > rimTolerance) return "DOESN'T FIT";
             }
 
             Vector3 launch = forward * pad.launchHorizontalVelocity + Vector3.up * pad.launchUpwardVelocity;

@@ -1,8 +1,5 @@
 using UnityEngine;
 using Updraft.Config;
-using Updraft.Bots;
-using Updraft.Movement;
-using Updraft.Weapons;
 using Updraft.Pads;
 using Updraft.Match;
 using Updraft.Player;
@@ -10,10 +7,11 @@ using Updraft.Player;
 namespace Updraft.Bots
 {
     /// <summary>
-    /// MonoBehaviour that drives a bot using BotDecisionMaker, BotPerception,
-    /// PlayerMovementSimulator, and ShotResolver. Same movement/HP/ammo/cooldowns
-    /// as humans, driven through the same input interface. LOS + audible-event
-    /// perception only — never hidden position reads.
+    /// Drives a bot's PlayerController through the same input interface a human
+    /// uses (spec section 12): same movement, HP, ammo, cooldowns and weapons.
+    /// Perception is line of sight inside a view cone plus audible gunfire —
+    /// never a hidden position read. Decisions go through BotDecisionMaker,
+    /// whose reaction delay is a real hold before a new intent is acted on.
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(PlayerController))]
@@ -29,62 +27,53 @@ namespace Updraft.Bots
 
         [Header("References")]
         [SerializeField] PlayerController playerController;
-        [SerializeField] Transform aimTarget; // for debugging
 
         [Header("Behavior")]
         [SerializeField] bool isEasyDifficulty = false;
-        [SerializeField] float perceptionRadius = 50f;
-        [SerializeField] float hearingRadius = 30f;
-        [SerializeField] float forgetAfterSeconds = 5f;
-        [SerializeField] LayerMask losMask;
-        [SerializeField] LayerMask groundMask;
 
-        // Decision/perception only — actual movement/pad/weapon simulation is
-        // owned by PlayerController (this drives it via SetExternalInput, the
-        // same way TouchInputManager drives a human) so bots never run a
-        // second, conflicting CharacterController.Move each frame.
+        // A heard shooter pulls the bot toward the sound only while it is near the objective anyway.
+        const float InvestigateNearObjectiveMeters = 25f;
+        const float EyeHeight = 1.6f;
+        const float TargetChestHeight = 1.4f;
+
         BotDecisionMaker decisionMaker;
         BotPerception perception;
+        int occluderMask;
 
-        // Runtime state
         BotIntent currentIntent;
-        Vector3 moveInput;
+        Vector3 destination;
+        Vector2 moveInput;
         bool jumpPressed;
         bool firePressed;
+        bool wasAlive;
+
+        // Tracking: reaction delay before the first shot, and an aim error that
+        // shrinks while the target stays visible (imperfect tracking, never reduced damage).
+        PlayerController target;
         Vector3 lastKnownEnemyPos;
         bool hasVisibleEnemy;
+        float fireAllowedAt;
+        float aimErrorDegrees;
+        Vector3 aimErrorAxis;
+        Vector3 heardPosition;
+        bool hasHeardEvent;
+
         float stuckTimer;
         Vector3 lastPosition;
-        int botSeed;
+        bool unstuckJumpRequested;
 
-        // Authored route target used by the current graybox navigation.
-        Vector3 currentRouteTarget;
-        bool hasRouteTarget;
-        bool routeTargetIsPad;
-
-        // Objective positions
-        Vector3 centerObjective;
-        Vector3 westObjective;
-        Vector3 eastObjective;
-
-        // Pad awareness
-        float padCheckTimer;
+        public BotIntent CurrentIntent => currentIntent;
+        public bool IsEasy => isEasyDifficulty;
+        public PlayerController Target => target;
 
         void Awake()
         {
-            objectivePath = new UnityEngine.AI.NavMeshPath();
+            try { path = new UnityEngine.AI.NavMeshPath(); } catch { path = null; }
             playerController = GetComponent<PlayerController>();
-
-            // PlayerController (via its own [RequireComponent(typeof(CharacterController))])
-            // owns CharacterController setup and the actual movement simulation.
-            botSeed = Random.Range(0, int.MaxValue);
-            decisionMaker = new BotDecisionMaker(botConfig, botSeed);
+            decisionMaker = new BotDecisionMaker(botConfig, Random.Range(0, int.MaxValue));
             perception = new BotPerception();
-
-            // Cache objectives
-            centerObjective = mapConfig.centerZone;
-            westObjective = mapConfig.westZone;
-            eastObjective = mapConfig.eastZone;
+            // Built from layer names, never from a serialized mask that could silently be empty.
+            occluderMask = BotPerception.OccluderMask;
         }
 
         public void Initialize(int playerId, int teamId, WeaponDefinition startingWeapon, bool easyDifficulty)
@@ -95,18 +84,13 @@ namespace Updraft.Bots
 
         void Update()
         {
-            if (!playerController.IsAlive) return;
+            if (!playerController.IsAlive) { wasAlive = false; return; }
+            if (!wasAlive) { wasAlive = true; ResetAwareness(); }
 
             float dt = Time.deltaTime;
-
-            // Tick perception
             TickPerception(dt);
-
-            // Tick decision maker
             TickDecision(dt);
-
-            // Execute intent (sets moveInput/jumpPressed/firePressed for this frame)
-            ExecuteIntent(dt);
+            ExecuteIntent();
 
             if (unstuckJumpRequested)
             {
@@ -114,54 +98,63 @@ namespace Updraft.Bots
                 unstuckJumpRequested = false;
             }
 
-            // Decide whether to place a pad this frame (separate from movement input)
             HandlePadPlacement();
 
             // Drive PlayerController exactly like a human's TouchInputManager would.
-            playerController.SetExternalInput(
-                new Vector2(moveInput.x, moveInput.y), jumpPressed, firePressed, reloadPressed: false);
-
-            // Update stuck detection
+            playerController.SetExternalInput(moveInput, jumpPressed, firePressed, reloadPressed: false);
             UpdateStuckDetection(dt);
         }
 
-        // Target tracking: reaction delay before the first shot, and an aim error
-        // that shrinks while the target stays visible (imperfect tracking, never
-        // reduced damage).
-        PlayerController target;
-        float fireAllowedAt;
-        float aimErrorDegrees;
-        Vector3 aimErrorAxis;
-        Vector3 heardPosition;
-        bool hasHeardEvent;
+        /// <summary>A respawned bot knows nothing it has not perceived since.</summary>
+        void ResetAwareness()
+        {
+            decisionMaker.Reset();
+            perception.Clear();
+            target = null;
+            hasVisibleEnemy = false;
+            hasHeardEvent = false;
+            padTarget = null;
+            lastPosition = transform.position;
+            stuckTimer = 0f;
+        }
+
+        // ---- Perception (spec 12: LOS + audible events only) ----
 
         void TickPerception(float dt)
         {
-            perception.Tick(dt, forgetAfterSeconds);
+            perception.Tick(dt, botConfig.heardShotMemorySeconds);
 
-            // Line of sight only: bots never read the position of an enemy they cannot see or hear.
             PlayerController nearest = null, previousStillVisible = null;
             float nearestDist = float.MaxValue;
             hasHeardEvent = false;
-            Vector3 eyePos = transform.position + Vector3.up * 1.6f;
+            float nearestHeard = float.MaxValue;
+            Vector3 eye = transform.position + Vector3.up * EyeHeight;
+            var physics = Physics.defaultPhysicsScene;
             var players = PlayerController.All;
             for (int i = 0; i < players.Count; i++)
             {
                 var enemy = players[i];
                 if (enemy == playerController || !enemy.IsAlive || enemy.TeamId == playerController.TeamId) continue;
 
-                float dist = Vector3.Distance(transform.position, enemy.transform.position);
-                if (dist <= hearingRadius && Time.time - enemy.LastShotTime < 0.5f)
+                // Gunfire is heard at the position it was fired from, not where the shooter is now.
+                if (Time.time - enemy.LastShotTime <= botConfig.heardShotMemorySeconds)
                 {
-                    perception.ReportHeard(enemy.PlayerId, enemy.transform.position);
-                    heardPosition = enemy.transform.position;
-                    hasHeardEvent = true;
+                    float heardDist = Vector3.Distance(transform.position, enemy.LastShotPosition);
+                    if (heardDist <= botConfig.hearingRangeMeters && heardDist < nearestHeard)
+                    {
+                        nearestHeard = heardDist;
+                        heardPosition = enemy.LastShotPosition;
+                        hasHeardEvent = true;
+                        perception.ReportHeard(enemy.PlayerId, enemy.LastShotPosition);
+                    }
                 }
-                if (dist > perceptionRadius) continue;
 
-                Vector3 targetPos = enemy.transform.position + Vector3.up * 1.4f;
-                if (Physics.Raycast(eyePos, (targetPos - eyePos).normalized, dist, losMask, QueryTriggerInteraction.Ignore)) continue;
+                Vector3 chest = enemy.transform.position + Vector3.up * TargetChestHeight;
+                if (!BotPerception.CanSee(physics, eye, transform.forward, chest,
+                        botConfig.sightRangeMeters, botConfig.viewConeHalfAngleDegrees, occluderMask))
+                    continue;
 
+                float dist = Vector3.Distance(transform.position, enemy.transform.position);
                 perception.ReportVisible(enemy.PlayerId, enemy.transform.position);
                 if (enemy == target) previousStillVisible = enemy;
                 if (dist < nearestDist) { nearestDist = dist; nearest = enemy; }
@@ -170,58 +163,57 @@ namespace Updraft.Bots
             var chosen = previousStillVisible ?? nearest;
             if (chosen != null && chosen != target)
             {
-                // New target: human-like reaction delay and a fresh aim error.
-                float reaction = isEasyDifficulty ? botConfig.easyPracticeReactionSeconds : botConfig.standardReactionSeconds;
-                // Desynchronise teammates so a bot team never fires in perfect unison.
-                if (Random.value < botConfig.focusFireDesyncChance) reaction += Random.Range(0.1f, 0.35f);
-                fireAllowedAt = Time.time + reaction;
-                aimErrorDegrees = isEasyDifficulty ? 7f : 4.5f;
+                // New target: human-like reaction delay (plus team desync) and a fresh aim error.
+                fireAllowedAt = Time.time + decisionMaker.ReactionSeconds(isEasyDifficulty) + decisionMaker.FocusFireDesyncSeconds();
+                aimErrorDegrees = isEasyDifficulty ? botConfig.initialAimErrorEasyDegrees : botConfig.initialAimErrorStandardDegrees;
                 aimErrorAxis = Random.onUnitSphere;
                 // Call out a newly seen enemy's location (location only, rate-limited by the ping system).
-                Vector3 eye = transform.position + Vector3.up * 1.6f;
-                Updraft.UI.PingSystem.Instance?.RequestPing(playerController, new Ray(eye, chosen.transform.position + Vector3.up * 1.2f - eye));
+                Updraft.UI.PingSystem.Instance?.RequestPing(playerController,
+                    new Ray(eye, chosen.transform.position + Vector3.up * 1.2f - eye));
             }
             target = chosen;
             hasVisibleEnemy = target != null;
             if (hasVisibleEnemy)
             {
                 lastKnownEnemyPos = target.transform.position;
-                aimErrorDegrees = Mathf.Max(isEasyDifficulty ? 2.5f : 1.2f, aimErrorDegrees - dt * 3f);
-                if (aimTarget != null) aimTarget.position = lastKnownEnemyPos;
+                float floor = isEasyDifficulty ? botConfig.minimumAimErrorEasyDegrees : botConfig.minimumAimErrorStandardDegrees;
+                aimErrorDegrees = Mathf.Max(floor, aimErrorDegrees - dt * botConfig.aimErrorRecoveryDegreesPerSecond);
             }
         }
 
+        // ---- Decision ----
+
         void TickDecision(float dt)
         {
-            // Get active objective
-            Vector3 activeObjective = GetActiveObjective();
+            Vector3 objective = GetActiveObjective();
+            destination = objective;
 
             // A heard but unseen shooter pulls the bot toward the sound, never onto the hidden player.
-            if (!hasVisibleEnemy && hasHeardEvent && Vector3.Distance(transform.position, activeObjective) < 25f)
-                activeObjective = heardPosition;
+            if (!hasVisibleEnemy && hasHeardEvent && Vector3.Distance(transform.position, objective) < InvestigateNearObjectiveMeters)
+                destination = heardPosition;
             // Teammates' "go here" / "group up" pings take precedence while they last.
             var pings = Updraft.UI.PingSystem.Instance;
             if (!hasVisibleEnemy && pings != null && pings.TryGetTeamRally(playerController.TeamId, playerController.PlayerId, out var rally))
-                activeObjective = rally;
-            var inputs = new BotDecisionInputs
+                destination = rally;
+
+            currentIntent = decisionMaker.Tick(new BotDecisionInputs
             {
                 currentHealthFraction = playerController.CurrentHealth / playerController.MaxHealth,
                 hasVisibleEnemy = hasVisibleEnemy,
                 enemyPosition = lastKnownEnemyPos,
                 selfPosition = transform.position,
-                activeObjectivePosition = activeObjective
-            };
-
-            currentIntent = decisionMaker.Tick(inputs, dt, isEasyDifficulty);
+                activeObjectivePosition = destination,
+            }, dt, isEasyDifficulty);
         }
 
+        /// <summary>Follows the live Relay rotation (spec 3), read through the match view like the HUD does.</summary>
         Vector3 GetActiveObjective()
         {
-            var match = MatchController.Current;
-            return match != null ? match.ActiveObjectivePosition : centerObjective;
+            var match = MatchView.Current;
+            return match != null ? match.ActiveObjectivePosition : mapConfig.centerZone;
         }
 
-        void ExecuteIntent(float dt)
+        void ExecuteIntent()
         {
             moveInput = Vector2.zero;
             jumpPressed = false;
@@ -229,86 +221,42 @@ namespace Updraft.Bots
 
             switch (currentIntent)
             {
-                case BotIntent.RotateToObjective:
-                    ExecuteRotateToObjective();
-                    break;
-
-                case BotIntent.EngageEnemy:
-                    ExecuteEngageEnemy();
-                    break;
-
-                case BotIntent.Retreat:
-                    ExecuteRetreat();
-                    break;
-
-                case BotIntent.UseRoute:
-                    ExecuteUseRoute();
-                    break;
+                case BotIntent.RotateToObjective: ExecuteRotateToObjective(); break;
+                case BotIntent.EngageEnemy: ExecuteEngageEnemy(); break;
+                case BotIntent.Retreat: ExecuteRetreat(); break;
             }
-        }
-
-        UnityEngine.AI.NavMeshPath objectivePath;
-        readonly Vector3[] objectiveCorners = new Vector3[32];
-        int objectiveCornerCount;
-        float nextPathTime;
-        int pathCorner;
-        Vector3 pathObjective;
-
-        /// <summary>Flat direction along the NavMesh path to the objective; false once within 2 m of it.</summary>
-        bool TryObjectiveDirection(Vector3 objective, out Vector3 direction)
-        {
-            Vector3 destination = objective;
-            if (Time.time >= nextPathTime || Vector3.Distance(pathObjective, objective) > 1f)
-            {
-                nextPathTime = Time.time + 0.75f;
-                pathObjective = objective;
-                pathCorner = 1;
-                objectivePath.ClearCorners();
-                if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out var origin, 2f, UnityEngine.AI.NavMesh.AllAreas) &&
-                    UnityEngine.AI.NavMesh.SamplePosition(objective, out var goal, 2f, UnityEngine.AI.NavMesh.AllAreas))
-                    UnityEngine.AI.NavMesh.CalculatePath(origin.position, goal.position, UnityEngine.AI.NavMesh.AllAreas, objectivePath);
-                objectiveCornerCount = objectivePath.GetCornersNonAlloc(objectiveCorners);
-            }
-            while (pathCorner < objectiveCornerCount - 1 && Vector3.Distance(transform.position, objectiveCorners[pathCorner]) < 1f) pathCorner++;
-            if (pathCorner < objectiveCornerCount) destination = objectiveCorners[pathCorner];
-            direction = destination - transform.position;
-            direction.y = 0;
-            direction = direction.normalized;
-            return direction.sqrMagnitude > 0.01f &&
-                   Vector2.Distance(new Vector2(transform.position.x, transform.position.z), new Vector2(objective.x, objective.z)) >= 2f;
         }
 
         void ExecuteRotateToObjective()
         {
-            Vector3 objective = GetActiveObjective();
-            if (!TryObjectiveDirection(objective, out var toObjective)) return;
+            if (!TryPathDirection(destination, out var toDestination)) return;
 
-            // A nearby pad (any team's) that launches toward the objective is a shortcut worth taking.
-            if (TryDriveToLaunchPad(objective)) return;
+            // A nearby pad (any team's) that launches toward the destination is a shortcut worth taking.
+            if (TryDriveToLaunchPad(destination)) return;
 
-            // Simple move toward objective
-            moveInput = new Vector2(0, 1f); // forward in local space
-            // Rotate toward objective
-            Quaternion targetRot = Quaternion.LookRotation(toObjective);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, 360f * Time.deltaTime);
+            moveInput = new Vector2(0, 1f);
+            Face(toDestination);
         }
 
         void ExecuteEngageEnemy()
         {
-            if (!hasVisibleEnemy) return;
+            if (!hasVisibleEnemy)
+            {
+                // Still reacting to losing sight: head for where the enemy was last seen, holding fire.
+                if (TryPathDirection(lastKnownEnemyPos, out var toLastSeen)) { moveInput = new Vector2(0, 1f); Face(toLastSeen); }
+                return;
+            }
 
-            Vector3 toEnemy = (lastKnownEnemyPos - transform.position).normalized;
+            Vector3 toEnemy = lastKnownEnemyPos - transform.position;
             toEnemy.y = 0;
-
+            toEnemy.Normalize();
             float dist = Vector3.Distance(transform.position, lastKnownEnemyPos);
             float engageRange = playerController.CurrentWeapon?.fullDamageDistance ?? 20f;
 
             // A committed pad route (usually our own fresh pad) beats a long-range duel.
             if (padTarget != null && dist > 25f && TryDriveToLaunchPad(GetActiveObjective())) return;
 
-            // Face enemy
-            Quaternion targetRot = Quaternion.LookRotation(toEnemy);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, 360f * Time.deltaTime);
+            Face(toEnemy);
 
             // The objective wins matches: keep pushing along the route while shooting
             // (spec 12: attack/rotate toward the objective). Inside the zone, strafe to hold it.
@@ -316,7 +264,7 @@ namespace Updraft.Bots
             Vector2 flatToObjective = new Vector2(objective.x - transform.position.x, objective.z - transform.position.z);
             float holdRadius = mapConfig.zoneRadius * 0.7f;
             Vector3 worldMove;
-            if (flatToObjective.magnitude > holdRadius && TryObjectiveDirection(objective, out var pathDir))
+            if (flatToObjective.magnitude > holdRadius && TryPathDirection(objective, out var pathDir))
                 worldMove = pathDir;
             else if (dist < engageRange * 0.4f)
                 worldMove = -toEnemy * 0.5f; // too close: give ground but stay in the zone
@@ -327,7 +275,7 @@ namespace Updraft.Bots
 
             // Aim at the upper body with a decaying tracking error, in 3D so
             // airborne and elevated targets can be hit.
-            Vector3 muzzle = transform.position + Vector3.up * 1.4f;
+            Vector3 muzzle = transform.position + Vector3.up * TargetChestHeight;
             Vector3 aim = target.transform.position + Vector3.up * 1.2f - muzzle;
             aim = Quaternion.AngleAxis(aimErrorDegrees, Vector3.Cross(aim, aimErrorAxis)) * aim;
             playerController.SetExternalAim(aim);
@@ -335,50 +283,64 @@ namespace Updraft.Bots
             firePressed = Time.time >= fireAllowedAt;
         }
 
+        /// <summary>Hurt: fall back along the navigation mesh to the team's own middle spawn exit to regenerate.</summary>
         void ExecuteRetreat()
         {
-            // Move away from enemy toward cover/spawn
-            Vector3 retreatTarget = playerController.TeamId == 0 ? mapConfig.northSpawnCenter : mapConfig.southSpawnCenter;
-            Vector3 toRetreat = (retreatTarget - transform.position).normalized;
-            toRetreat.y = 0;
-
+            Vector3 fallback = mapConfig.SpawnExit(playerController.TeamId, 1).position;
+            if (!TryPathDirection(fallback, out var toFallback)) return; // safe at the exit: wait for regen
             moveInput = new Vector2(0, 1f);
-            Quaternion targetRot = Quaternion.LookRotation(toRetreat);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, 360f * Time.deltaTime);
+            Face(toFallback);
         }
 
-        void ExecuteUseRoute()
+        void Face(Vector3 flatDirection)
         {
-            // Navigate to route target (pad or platform)
-            if (!hasRouteTarget)
+            if (flatDirection.sqrMagnitude < 1e-4f) return;
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(flatDirection), 360f * Time.deltaTime);
+        }
+
+        // ---- Navigation ----
+
+        UnityEngine.AI.NavMeshPath path;
+        readonly Vector3[] pathCorners = new Vector3[32];
+        int pathCornerCount;
+        float nextPathTime;
+        int pathCorner;
+        Vector3 pathGoal;
+
+        /// <summary>Flat direction along the NavMesh path to <paramref name="goal"/>; false once within 2 m of it.</summary>
+        bool TryPathDirection(Vector3 goal, out Vector3 direction)
+        {
+            Vector3 waypoint = goal;
+            if (path == null)
             {
-                FindRouteTarget();
+                try { path = new UnityEngine.AI.NavMeshPath(); } catch { path = null; }
             }
-
-            if (hasRouteTarget)
+            if (path == null) { direction = Vector3.zero; return false; }
+            if (Time.time >= nextPathTime || Vector3.Distance(pathGoal, goal) > 1f)
             {
-                Vector3 toTarget = (currentRouteTarget - transform.position).normalized;
-                toTarget.y = 0;
-
-                if (Vector3.Distance(transform.position, currentRouteTarget) < 2f)
-                {
-                    // Standing on the target — if it's an armed pad, jump to launch
-                    // (PlayerController's own pad-activation logic reads JumpPressed).
-                    if (routeTargetIsPad) jumpPressed = true;
-                    hasRouteTarget = false;
-                    return;
-                }
-
-                moveInput = new Vector2(0, 1f);
-                Quaternion targetRot = Quaternion.LookRotation(toTarget);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, 360f * Time.deltaTime);
+                nextPathTime = Time.time + 0.75f;
+                pathGoal = goal;
+                pathCorner = 1;
+                path.ClearCorners();
+                if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out var origin, 2f, UnityEngine.AI.NavMesh.AllAreas) &&
+                    UnityEngine.AI.NavMesh.SamplePosition(goal, out var end, 2f, UnityEngine.AI.NavMesh.AllAreas))
+                    UnityEngine.AI.NavMesh.CalculatePath(origin.position, end.position, UnityEngine.AI.NavMesh.AllAreas, path);
+                pathCornerCount = path.GetCornersNonAlloc(pathCorners);
             }
+            while (pathCorner < pathCornerCount - 1 && Vector3.Distance(transform.position, pathCorners[pathCorner]) < 1f) pathCorner++;
+            if (pathCorner < pathCornerCount) waypoint = pathCorners[pathCorner];
+            direction = waypoint - transform.position;
+            direction.y = 0;
+            direction = direction.normalized;
+            return direction.sqrMagnitude > 0.01f &&
+                   Vector2.Distance(new Vector2(transform.position.x, transform.position.z), new Vector2(goal.x, goal.z)) >= 2f;
         }
 
         // ---- Launch pads (spec 6/12): bots place and use pads by the same rules as humans ----
         LaunchPad padTarget;
         float padScanTimer;
         float padGiveUpAt;
+        float padCheckTimer;
 
         /// <summary>Flat distance of a launch on level ground: v_h * 2 v_up / g.</summary>
         float LaunchRange() => padConfig.launchHorizontalVelocity * 2f * padConfig.launchUpwardVelocity / movementConfig.gravity;
@@ -408,7 +370,7 @@ namespace Updraft.Bots
                 return true;
             }
             moveInput = new Vector2(0f, toPad.magnitude < 2f ? 0.6f : 1f);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(toPad.normalized), 360f * Time.deltaTime);
+            Face(toPad.normalized);
             return true;
         }
 
@@ -421,9 +383,10 @@ namespace Updraft.Bots
 
             LaunchPad best = null;
             float bestDistance = 10f;
-            foreach (var behaviour in FindObjectsByType<LaunchPadBehaviour>(FindObjectsSortMode.None))
+            var pads = LaunchPadBehaviour.All;
+            for (int i = 0; i < pads.Count; i++)
             {
-                var pad = behaviour.PadData;
+                var pad = pads[i].PadData;
                 if (PadGone(pad)) continue;
                 Vector3 toPad = pad.Position - transform.position;
                 if (Mathf.Abs(toPad.y) > 1f) continue;
@@ -440,59 +403,27 @@ namespace Updraft.Bots
             return best;
         }
 
-        void FindRouteTarget()
-        {
-            // Find nearby pad or ramp to elevated position
-            var pads = FindObjectsByType<LaunchPadBehaviour>(FindObjectsSortMode.None);
-            foreach (var pad in pads)
-            {
-                // Spec section 6: anyone can use any pad, enemy pads included.
-                if (pad.PadData.CanBeUsed && Vector3.Distance(transform.position, pad.transform.position) < 20f)
-                {
-                    currentRouteTarget = pad.transform.position;
-                    hasRouteTarget = true;
-                    routeTargetIsPad = true;
-                    return;
-                }
-            }
-
-            // Fallback: find platform ramp
-            // Simplified - just pick a platform center
-            Vector3[] platforms = mapConfig.platformCenters;
-            if (platforms.Length > 0)
-            {
-                currentRouteTarget = platforms[Random.Range(0, platforms.Length)];
-                hasRouteTarget = true;
-                routeTargetIsPad = false;
-            }
-        }
-
         void HandlePadPlacement()
         {
-            // Place pad if we have charge and it's strategic (activation itself is
-            // handled by PlayerController reading JumpPressed — see ExecuteUseRoute).
             padCheckTimer -= Time.deltaTime;
-            if (padCheckTimer <= 0f && playerController.PadManager.HasCharge && Updraft.Core.StudySettings.PadsEnabled)
+            if (padCheckTimer > 0f || !playerController.PadManager.HasCharge || !Updraft.Core.StudySettings.PadsEnabled) return;
+            padCheckTimer = 2f;
+            if (!ShouldPlacePad(out var launchDirection)) return;
+
+            // Pads launch along the placer's facing, so aim the body at the objective first.
+            var facing = transform.rotation;
+            transform.rotation = Quaternion.LookRotation(launchDirection);
+            string rejected = playerController.TryPlacePad();
+            if (rejected == null)
             {
-                padCheckTimer = 2f;
-                if (ShouldPlacePad(out var launchDirection))
-                {
-                    // Pads launch along the placer's facing, so aim the body at the objective first.
-                    var facing = transform.rotation;
-                    transform.rotation = Quaternion.LookRotation(launchDirection);
-                    string rejected = playerController.TryPlacePad();
-                    if (rejected == null)
-                    {
-                        // Use our own pad straight away: it sits just ahead, launching toward the objective.
-                        padTarget = playerController.PadManager.ActivePad;
-                        padGiveUpAt = Time.time + 4f;
-                    }
-                    else
-                    {
-                        transform.rotation = facing;
-                        if (Debug.isDebugBuild) Debug.Log($"[BotPad] {playerController.DisplayName} placement rejected: {rejected}");
-                    }
-                }
+                // Use our own pad straight away: it sits just ahead, launching toward the objective.
+                padTarget = playerController.PadManager.ActivePad;
+                padGiveUpAt = Time.time + 4f;
+            }
+            else
+            {
+                transform.rotation = facing;
+                if (Debug.isDebugBuild) Debug.Log($"[BotPad] {playerController.DisplayName} placement rejected: {rejected}");
             }
         }
 
@@ -502,29 +433,26 @@ namespace Updraft.Bots
             // least one launch away, the flight path is clear, and we are not in a close fight.
             direction = GetActiveObjective() - transform.position;
             direction.y = 0f;
-            if (currentIntent == BotIntent.Retreat || currentIntent == BotIntent.UseRoute || padTarget != null) return false;
-            var phase = MatchController.Current != null ? MatchController.Current.CurrentPhase : MatchPhase.InProgress;
+            if (currentIntent == BotIntent.Retreat || padTarget != null) return false;
+            var phase = MatchView.Current != null ? MatchView.Current.CurrentPhase : MatchPhase.InProgress;
             if (phase != MatchPhase.InProgress && phase != MatchPhase.Overtime) return false;
             if (!playerController.IsGrounded) return false;
             if (hasVisibleEnemy && Vector3.Distance(transform.position, lastKnownEnemyPos) < 25f) return false;
             float range = LaunchRange();
             if (direction.magnitude < range * 0.9f) return false;
             direction.Normalize();
-            return !Physics.Raycast(transform.position + Vector3.up * 1.5f, direction, range, losMask, QueryTriggerInteraction.Ignore);
+            return !Physics.Raycast(transform.position + Vector3.up * 1.5f, direction, range, occluderMask, QueryTriggerInteraction.Ignore);
         }
-
-        bool unstuckJumpRequested;
 
         void UpdateStuckDetection(float dt)
         {
             float moved = Vector3.Distance(transform.position, lastPosition);
-            if (moved < 0.1f)
+            if (moved < 0.1f && moveInput.sqrMagnitude > 0.01f)
             {
                 stuckTimer += dt;
                 if (stuckTimer > 3f)
                 {
-                    // Try to unstuck - jump next frame's ExecuteIntent won't reset this away.
-                    unstuckJumpRequested = true;
+                    unstuckJumpRequested = true; // applied next frame after ExecuteIntent resets inputs
                     stuckTimer = 0f;
                 }
             }
@@ -533,18 +461,6 @@ namespace Updraft.Bots
                 stuckTimer = 0f;
             }
             lastPosition = transform.position;
-        }
-
-        // Called by game when bot hears a loud event
-        public void OnHeardEvent(int entityId, Vector3 position)
-        {
-            perception.ReportHeard(entityId, position);
-        }
-
-        // Called by game when bot takes damage
-        public void OnDamaged(float amount, Vector3 fromDirection)
-        {
-            // Retreat behavior is handled by decision maker based on health fraction
         }
     }
 }

@@ -29,14 +29,13 @@ namespace Updraft.Network
         }
 
         static readonly Dictionary<NetPlayer, Brain> brains = new Dictionary<NetPlayer, Brain>();
-        static readonly RaycastHit[] losHits = new RaycastHit[1];
         static UnityEngine.AI.NavMeshPath path;
         static BotConfig config;
 
         public static NetInput Decide(NetPlayer self, NetMatch match)
         {
             config ??= Resources.Load<BotConfig>("Config/BotConfig");
-            path ??= new UnityEngine.AI.NavMeshPath();
+            if (path == null) { try { path = new UnityEngine.AI.NavMeshPath(); } catch { path = null; } }
             if (!brains.TryGetValue(self, out var brain))
             {
                 brain = new Brain { decisions = new BotDecisionMaker(config, self.Slot * 7919 + 13), rng = new System.Random(self.Slot * 31 + 7), yaw = self.transform.eulerAngles.y };
@@ -49,29 +48,29 @@ namespace Updraft.Network
             var input = new NetInput { Pitch = 0f };
             Vector3 eye = self.transform.position + Vector3.up * 1.6f;
             var physics = runner.GetPhysicsScene();
-            int losMask = LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
+            int losMask = BotPerception.OccluderMask;
+            Vector3 viewForward = Quaternion.Euler(0f, brain.yaw, 0f) * Vector3.forward;
 
-            // Perception: nearest visible enemy, sticky while still visible.
+            // Perception (shared rule with offline bots): nearest enemy in the view cone with
+            // clear line of sight, sticky while still visible; gunfire is heard, never a hidden read.
             NetPlayer visible = null, sticky = null;
             float best = float.MaxValue;
             Vector3? heard = null;
             foreach (var other in NetPlayer.All)
             {
                 if (other.Runner != runner || other.Team == self.Team || other.Dead) continue;
-                Vector3 to = other.transform.position + Vector3.up * 1.4f - eye;
-                float d = to.magnitude;
-                if (d <= 30f && other.FireCooldown.IsRunning && !other.FireCooldown.Expired(runner)) heard = other.transform.position;
-                if (d > 50f || physics.Raycast(eye, to / d, losHits, d, losMask, QueryTriggerInteraction.Ignore) > 0) continue;
+                Vector3 chest = other.transform.position + Vector3.up * 1.4f;
+                float d = Vector3.Distance(eye, chest);
+                if (d <= config.hearingRangeMeters && other.FireCooldown.IsRunning && !other.FireCooldown.Expired(runner)) heard = other.transform.position;
+                if (!BotPerception.CanSee(physics, eye, viewForward, chest, config.sightRangeMeters, config.viewConeHalfAngleDegrees, losMask)) continue;
                 if (other == brain.target) sticky = other;
                 if (d < best) { best = d; visible = other; }
             }
             var chosen = sticky ?? visible;
             if (chosen != null && chosen != brain.target)
             {
-                float reaction = config.standardReactionSeconds;
-                if (brain.rng.NextDouble() < config.focusFireDesyncChance) reaction += 0.1f + (float)brain.rng.NextDouble() * 0.25f;
-                brain.fireAllowedAt = now + reaction;
-                brain.aimError = 4.5f;
+                brain.fireAllowedAt = now + brain.decisions.ReactionSeconds(false) + brain.decisions.FocusFireDesyncSeconds();
+                brain.aimError = config.initialAimErrorStandardDegrees;
                 brain.aimAxis = new Vector3((float)brain.rng.NextDouble() - 0.5f, (float)brain.rng.NextDouble() - 0.5f, (float)brain.rng.NextDouble() - 0.5f);
             }
             brain.target = chosen;
@@ -96,7 +95,7 @@ namespace Updraft.Network
 
             if (intent == BotIntent.EngageEnemy && chosen != null)
             {
-                brain.aimError = Mathf.Max(1.2f, brain.aimError - dt * 3f);
+                brain.aimError = Mathf.Max(config.minimumAimErrorStandardDegrees, brain.aimError - dt * config.aimErrorRecoveryDegreesPerSecond);
                 Vector3 aim = chosen.transform.position + Vector3.up * 1.2f - eye;
                 aim = Quaternion.AngleAxis(brain.aimError, Vector3.Cross(aim, brain.aimAxis)) * aim;
                 var look = Quaternion.LookRotation(aim).eulerAngles;

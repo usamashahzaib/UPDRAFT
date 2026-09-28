@@ -44,6 +44,10 @@ public class UpdraftDbContext : DbContext
             .HasIndex(s => s.RefreshTokenHash)
             .IsUnique();
 
+        modelBuilder.Entity<PlayerAccount>()
+            .HasIndex(a => a.LinkedPlatformIdentity)
+            .IsUnique();
+
         modelBuilder.Entity<PlayerSession>()
             .HasIndex(s => new { s.PlayerId, s.ExpiresAt });
 

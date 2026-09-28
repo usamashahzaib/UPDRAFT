@@ -26,6 +26,16 @@ public static class MatchmakingEndpoints
 
             var membership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
             Guid? partyId = membership?.PartyId;
+            if (partyId is not null)
+            {
+                var party = await db.Parties.FindAsync([partyId.Value], cancellationToken);
+                if (party is null) return Results.Conflict(new { error = "party_unavailable" });
+                if (party.LeaderId != playerId) return Results.Forbid();
+                bool everyoneReady = await db.PartyMembers
+                    .Where(m => m.PartyId == partyId)
+                    .AllAsync(m => m.IsReady, cancellationToken);
+                if (!everyoneReady) return Results.Conflict(new { error = "party_not_ready" });
+            }
             List<Guid> playerIds = partyId is null
                 ? [playerId]
                 : await db.PartyMembers.Where(m => m.PartyId == partyId).Select(m => m.PlayerId).ToListAsync(cancellationToken);

@@ -32,6 +32,8 @@ var jwtOptions = new JwtOptions(
     TimeSpan.FromDays(30));
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddSingleton<AuthTokenService>();
+builder.Services.Configure<GooglePlayGamesOptions>(builder.Configuration.GetSection("GooglePlayGames"));
+builder.Services.AddHttpClient<IGooglePlayGamesIdentityVerifier, GooglePlayGamesIdentityVerifier>();
 
 var matchmakingOptions = new MatchmakingOptions();
 builder.Configuration.GetSection("Matchmaking").Bind(matchmakingOptions);

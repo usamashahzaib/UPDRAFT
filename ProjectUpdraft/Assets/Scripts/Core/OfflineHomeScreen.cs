@@ -65,8 +65,9 @@ namespace Updraft.Core
             studyStatus = Label("", new Vector2(0, 250), 24);
             Button("VERSION: WITH PADS", new Vector2(-300, 140), () => { StudySettings.SetCohort(StudySettings.PadsOn); RefreshStudy(); });
             Button("VERSION: WITHOUT PADS", new Vector2(300, 140), () => { StudySettings.SetCohort(StudySettings.PadsOff); RefreshStudy(); });
-            Button("NORMAL PLAY (NOT STUDY)", new Vector2(0, 30), () => { StudySettings.SetCohort("default"); RefreshStudy(); });
-            Button("NEW PARTICIPANT (REPLAY TUTORIAL)", new Vector2(0, -80), () =>
+            Button("NORMAL PLAY (NOT STUDY)", new Vector2(0, 45), () => { StudySettings.SetCohort("default"); RefreshStudy(); });
+            Button("TOGGLE INCENTIVIZED TESTER FLAG", new Vector2(0, -25), () => { StudySettings.SetIncentivizedTester(!StudySettings.IncentivizedTester); RefreshStudy(); });
+            Button("NEW PARTICIPANT (REPLAY TUTORIAL)", new Vector2(0, -95), () =>
             {
                 PlayerPrefs.DeleteKey(GameBootstrap.TutorialDoneKey);
                 Telemetry.Track("study_participant_started");
@@ -85,7 +86,7 @@ namespace Updraft.Core
         void RefreshStudy()
         {
             if (studyStatus == null) return;
-            studyStatus.text = $"Cohort: {Telemetry.Cohort}   ·   Pads {(StudySettings.PadsEnabled ? "ON" : "OFF")}   ·   " +
+            studyStatus.text = $"Cohort: {Telemetry.Cohort}   ·   Pads {(StudySettings.PadsEnabled ? "ON" : "OFF")}   ·   Incentivized: {(Telemetry.IncentivizedTester ? "YES" : "NO")}   ·   " +
                                $"Queued events: {Telemetry.ReadQueued().Length}   ·   Tutorial will {(PlayerPrefs.GetInt(GameBootstrap.TutorialDoneKey, 0) == 0 ? "run" : "not run")} next launch";
         }
 

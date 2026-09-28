@@ -29,6 +29,7 @@ namespace Updraft.Core
     [Serializable] public class RefreshDto { public string refreshToken; }
     [Serializable] public class QueueStatusDto { public string state; public int elapsedSeconds; public string matchId; }
     [Serializable] public class TicketDto { public string ticket; public string expiresAt; public string matchId; public string session; public string region; public string team; public bool hasBots; public bool serverReady; public string note; }
+    [Serializable] public class ReconnectDto { public string matchId; public bool reconnectAllowed; }
     [Serializable] public class PartyDto { public string code; public string leaderId; public List<string> memberIds; public List<string> readyIds; }
     [Serializable] public class ProfileDto { public string id; public string alias; public int profileXp; public int level; public string equippedCosmeticId; public bool isGuest; }
     [Serializable] public class WalletDto { public int credits; }
@@ -118,6 +119,8 @@ namespace Updraft.Core
         public Task<BackendResult<ErrorDto>> CancelQueueAsync() => AuthedAsync<ErrorDto>("POST", "/api/matchmaking/cancel", "{}");
         public Task<BackendResult<QueueStatusDto>> QueueStatusAsync() => AuthedAsync<QueueStatusDto>("GET", "/api/matchmaking/status");
         public Task<BackendResult<TicketDto>> TicketAsync() => AuthedAsync<TicketDto>("GET", "/api/matchmaking/ticket");
+        public Task<BackendResult<ReconnectDto>> ReconnectAsync(string matchId) =>
+            AuthedAsync<ReconnectDto>("POST", $"/api/matches/{UnityWebRequest.EscapeURL(matchId)}/reconnect", "{}");
         public Task<BackendResult<PartyDto>> CreatePartyAsync() => AuthedAsync<PartyDto>("POST", "/api/party/create", "{}");
         public Task<BackendResult<PartyDto>> JoinPartyAsync(string code) => AuthedAsync<PartyDto>("POST", $"/api/party/{UnityWebRequest.EscapeURL(code)}/join", "{}");
         public Task<BackendResult<PartyDto>> LeavePartyAsync(string code) => AuthedAsync<PartyDto>("POST", $"/api/party/{UnityWebRequest.EscapeURL(code)}/leave", "{}");

@@ -29,6 +29,35 @@ namespace Updraft.Pads
         AudioSource audioSource;
         float spawnTime;
         bool ownerTicks;
+        MaterialPropertyBlock colorBlock;
+
+        /// <summary>Every pad object in the scene (alive or finishing its removal effect).</summary>
+        public static readonly System.Collections.Generic.List<LaunchPadBehaviour> All = new System.Collections.Generic.List<LaunchPadBehaviour>();
+        void OnEnable() { if (!All.Contains(this)) All.Add(this); }
+        void OnDisable() => All.Remove(this);
+
+        /// <summary>Armed or arming pads not owned by <paramref name="ownerId"/> (the 6-pad arena cap).</summary>
+        public static int ActiveCountExcludingOwner(int ownerId)
+        {
+            int count = 0;
+            for (int i = 0; i < All.Count; i++)
+            {
+                var pad = All[i].padData;
+                if (pad != null && pad.OwnerId != ownerId && (pad.State == PadState.Arming || pad.State == PadState.Armed)) count++;
+            }
+            return count;
+        }
+
+        /// <summary>Removes every pad immediately (match teardown / rematch).</summary>
+        public static void DestroyAll()
+        {
+            for (int i = All.Count - 1; i >= 0; i--)
+            {
+                var pad = All[i];
+                All.RemoveAt(i);
+                if (pad != null) Destroy(pad.gameObject);
+            }
+        }
 
         public LaunchPad PadData => padData;
         bool Updraft.UI.IPingablePad.Usable => padData != null && padData.CanBeUsed;
@@ -96,8 +125,10 @@ namespace Updraft.Pads
             bool friendly = IsFriendlyToViewer(pad.TeamId);
             if (padRenderer != null)
             {
-                padRenderer.material = friendly ? friendlyMaterial : enemyMaterial;
-                baseColor = padRenderer.material.color;
+                // Shared material + property block: no per-pad material instance to leak.
+                padRenderer.sharedMaterial = friendly ? friendlyMaterial : enemyMaterial;
+                if (padRenderer.sharedMaterial != null) baseColor = padRenderer.sharedMaterial.color;
+                colorBlock = new MaterialPropertyBlock();
             }
             BuildTeamSymbol(pad, friendly);
 
@@ -183,10 +214,13 @@ namespace Updraft.Pads
             if (isArmed && lastState == PadState.Arming && armSound != null) audioSource.PlayOneShot(armSound);
             lastState = padData.State;
             // Arming pads read as dim and blinking; armed pads at full colour.
-            if (padRenderer != null)
-                padRenderer.material.color = isArming
-                    ? baseColor * (0.45f + 0.25f * Mathf.PingPong(Time.time * 6f, 1f))
-                    : baseColor;
+            if (padRenderer != null && colorBlock != null)
+            {
+                Color color = isArming ? baseColor * (0.45f + 0.25f * Mathf.PingPong(Time.time * 6f, 1f)) : baseColor;
+                colorBlock.SetColor("_BaseColor", color);
+                colorBlock.SetColor("_Color", color);
+                padRenderer.SetPropertyBlock(colorBlock);
+            }
 
             if (armingEffect != null)
                 armingEffect.SetActive(isArming);
@@ -224,24 +258,20 @@ namespace Updraft.Pads
             }
         }
 
+        bool removing;
+
         void DestroyPad()
         {
+            if (removing) return;
+            removing = true;
             if (armedEffect != null)
                 armedEffect.SetActive(false);
             if (armingEffect != null)
                 armingEffect.SetActive(false);
+            // Gone for gameplay at once: nothing can stand on, shoot or overlap a removed pad.
+            foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
 
             Destroy(gameObject, 0.5f); // allow effects to play
-        }
-
-        void OnTriggerEnter(Collider other)
-        {
-            // Check if player stands on pad
-            var player = other.GetComponent<PlayerController>();
-            if (player != null && padData?.State == PadState.Armed)
-            {
-                // Player can launch by jumping - handled in PlayerController
-            }
         }
     }
 }

@@ -18,13 +18,11 @@ namespace Updraft.Core
     /// </summary>
     public class GameBootstrap : MonoBehaviour
     {
-        // Gate A budget evidence: real wall-clock device timings, logged once each.
-        // Static init runs when the class is first touched by the engine, as close to
-        // process start as C# can observe; the editable-Unity warmup that deviceTime
-        // excludes is covered by adb logcat timestamps.
-        static readonly long processStartDeviceMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // Gate A budget evidence. In-game scripts cannot observe the Android process
+        // boot, so the process-level startup budget is measured externally with
+        // `adb shell am start -W` (TotalTime). This instrument logs the engine-relative
+        // time of the first script Awake, which is comparable across builds.
         static float firstAwakeRealSeconds = -1f;
-        static long firstAwakeDeviceMs = -1;
         static bool startupLogged;
 
         [Header("Config Assets")]
@@ -64,12 +62,7 @@ namespace Updraft.Core
             instance = this;
             DontDestroyOnLoad(gameObject);
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
-            if (firstAwakeRealSeconds < 0f)
-            {
-                firstAwakeRealSeconds = Time.realtimeSinceStartup;
-                firstAwakeDeviceMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                    - (long)(Time.realtimeSinceStartup * 1000f);
-            }
+            if (firstAwakeRealSeconds < 0f) firstAwakeRealSeconds = Time.realtimeSinceStartup;
 
             // Apply graphics settings
             ApplyGraphicsConfig();
@@ -99,9 +92,9 @@ namespace Updraft.Core
             if (!startupLogged)
             {
                 startupLogged = true;
-                int startupMs = (int)(firstAwakeDeviceMs - processStartDeviceMs);
-                Debug.Log($"UPDRAFT_BUDGET startup={startupMs}ms (first script Awake minus static init; engine boot excluded)");
-                Telemetry.Track("startup_budget", ("ms", startupMs));
+                int engineMs = (int)(firstAwakeRealSeconds * 1000f);
+                Debug.Log($"UPDRAFT_BUDGET engine_to_first_script={engineMs}ms (process boot measured externally via am start -W)");
+                Telemetry.Track("startup_budget", ("ms", engineMs));
             }
 
             // Initialize systems

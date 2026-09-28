@@ -2,6 +2,7 @@ using System;
 using Fusion;
 using UnityEngine;
 using Updraft.Core;
+using Updraft.Input;
 using Updraft.Match;
 
 namespace Updraft.Network

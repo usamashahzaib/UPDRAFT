@@ -352,6 +352,137 @@ namespace Updraft.Tests.PlayMode
             yield return null;
         }
 
+        static IEnumerator RunUntil(System.Func<bool> done, float timeScale, float realSeconds)
+        {
+            float originalScale = Time.timeScale;
+            try
+            {
+                Time.timeScale = timeScale;
+                float deadline = Time.realtimeSinceStartup + realSeconds;
+                while (!done() && Time.realtimeSinceStartup < deadline) yield return null;
+            }
+            finally { Time.timeScale = originalScale; }
+        }
+
+        /// <summary>
+        /// Gate B: Results -> Play again restores the controls, and repeated matches leave
+        /// nothing behind (players, bots, pads including owner-ticked ones, colliders,
+        /// line renderers, materials).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator RepeatedMatches_RematchRestoresControls_AndLeaksNothing()
+        {
+            PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
+            yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
+            yield return null;
+            var game = GameBootstrap.Instance;
+            game.StartOfflinePractice();
+            yield return null;
+            var match = MatchController.Current;
+
+            const int rounds = 4;
+            var colliders = new int[rounds];
+            var lines = new int[rounds];
+            var materials = new int[rounds];
+            for (int round = 0; round < rounds; round++)
+            {
+                yield return RunUntil(() => match.CurrentPhase == MatchPhase.InProgress, 20f, 10f);
+                Assert.AreEqual(MatchPhase.InProgress, match.CurrentPhase);
+
+                // Every real placement is ticked by its owner; one must not outlive the match.
+                var local = match.LocalPlayer;
+                var data = new LaunchPad(game.padConfig, local.PlayerId, local.TeamId, new Vector3(-36f, 0.05f, -12f), Vector3.right);
+                var padObject = new GameObject("Owner-ticked regression pad");
+                padObject.transform.position = data.Position;
+                padObject.AddComponent<LaunchPadBehaviour>().Initialize(data, true);
+                Assert.Greater(LaunchPadBehaviour.All.Count, 0);
+
+                yield return RunUntil(() => game.matchHUD.resultsPanel.activeSelf, 20f, 40f);
+                Assert.IsTrue(game.matchHUD.resultsPanel.activeSelf, $"Round {round} must reach Results.");
+                Assert.IsFalse(game.touchInput.enabled, "Results hides combat controls.");
+
+                match.OnPlayAgain();
+                yield return null;
+                yield return null;
+
+                Assert.IsTrue(game.touchInput.enabled, "Play again must hand the controls back.");
+                Assert.IsFalse(game.matchHUD.resultsPanel.activeSelf);
+                Assert.AreEqual(MatchPhase.Preparation, match.CurrentPhase, "A rematch starts with a fresh preparation phase.");
+                Assert.AreEqual(0, LaunchPadBehaviour.All.Count, "No pad survives into the rematch.");
+                Assert.AreEqual(0, Object.FindObjectsByType<LaunchPadBehaviour>(FindObjectsSortMode.None).Length);
+                Assert.AreEqual(6, PlayerController.All.Count);
+                Assert.AreEqual(6, Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None).Length);
+                if (PingSystem.Instance != null) Assert.LessOrEqual(PingSystem.Instance.ActivePings.Count, 6, "At most one live ping per player.");
+
+                colliders[round] = Object.FindObjectsByType<Collider>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                lines[round] = Object.FindObjectsByType<LineRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                materials[round] = Resources.FindObjectsOfTypeAll<Material>().Length;
+            }
+            // Round 0 may create lazy singletons (tracer pool, audio); later rounds must be flat.
+            Assert.AreEqual(colliders[1], colliders[rounds - 1], "Collider count grows across matches.");
+            Assert.AreEqual(lines[1], lines[rounds - 1], "LineRenderer count grows across matches.");
+            Assert.AreEqual(materials[1], materials[rounds - 1], "Material count grows across matches.");
+            match.OnReturnHome();
+            yield return null;
+            Assert.AreEqual(0, PlayerController.All.Count);
+            Assert.AreEqual(0, LaunchPadBehaviour.All.Count);
+        }
+
+        /// <summary>Gate B: prep permissions, and pad damage by real firing (enemy destroys, friendly fire can't).</summary>
+        [UnityTest]
+        public IEnumerator PrepBlocksDamageAndPads_LiveFire_DestroysEnemyPads_NotFriendly()
+        {
+            PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
+            yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
+            yield return null;
+            var game = GameBootstrap.Instance;
+            game.StartOfflinePractice();
+            yield return null;
+            var match = MatchController.Current;
+            var local = match.LocalPlayer;
+
+            Assert.AreEqual(MatchPhase.Preparation, match.CurrentPhase);
+            Assert.AreEqual("NOT DURING THIS PHASE", local.TryPlacePad());
+            local.ApplyDamage(50f, 99, Updraft.Config.WeaponId.Arc);
+            Assert.AreEqual(local.MaxHealth, local.CurrentHealth, "No damage during preparation.");
+
+            yield return RunUntil(() => match.CurrentPhase == MatchPhase.InProgress, 20f, 10f);
+            Assert.AreEqual(MatchPhase.InProgress, match.CurrentPhase);
+            // Outside the spawn room (no firing from inside it) and away from bots' lanes.
+            local.WarpForTraining(new Vector3(-40f, 0.05f, -12f), Quaternion.LookRotation(Vector3.right));
+            game.mainCamera.SnapBehindTarget();
+            yield return null;
+            yield return null;
+
+            foreach (int team in new[] { local.TeamId, 1 - local.TeamId })
+            {
+                var cam = local.playerCamera.transform;
+                var data = new LaunchPad(game.padConfig, 900 + team, team, cam.position + cam.forward * 6f, Vector3.right);
+                data.CompleteArming();
+                var padObject = new GameObject($"Team {team} shooting pad");
+                padObject.transform.position = data.Position;
+                // Stand the disc up to face the camera so the crosshair ray meets it.
+                padObject.transform.rotation = Quaternion.LookRotation(Vector3.up, -cam.forward);
+                var behaviour = padObject.AddComponent<LaunchPadBehaviour>();
+                behaviour.Initialize(data);
+                Physics.SyncTransforms();
+
+                local.SetExternalInput(Vector2.zero, false, true, false);
+                yield return new WaitForSeconds(0.6f);
+                local.SetExternalInput(Vector2.zero, false, false, false);
+                yield return null;
+
+                if (team == local.TeamId)
+                    Assert.AreEqual(game.padConfig.health, data.Health, "Friendly fire must not damage a pad.");
+                else
+                    Assert.AreEqual(PadState.Destroyed, data.State, "Enemy fire must destroy a 60 HP pad.");
+                Object.Destroy(padObject);
+                yield return new WaitForSeconds(0.2f);
+            }
+            match.OnReturnHome();
+            yield return null;
+        }
+
         static IEnumerator ExerciseRecordedTouchInput()
         {
             var game = GameBootstrap.Instance;

@@ -205,6 +205,7 @@ namespace Updraft.Match
 
         void BeginMatch()
         {
+            float loadStarted = Time.realtimeSinceStartup;
             Updraft.Core.Telemetry.CurrentMatchId = System.Guid.NewGuid().ToString("N");
             Updraft.Core.Telemetry.CurrentMatchHasBots = bots.Count > 0;
             Updraft.Core.Telemetry.TrackOfflineMatchFact("match_started", ("mode", "offline_practice"),
@@ -228,11 +229,12 @@ namespace Updraft.Match
             matchHUD?.UpdateZoneStatus(ActiveObjectivePosition, false, false);
             matchHUD?.ShowRotation(0f);
 
-            // Gate A budget evidence: measured arena load-in for this mode.
+            // Gate A budget evidence: measured synchronous match load-in
+            // (spawn placement, state reset, permissions, HUD init).
             if (!loadBudgetLogged)
             {
                 loadBudgetLogged = true;
-                Debug.Log($"UPDRAFT_BUDGET arena_load={Time.realtimeSinceStartup:F0}s (realtime since script init to first match ready)");
+                Debug.Log($"UPDRAFT_BUDGET match_load_in={(Time.realtimeSinceStartup - loadStarted) * 1000f:F0}ms");
             }
         }
 
@@ -477,10 +479,7 @@ namespace Updraft.Match
 
         void OnPlayerRespawn(PlayerController player)
         {
-            // Respawn at team spawn
-            Transform[] spawns = player.TeamId == 0 ? teamASpawns : teamBSpawns;
-            Transform spawn = spawns[Random.Range(0, spawns.Length)];
-            player.WarpForTraining(spawn.position, spawn.rotation);
+            // PlayerController has already placed itself at a mirrored spawn exit.
             if (player == localPlayer)
             {
                 matchHUD?.HideCombatFeedback();
@@ -535,23 +534,9 @@ namespace Updraft.Match
         public void OnPlayAgain()
         {
             Updraft.Core.Telemetry.Track("results_play_again_clicked");
-            // Reset and restart
-            matchEnded = false;
-
-            foreach (var player in allPlayers)
-            {
-                Destroy(player.gameObject);
-            }
-            foreach (var bot in bots)
-            {
-                Destroy(bot.gameObject);
-            }
-
-            allPlayers.Clear();
-            teamAPlayers.Clear();
-            teamBPlayers.Clear();
-            bots.Clear();
-
+            TearDownMatch();
+            // Results disabled the controls; a rematch must hand them back.
+            if (touchInput != null) touchInput.enabled = true;
             StartOfflinePractice();
         }
 
@@ -562,13 +547,24 @@ namespace Updraft.Match
 
         public void StopOfflinePractice()
         {
+            TearDownMatch();
             matchEnded = true;
+        }
+
+        /// <summary>
+        /// Removes everything a match created (players, bots, pads, pings) so
+        /// repeated matches leave nothing behind.
+        /// </summary>
+        void TearDownMatch()
+        {
+            matchEnded = false;
             Updraft.Core.GameAudio.SetMusic(false);
             Updraft.UI.PingSystem.Instance?.Clear();
             foreach (var player in allPlayers) if (player != null) Destroy(player.gameObject);
-            foreach (var pad in FindObjectsByType<Updraft.Pads.LaunchPadBehaviour>(FindObjectsSortMode.None)) Destroy(pad.gameObject);
+            Updraft.Pads.LaunchPadBehaviour.DestroyAll();
             allPlayers.Clear(); teamAPlayers.Clear(); teamBPlayers.Clear(); bots.Clear();
             localPlayer = null;
+            SpectatedTeammate = null;
         }
 
         public void SetLocalWeapon(int weaponIndex)

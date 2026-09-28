@@ -230,23 +230,9 @@ namespace Updraft.Tutorial
 
         void SetupUseEnemyPadStep()
         {
-            // Spawn enemy-colored pad
-            if (enemyPadPosition != null)
-            {
-                GameObject padObj = new GameObject("EnemyPad");
-                padObj.transform.position = enemyPadPosition.position;
-                padObj.transform.rotation = enemyPadPosition.rotation;
-                padObj.layer = LayerMask.NameToLayer("Pad");
+            SpawnEnemyTrainingPad();
 
-                var padBehaviour = padObj.AddComponent<LaunchPadBehaviour>();
-                var padData = new LaunchPad(padConfig, 999, 1, enemyPadPosition.position, enemyPadPosition.forward); // Team 1 = enemy
-                padBehaviour.Initialize(padData);
-                enemyPad = padBehaviour;
-
-                padData.CompleteArming();
-            }
-
-            // Move player near enemy pad
+            // Start the player just past the pad, facing it.
             if (enemyPadPosition != null)
             {
                 localPlayer.WarpForTraining(enemyPadPosition.position + enemyPadPosition.forward * 2f,
@@ -254,10 +240,25 @@ namespace Updraft.Tutorial
             }
         }
 
+        /// <summary>An armed enemy-coloured demonstration pad. Re-created in place (never moving the player) if it lapses.</summary>
+        void SpawnEnemyTrainingPad()
+        {
+            if (enemyPadPosition == null) return;
+            GameObject padObj = new GameObject("EnemyPad");
+            padObj.transform.position = enemyPadPosition.position;
+            padObj.transform.rotation = enemyPadPosition.rotation;
+            padObj.layer = LayerMask.NameToLayer("Pad");
+
+            var padBehaviour = padObj.AddComponent<LaunchPadBehaviour>();
+            var padData = new LaunchPad(padConfig, 999, 1, enemyPadPosition.position, enemyPadPosition.forward); // Team 1 = enemy
+            padBehaviour.Initialize(padData);
+            enemyPad = padBehaviour;
+            padData.CompleteArming();
+        }
+
         void SetupDestroyEnemyPadStep()
         {
-            // Spawn another enemy pad
-            SetupUseEnemyPadStep(); // Reuse but for destruction
+            SetupUseEnemyPadStep(); // a fresh enemy pad, player facing it
             tutorialUI?.SetInstruction("Shoot the enemy pad to destroy it");
         }
 
@@ -311,6 +312,9 @@ namespace Updraft.Tutorial
                     break;
 
                 case TutorialStep.RideOwnPad:
+                    // No forced waiting: if the pad lapsed unused, hand the charge straight back.
+                    if (!usedOwnPad && localPlayer.PadManager.ActivePad == null && !localPlayer.HasPadCharge)
+                        localPlayer.PadManager.EnsureChargeAvailable();
                     // Check if player launched and reached target height
                     if (usedOwnPad && localPlayer.transform.position.y > padLaunchTargetPosition.position.y - 0.1f &&
                         Vector2.Distance(new Vector2(localPlayer.transform.position.x, localPlayer.transform.position.z),
@@ -323,11 +327,11 @@ namespace Updraft.Tutorial
                 case TutorialStep.UseEnemyPad:
                     // Check if player used enemy pad
                     // Handled in CheckPadActivationStep
-                    if (enemyPad == null) SetupUseEnemyPadStep();
+                    if (enemyPad == null) SpawnEnemyTrainingPad();
                     break;
 
                 case TutorialStep.DestroyEnemyPad:
-                    if (enemyPad == null) SetupDestroyEnemyPadStep();
+                    if (enemyPad == null) SpawnEnemyTrainingPad();
                     if (enemyPad != null && enemyPad.PadData.State == PadState.Destroyed)
                     {
                         CompleteStep();

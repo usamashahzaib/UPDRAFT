@@ -404,7 +404,7 @@ namespace Updraft.Core
 
             Vector3[] positions = {
                 mapConfig.northSpawnCenter + new Vector3(0, 0.05f, -10),  // Start near north spawn
-                mapConfig.northSpawnCenter + new Vector3(10, 0.05f, -15), // Move target
+                mapConfig.northSpawnCenter + new Vector3(12, 0.05f, -15), // Move target, clear of the 18 m sightline blocker
                 mapConfig.northSpawnCenter + new Vector3(0, 0.05f, -25),  // Shoot target
                 mapConfig.centerZone + new Vector3(-10, 0.05f, 5),   // Clear legal launch lane
                 mapConfig.platformCenters[1],                       // North-west platform

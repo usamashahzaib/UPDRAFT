@@ -78,6 +78,29 @@ public class AuthEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Post_Auth_LinkGooglePlay_DoesNotTrustCallerSuppliedPlatformId_WhenCredentialsAreAbsent()
+    {
+        var playerId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, Alias = "TestFox-4821", IsGuest = true });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        var response = await client.PostAsJsonAsync("/api/auth/link-google-play",
+            new { ServerAuthCode = "unverified-code", VerifiedPlatformId = "attacker-selected-id" });
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        var account = await verifyDb.PlayerAccounts.FindAsync(playerId);
+        Assert.Null(account!.LinkedPlatformIdentity);
+        Assert.True(account.IsGuest);
+    }
+
+    [Fact]
     public async Task Post_Auth_Refresh_RotatesRefreshToken_AndRejectsReuse()
     {
         var client = _factory.CreateUnauthenticatedClient();

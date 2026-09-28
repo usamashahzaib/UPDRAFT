@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
@@ -15,6 +16,7 @@ namespace Updraft.Network
     public class OnlinePlay : MonoBehaviour
     {
         const float ServerWaitSeconds = 60f;
+        const float ReconnectPollSeconds = 2f;
 
         GameBootstrap game;
         GameObject panel;
@@ -23,6 +25,7 @@ namespace Updraft.Network
         TextMeshProUGUI actionLabel;
         bool cancelled;
         bool searching;
+        bool recovering;
         NetSession session;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -58,7 +61,7 @@ namespace Updraft.Network
         {
             Show("CONNECTING", $"Joining development server \"{config.devDirectSession}\"…", "CANCEL", Cancel);
             string alias = PlayerPrefs.GetString("LocalAlias", "Player");
-            await Join(config.devDirectSession, config.devDirectRegion, $"dev:A:{alias}");
+            await Join(config.devDirectSession, config.devDirectRegion, $"dev:A:{alias}", null);
         }
 
         async Task MatchmakeAsync()
@@ -108,20 +111,119 @@ namespace Updraft.Network
 
             Telemetry.Track("match_joining", ("match_id", ticket.matchId), ("has_bots", ticket.hasBots ? "1" : "0"));
             Show("LOADING MATCH", ticket.hasBots ? "Joining… (some seats are labeled bots)" : "Joining…", "CANCEL", Cancel);
-            await Join(ticket.session, ticket.region, ticket.ticket);
+            await Join(ticket.session, ticket.region, ticket.ticket, ticket.matchId);
         }
 
-        async Task Join(string sessionName, string region, string ticket)
+        async Task Join(string sessionName, string region, string ticket, string matchId)
         {
             session = await NetSession.StartClient(sessionName, region, ticket);
-            if (cancelled) { session.Leave(); return; }
-            if (session.FailureReason != null) { Failed(session.FailureReason); return; }
+            if (cancelled) { session?.Leave(); return; }
+            if (session == null) { Failed("Could not create a match connection."); return; }
+            if (session.FailureReason != null)
+            {
+                if (string.IsNullOrEmpty(matchId)) Failed(session.FailureReason);
+                else await Recover(matchId, session, session.FailureReason);
+                return;
+            }
 
-            var presenter = session.gameObject.AddComponent<NetClientPresenter>();
-            presenter.Bind(game, session, ReturnHome);
-            session.OnFailed += reason => { if (!presenter.ShowingResults) Failed(reason); };
+            BindPresenter(session, matchId);
+        }
+
+        void BindPresenter(NetSession net, string matchId)
+        {
+            var presenter = net.gameObject.AddComponent<NetClientPresenter>();
+            presenter.Bind(game, net, ReturnHome);
+            net.OnFailed += reason =>
+            {
+                if (presenter.ShowingResults) return;
+                if (string.IsNullOrEmpty(matchId)) Failed(reason);
+                else _ = Recover(matchId, net, reason);
+            };
             panel.SetActive(false);
             game.touchInput.enabled = true;
+        }
+
+        async Task Recover(string matchId, NetSession disconnected, string initialReason)
+        {
+            if (recovering || cancelled) return;
+            recovering = true;
+            session = disconnected;
+            game.touchInput.enabled = false;
+            Telemetry.Track("match_disconnect", ("match_id", matchId));
+            var api = BackendClient.Instance;
+
+            while (!cancelled)
+            {
+                Show("RECONNECTING TO MATCH", $"{initialReason}\nYour avatar and match state are being preserved. Checking the match…", "CANCEL", Cancel);
+                var auth = await api.EnsureSessionAsync();
+                if (cancelled) break;
+                if (!auth.Ok)
+                {
+                    Show("RECONNECTING TO MATCH", $"{auth.Message}\nYour avatar remains reserved. Retrying…", "CANCEL", Cancel);
+                    await Task.Delay(TimeSpan.FromSeconds(ReconnectPollSeconds));
+                    continue;
+                }
+
+                var allowed = await api.ReconnectAsync(matchId);
+                if (cancelled) break;
+                if (!allowed.Ok || allowed.Value == null)
+                {
+                    if (allowed.Error is BackendError.Invalid or BackendError.NotFound or BackendError.NotConfigured)
+                    {
+                        recovering = false;
+                        Failed("This match is no longer available. No result or reward was created for a failed server.");
+                        return;
+                    }
+                    Show("RECONNECTING TO MATCH", $"{allowed.Message}\nRetrying the secure reconnect check…", "CANCEL", Cancel);
+                    await Task.Delay(TimeSpan.FromSeconds(ReconnectPollSeconds));
+                    continue;
+                }
+                if (!allowed.Value.reconnectAllowed)
+                {
+                    recovering = false;
+                    Failed("The match has ended. Return Home to queue again.");
+                    return;
+                }
+
+                var ticket = await api.TicketAsync();
+                if (cancelled) break;
+                if (!ticket.Ok || ticket.Value == null || !ticket.Value.serverReady || string.IsNullOrEmpty(ticket.Value.ticket))
+                {
+                    string message = ticket.Ok ? "The match server is restarting. Retrying…" : ticket.Message;
+                    Show("RECONNECTING TO MATCH", message, "CANCEL", Cancel);
+                    await Task.Delay(TimeSpan.FromSeconds(ReconnectPollSeconds));
+                    continue;
+                }
+
+                if (disconnected != null)
+                {
+                    disconnected.Leave();
+                    for (int i = 0; i < 50 && disconnected != null && disconnected.Runner != null && disconnected.Runner.IsRunning; i++)
+                        await Task.Delay(100);
+                    await Task.Delay(250); // allow Unity to finish the old runner's shutdown callback
+                }
+                if (cancelled) break;
+
+                var next = await NetSession.StartClient(ticket.Value.session, ticket.Value.region, ticket.Value.ticket);
+                if (cancelled) { next?.Leave(); break; }
+                if (next == null || next.FailureReason != null)
+                {
+                    string reason = next?.FailureReason ?? "Could not create a match connection.";
+                    Show("RECONNECTING TO MATCH", $"{reason}\nRetrying with a fresh join ticket…", "CANCEL", Cancel);
+                    disconnected = next;
+                    session = next;
+                    await Task.Delay(TimeSpan.FromSeconds(ReconnectPollSeconds));
+                    continue;
+                }
+
+                session = next;
+                recovering = false;
+                Telemetry.Track("match_reconnected", ("match_id", matchId));
+                BindPresenter(next, matchId);
+                return;
+            }
+
+            recovering = false;
         }
 
         // ---------- UI ----------

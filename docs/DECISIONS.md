@@ -59,3 +59,22 @@ Backend (same day):
   `GameServer:ApiKey` (fails closed when unset).
 - Global per-player/IP rate limit (300/min) plus the stricter auth limit; independent
   `Features:MatchmakingEnabled` / `Features:PurchasesEnabled` kill switches (purchases default off).
+
+## 2026-09-28 — Gate B (complete offline Relay) pass
+
+Routine choices where the spec is silent (simplest consistent option):
+- **Weapon cadence** (`WeaponState`): the fire interval carries the sub-frame remainder, so held fire matches the configured RPM at any frame rate; an idle trigger never banks shots; a fresh press fires as soon as one full interval has passed. Several shots in one long frame are allowed rather than lost.
+- **Firing speed (5.1 m/s)** applies while the trigger is held *and* the weapon can fire (not while reloading or empty).
+- **Auto-reload** is always on (spec "auto-reload default"); no setting was added.
+- **Preparation** freezes movement in the spawn exits ("spawn-locked"); camera and weapon select stay live.
+- **Respawn placement** lives in `PlayerController` using `MapConfig.SpawnExit` (mirrored exits); `MatchController` no longer re-warps.
+- **Bot perception**: 60° horizontal half-angle view cone, 50 m sight, 30 m hearing of gunfire located at the shot's origin, all in `BotConfig`. Occluders are Ground/Cover/SpawnBarrier, built from layer names in code — never a serialized mask.
+- **Bot reaction delay** is a real hold: a changed situation is acted on only after 0.35 s (standard) / 0.6 s (easy); a stimulus that disappears sooner is never acted on. First shot at a new target waits the same delay plus an optional 0.1–0.35 s focus-fire desync (35%).
+- **Bot retreat** (≤30% HP) paths over the NavMesh to the team's middle spawn exit and waits there for regeneration; it resumes the objective once above 30%.
+- **Bot recoil**: bots are not camera-driven and re-aim every frame with a decaying tracking error whose floor (1.2°/2.5°) exceeds per-shot recoil; recoil is therefore not simulated separately for bots.
+- **Pad preview**: while the >180 ms preview shows, dragging the pad finger steers the camera (the launch direction); dragging beyond 2× the button cancels at no cost.
+- **Pad "fits fully" rim tolerance** = r·tan(max tilt) + 2 cm, so every surface up to 5° that the tilt rule allows can also pass the fit rule.
+- **Pads tick through their owner** (unchanged); all pads are removed at rematch/Home via `LaunchPadBehaviour.DestroyAll`, so none can outlive a match unticked.
+- **Ramps** face the arena middle on both axes (mirrored across X = 0 and Z = 0). **Central sightline blockers** widened from 8 m to 18 m so no exit-to-exit spawn line is open; the tutorial move marker moved from X 10 to X 12 to stay clear of it.
+- **Tutorial**: an expired demonstration enemy pad is re-created in place without moving the player; if the ride-your-pad step is left with no pad and no charge, the charge is restored (no forced 16 s wait).
+- Deleted the unused `PadPlacementValidator` (a second, divergent copy of the placement rules).

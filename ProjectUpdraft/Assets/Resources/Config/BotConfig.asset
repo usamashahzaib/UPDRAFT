@@ -16,4 +16,15 @@ MonoBehaviour:
   standardReactionSeconds: 0.35
   retreatHealthFraction: 0.3
   focusFireDesyncChance: 0.35
+  focusFireDesyncMinSeconds: 0.1
+  focusFireDesyncMaxSeconds: 0.35
   useLineOfSightOnly: 1
+  sightRangeMeters: 50
+  viewConeHalfAngleDegrees: 60
+  hearingRangeMeters: 30
+  heardShotMemorySeconds: 0.5
+  initialAimErrorEasyDegrees: 7
+  initialAimErrorStandardDegrees: 4.5
+  minimumAimErrorEasyDegrees: 2.5
+  minimumAimErrorStandardDegrees: 1.2
+  aimErrorRecoveryDegreesPerSecond: 3

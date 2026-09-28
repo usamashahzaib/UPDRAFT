@@ -34,6 +34,11 @@ namespace Updraft.Weapons
             var results = new PelletResult[weapon.pelletsPerShot];
             float halfAngle = GetSpreadHalfAngle(weapon, state);
             var rng = new System.Random((int)shotSeed);
+            aimDirection = aimDirection.normalized;
+            // Any axis perpendicular to the aim works; fall back when aiming straight up/down.
+            Vector3 tiltAxis = Vector3.Cross(aimDirection, Vector3.up);
+            if (tiltAxis.sqrMagnitude < 1e-6f) tiltAxis = Vector3.Cross(aimDirection, Vector3.right);
+            tiltAxis.Normalize();
 
             // Even angular rotation offset per pellet plus a seeded jitter keeps the
             // pattern from clustering while still varying shot-to-shot.
@@ -49,7 +54,7 @@ namespace Updraft.Weapons
                 float rotationAroundAxis = baseRotation + (360f / Mathf.Max(1, weapon.pelletsPerShot)) * i;
 
                 Quaternion spreadRot = Quaternion.AngleAxis(rotationAroundAxis, aimDirection) *
-                                       Quaternion.AngleAxis(angleFromCenter, Vector3.Cross(aimDirection, Vector3.up).normalized);
+                                       Quaternion.AngleAxis(angleFromCenter, tiltAxis);
 
                 results[i] = new PelletResult { direction = spreadRot * aimDirection };
             }

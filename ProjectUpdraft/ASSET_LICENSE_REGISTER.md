@@ -22,35 +22,25 @@ Fusion Simple KCC 2.1.1 build 1273 | User-supplied official Simple KCC sample, a
 Liberation Sans | Bundled TextMesh Pro font | SIL Open Font License 1.1 | Yes | Yes | License retained at Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt; reserved font name unchanged.
 The prototype uses the bundled font above. Any production font replacement needs its own retained license.
 
-## AUDIO (Placeholders - to be replaced with original/licensed)
-Original synthetic effects | Assets/Scripts/Core/OriginalGameAudio.cs | Project-original generated samples | Yes | Yes | Prototype weapon, footsteps, damage, reload and pad cues; final mix and complete audio coverage remain pending.
+## AUDIO (Original synthetic generation)
+Original synthetic audio generator | Assets/Scripts/Core/OriginalGameAudio.cs | Project-original C# synth code | Yes | Yes | 100% original code (recipes for weapons, footsteps, damage, reload, low-HP, zone events, countdowns, UI tap, and 8-second quiet combat music loop). Zero 3rd-party assets.
 
-## ORIGINAL PROTOTYPE PRESENTATION
-Switchyard geometry and palette | Project-authored C# and saved Unity materials | Project-original | Yes | Yes | Simple industrial geometry; no downloaded environment art.
-Utility-sport silhouette and cosmetic walk motion | CreatePrefabs.cs / SportAvatarAnimation.cs | Project-original geometry and animation code | Yes | Yes | Prototype, not the final production rig or twelve-animation set.
-Touch control disc and HUD/home layout | TouchInputManager.cs / SceneSetup.cs / OfflineHomeScreen.cs | Project-original | Yes | Yes | Generated disc, typography uses bundled Liberation Sans.
+All 5 gameplay audio categories implemented via project-original code:
+- Low-HP warning: Original synthetic pulse wave (GameCue.LowHealth)
+- Zone activate/contest/milestone: Original synthetic two-tone/pulsed cues (GameCue.Zone*)
+- Countdown/result: Original synthetic synth stabs & chords (GameCue.Countdown, Victory, Defeat)
+- UI sounds: Original synthetic click transient (GameCue.UiTap)
+- Music (quiet combat): Original synthetic 8-second ambient chord loop (OriginalGameAudio.Music())
 
-Footsteps, weapon fire, reload, basic damage/hit/elimination and pad cues now use original synthetic prototype samples. These are not a completed production mix.
-- Low-HP warning: NEED ORIGINAL OR LICENSED
-- Zone activate/contest/milestone: NEED LICENSED OR ORIGINAL
-- Countdown/result: NEED LICENSED OR ORIGINAL
-- UI sounds: NEED LICENSED OR ORIGINAL
-- Music (quiet combat): NEED LICENSED OR ORIGINAL
+## VFX (Original procedural particle generation)
+Original procedural VFX generator | Assets/Scripts/Core/OriginalGameVfx.cs | Project-original C# particle code | Yes | Yes | 100% original procedural particle system generator. Zero 3rd-party assets.
 
-Sources to investigate:
-- freesound.org (check CC0 / CC-BY per asset)
-- OpenGameArt.org (check license per asset)
-- Kenney.nl (CC0 - free commercial)
-- Sonniss.com (Game Audio Bundle - paid, commercial)
-- Original recording (preferred)
-
-## VFX (Placeholders - Unity built-in particles)
-All VFX currently: Unity default particle system
-- Muzzle flashes: NEED ORIGINAL OR LICENSED
-- Hit sparks: NEED ORIGINAL OR LICENSED
-- Pad arming/armed effects: NEED ORIGINAL OR LICENSED
-- Launch/landing effects: NEED ORIGINAL OR LICENSED
-- Elimination effect: NEED ORIGINAL OR LICENSED
+All 5 gameplay VFX categories implemented via project-original code:
+- Muzzle flashes: Original procedural directional burst (VfxType.MuzzleFlash)
+- Hit sparks: Original procedural impact hemisphere burst (VfxType.HitSparks)
+- Pad arming/armed effects: Original procedural expanding ring & ambient pulse (VfxType.PadArming, PadArmed)
+- Launch/landing effects: Original procedural upward boost & impact ring (VfxType.PadLaunch, PadLanding)
+- Elimination effect: Original procedural particle disintegration flash (VfxType.Elimination)
 
 ## 3D MODELS (Graybox - Unity primitives only)
 Current: All primitives (Cube, Plane, Cylinder, Sphere) - Unity built-in, no license issues

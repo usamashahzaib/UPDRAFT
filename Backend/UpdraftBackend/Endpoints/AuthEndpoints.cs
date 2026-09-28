@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using UpdraftBackend.Data;
 using UpdraftBackend.Domain;
 using UpdraftBackend.Services;
@@ -51,12 +52,42 @@ public static class AuthEndpoints
         // mapped on that builder regardless of registration order.
         var authenticatedGroup = app.MapGroup("/api/auth").RequireAuthorization();
 
-        authenticatedGroup.MapPost("/link-google-play", (LinkGooglePlayRequest request) =>
+        authenticatedGroup.MapPost("/link-google-play", async (LinkGooglePlayRequest request, HttpContext ctx,
+            UpdraftDbContext db, IGooglePlayGamesIdentityVerifier verifier, Microsoft.Extensions.Options.IOptions<GooglePlayGamesOptions> options,
+            CancellationToken cancellationToken) =>
         {
-            // TODO(external dependency): verify request.ServerAuthCode against Google's
-            // Play Games Services server-side identity API before trusting the identity.
-            // Never accept a caller-supplied platform identity unverified.
-            return Results.StatusCode(StatusCodes.Status501NotImplemented);
+            if (!options.Value.IsConfigured)
+                return Results.Json(new { error = "google_play_games_not_configured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+            if (string.IsNullOrWhiteSpace(request.ServerAuthCode) || request.ServerAuthCode.Length > 4096)
+                return Results.BadRequest(new { error = "server_auth_code_required" });
+
+            string? platformId = await verifier.VerifyPlayerIdAsync(request.ServerAuthCode, cancellationToken);
+            if (platformId is null)
+                return Results.Json(new { error = "google_identity_verification_failed" }, statusCode: StatusCodes.Status401Unauthorized);
+
+            var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
+            var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
+            if (account is null) return Results.NotFound();
+            if (account.LinkedPlatformIdentity is not null && account.LinkedPlatformIdentity != platformId)
+                return Results.Conflict(new { error = "account_already_linked" });
+            bool ownedByOther = await db.PlayerAccounts.AnyAsync(a => a.Id != playerId && a.LinkedPlatformIdentity == platformId, cancellationToken);
+            if (ownedByOther) return Results.Conflict(new { error = "google_identity_already_linked" });
+
+            account.LinkedPlatformIdentity = platformId;
+            account.IsGuest = false;
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new { linked = true });
+        });
+
+        authenticatedGroup.MapDelete("/google-play", async (HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
+        {
+            var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
+            var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
+            if (account is null) return Results.NotFound();
+            account.LinkedPlatformIdentity = null;
+            account.IsGuest = true;
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new { revoked = true });
         });
 
         authenticatedGroup.MapPost("/revoke", async (HttpContext ctx, UpdraftDbContext db,
@@ -68,7 +99,7 @@ public static class AuthEndpoints
         });
     }
 
-    public record LinkGooglePlayRequest(string ServerAuthCode, string? VerifiedPlatformId);
+    public record LinkGooglePlayRequest(string ServerAuthCode);
     public record RefreshSessionRequest(string RefreshToken);
     public record ServerTokenRequest(string ServerId);
 }

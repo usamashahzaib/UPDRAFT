@@ -40,6 +40,8 @@ namespace Updraft.Network
         bool insecureDev;
         readonly List<ExpectedPlayer> expected = new List<ExpectedPlayer>();
         readonly Dictionary<string, ExpectedPlayer> admittedByTicket = new Dictionary<string, ExpectedPlayer>();
+        readonly HashSet<string> pendingTickets = new HashSet<string>();
+        readonly HashSet<string> consumedTickets = new HashSet<string>();
         NetMatch match;
         public NetMatch Match => match;
         public IReadOnlyList<ExpectedPlayer> Expected => expected;
@@ -190,32 +192,60 @@ namespace Updraft.Network
         {
             if (!IsServer) return;
             string ticket = token != null ? Encoding.UTF8.GetString(token) : "";
-            if (string.IsNullOrEmpty(ticket)) { request.Refuse(); return; }
+            if (string.IsNullOrEmpty(ticket) || pendingTickets.Contains(ticket) ||
+                admittedByTicket.ContainsKey(ticket) || consumedTickets.Contains(ticket))
+            { request.Refuse(); return; }
 
             if (backend == null || !backend.Configured)
             {
                 // Local development only (explicit --insecure-dev flag): "dev:<team>:<alias>".
                 var dev = insecureDev ? ParseDevTicket(ticket) : null;
                 if (dev == null) { request.Refuse(); return; }
+                if (HasConnectedIdentity(runner, dev)) { request.Refuse(); return; }
                 admittedByTicket[ticket] = dev;
                 request.Accept();
                 return;
             }
 
+            pendingTickets.Add(ticket);
             request.Waiting();
             ValidateAsync(request, ticket);
         }
 
         async void ValidateAsync(NetworkRunnerCallbackArgs.ConnectRequest request, string ticket)
         {
-            var check = await backend.ValidateTicketAsync(MatchId, ticket);
-            ExpectedPlayer player = null;
-            if (check != null)
-                foreach (var p in expected)
-                    if (string.Equals(p.AccountId, check.playerId, StringComparison.OrdinalIgnoreCase)) { player = p; break; }
-            if (player == null) { request.Refuse(); return; }
-            admittedByTicket[ticket] = player;
-            request.Accept();
+            try
+            {
+                var check = await backend.ValidateTicketAsync(MatchId, ticket);
+                ExpectedPlayer player = null;
+                if (check != null && string.Equals(check.matchId, MatchId, StringComparison.OrdinalIgnoreCase))
+                    foreach (var p in expected)
+                        if (string.Equals(p.AccountId, check.playerId, StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(check.team, p.Team == 0 ? "A" : "B", StringComparison.Ordinal))
+                        { player = p; break; }
+
+                // The reservation fixes account, team and slot. A second live connection
+                // cannot take over the same input authority; a disconnected account can.
+                if (player == null || HasConnectedIdentity(Runner, player) || Match?.Phase == Updraft.Match.MatchPhase.Results)
+                { request.Refuse(); return; }
+                admittedByTicket[ticket] = player;
+                request.Accept();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[Net] Ticket validation failed closed: {e.GetType().Name}");
+                request.Refuse();
+            }
+            finally { pendingTickets.Remove(ticket); }
+        }
+
+        static bool HasConnectedIdentity(NetworkRunner runner, ExpectedPlayer identity)
+        {
+            foreach (var player in NetPlayer.All)
+                if (player.Runner == runner && player.Connected &&
+                    string.Equals(player.AccountId.ToString(), identity.AccountId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
         }
 
         ExpectedPlayer ParseDevTicket(string ticket)
@@ -241,13 +271,18 @@ namespace Updraft.Network
             if (!IsServer) return;
             var token = runner.GetPlayerConnectionToken(player);
             string ticket = token != null ? Encoding.UTF8.GetString(token) : "";
-            if (!admittedByTicket.TryGetValue(ticket, out var identity)) { runner.Disconnect(player); return; }
+            if (!admittedByTicket.TryGetValue(ticket, out var identity) || !consumedTickets.Add(ticket))
+            { runner.Disconnect(player); return; }
+            admittedByTicket.Remove(ticket);
+            if (Match?.Phase == Updraft.Match.MatchPhase.Results) { runner.Disconnect(player); return; }
 
             int slot = SlotFor(identity);
+            if (slot < 0) { runner.Disconnect(player); return; }
             // Reconnect: the same account resumes its own avatar (spec 10).
             foreach (var existing in NetPlayer.All)
             {
                 if (existing.Runner != runner || existing.Slot != slot) continue;
+                if (existing.Connected) { runner.Disconnect(player); return; }
                 existing.Object.AssignInputAuthority(player);
                 runner.SetPlayerObject(player, existing.Object);
                 existing.Connected = true;

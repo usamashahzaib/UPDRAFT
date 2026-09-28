@@ -12,8 +12,8 @@ public static class MatchEndpoints
         var group = app.MapGroup("/api/matches").RequireAuthorization();
 
         // Spec section 10: a player may rejoin the same avatar until match end.
-        // The dedicated-server allocator that issues the connection itself is
-        // Milestone C work; this only confirms the caller belongs to the match.
+        // The caller uses this authenticated check before requesting a fresh,
+        // short-lived join ticket; the dedicated server restores its reserved slot.
         group.MapPost("/{matchId}/reconnect", async (Guid matchId, HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
         {
             var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
@@ -45,6 +45,27 @@ public static class MatchEndpoints
             string? serverId = ctx.User.FindFirst("server_id")?.Value;
             if (string.IsNullOrEmpty(serverId)) return Results.Forbid();
             var staleBefore = DateTimeOffset.UtcNow - AllocationTimeout;
+            var now = DateTimeOffset.UtcNow;
+            var stale = await db.MatchAllocations
+                .Where(a => a.CompletedAt == null && a.ClaimedAt <= staleBefore)
+                .ToListAsync(cancellationToken);
+            if (stale.Count > 0)
+            {
+                // A server that disappeared cannot produce a result. Retire its lease and
+                // cancel the reservation without creating a participation, rating or reward.
+                var staleIds = stale.Select(a => a.MatchId).ToList();
+                var reserved = await db.MatchmakingTickets
+                    .Where(t => t.MatchId != null && staleIds.Contains(t.MatchId.Value) && t.Status == "matched")
+                    .ToListAsync(cancellationToken);
+                foreach (var allocation in stale) allocation.CompletedAt = now;
+                foreach (var ticket in reserved)
+                {
+                    ticket.Status = "cancelled";
+                    ticket.UpdatedAt = now;
+                }
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
             var active = await db.MatchAllocations.Where(a => a.CompletedAt == null).ToListAsync(cancellationToken);
             if (active.Count(a => a.ClaimedAt > staleBefore) >= allocator.MaxConcurrentMatches)
                 return Results.Json(new { error = "capacity" }, statusCode: StatusCodes.Status503ServiceUnavailable);

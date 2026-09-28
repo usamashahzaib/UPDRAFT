@@ -55,12 +55,9 @@ namespace Updraft.Player
         AudioSource audioSource;
         WeaponDefinition currentWeapon;
         int currentWeaponIndex = 0;
-        int currentAmmo;
-        float reloadTimer;
-        bool isReloading;
+        readonly WeaponState weaponState = new WeaponState();
         bool wasGrounded;
         float timeSinceLastFootstep;
-        float fireTimer;
         int teamId = 0; // 0 = TeamA (friendly), 1 = TeamB (enemy)
         int playerId;
         bool movementAllowed = true;
@@ -125,6 +122,8 @@ namespace Updraft.Player
         public float RespawnRemaining => IsAlive ? 0f : Mathf.Max(0f, respawnAt - Time.time);
         public int LastKillerId { get; private set; } = -1;
         public float LastShotTime { get; private set; } = -100f;
+        /// <summary>Where the last shot was fired from: the audible origin bots may react to.</summary>
+        public Vector3 LastShotPosition { get; private set; }
         float respawnAt;
         float nextLowHealthCue;
 
@@ -157,9 +156,9 @@ namespace Updraft.Player
         public bool IsGrounded => movementSim.IsGrounded;
         public float CurrentHealth => healthController.CurrentHealth;
         public float MaxHealth => movementConfig.maxHealth;
-        public int CurrentAmmo => currentAmmo;
+        public int CurrentAmmo => weaponState.Ammo;
         public int MaxAmmo => currentWeapon?.magazineSize ?? 0;
-        public bool IsReloading => isReloading;
+        public bool IsReloading => weaponState.IsReloading;
         public WeaponDefinition CurrentWeapon => currentWeapon;
         public PlayerPadManager PadManager => padManager;
         public bool HasPadCharge => padManager.HasCharge;
@@ -201,7 +200,7 @@ namespace Updraft.Player
             if (weaponDefinitions.Length > 0)
             {
                 currentWeapon = weaponDefinitions[0]; // ARC default per spec
-                currentAmmo = currentWeapon.magazineSize;
+                weaponState.Equip(currentWeapon);
             }
 
             // Setup visuals
@@ -230,7 +229,7 @@ namespace Updraft.Player
                 if (currentWeaponIndex < 0) currentWeaponIndex = 0;
             }
 
-            currentAmmo = currentWeapon.magazineSize;
+            weaponState.Equip(currentWeapon);
             SetTeamMaterial(teamId);
             UpdateWeaponVisual();
             BindTouchInput();
@@ -246,6 +245,7 @@ namespace Updraft.Player
         void OnDestroy()
         {
             if (padPreview != null) Destroy(padPreview.gameObject);
+            if (padPreviewMaterial != null) Destroy(padPreviewMaterial); // per-player preview tint
             if (touchInput != null)
                 touchInput.OnPingWorldPositionRequested -= HandlePingRequest;
         }
@@ -257,18 +257,16 @@ namespace Updraft.Player
 
             currentWeaponIndex = weaponIndex;
             currentWeapon = weaponDefinitions[weaponIndex];
-            currentAmmo = currentWeapon.magazineSize;
-            isReloading = false;
-            reloadTimer = 0f;
+            weaponState.Equip(currentWeapon);
             UpdateWeaponVisual();
-            OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
+            OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
         }
 
         /// <summary>Used by tutorial scripting to force a specific ammo count (e.g. the reload step).</summary>
         public void SetAmmo(int amount)
         {
-            currentAmmo = Mathf.Clamp(amount, 0, currentWeapon.magazineSize);
-            OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
+            weaponState.SetAmmo(amount);
+            OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
         }
 
         public void WarpForTraining(Vector3 position, Quaternion rotation)
@@ -415,7 +413,7 @@ namespace Updraft.Player
                 {
                     moveAxis = externalMoveAxis,
                     jumpOrLaunchPressed = externalJumpPressed,
-                    isFiring = externalFireHeld
+                    isFiring = externalFireHeld && weaponState.CanFire
                 };
             }
 
@@ -423,7 +421,7 @@ namespace Updraft.Player
             {
                 moveAxis = touchInput?.MoveInput ?? Vector2.zero,
                 jumpOrLaunchPressed = touchInput?.JumpPressed ?? false,
-                isFiring = touchInput?.FireHeld ?? false
+                isFiring = (touchInput?.FireHeld ?? false) && weaponState.CanFire
             };
             return input;
         }
@@ -510,47 +508,26 @@ namespace Updraft.Player
         {
             if (currentWeapon == null || !combatAllowed) return;
 
-            bool fireHeld = FireHeld && !IsInsideOwnSpawnRoom();
+            // Spawn protection: no firing out of your own spawn room.
+            bool trigger = FireHeld && !IsInsideOwnSpawnRoom();
+            bool wasReloading = weaponState.IsReloading;
+            int shots = weaponState.Tick(dt, trigger);
+            for (int i = 0; i < shots; i++)
+                FireShot();
 
-            if (isReloading)
-            {
-                reloadTimer -= dt;
-                if (reloadTimer <= 0f)
-                {
-                    isReloading = false;
-                    currentAmmo = currentWeapon.magazineSize;
-                    OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
-                }
-                return;
-            }
-
-            if (currentAmmo <= 0)
-            {
-                // Auto-reload (spec: auto-reload default)
-                StartReload();
-                return;
-            }
-
-            if (fireHeld)
-            {
-                float timeBetweenShots = currentWeapon.SecondsPerShot;
-                fireTimer += dt;
-
-                if (fireTimer >= timeBetweenShots)
-                {
-                    fireTimer = 0f;
-                    FireShot();
-                }
-            }
+            if (!wasReloading && weaponState.IsReloading)
+                PlayReloadCues(emptied: true); // auto-reload on an empty magazine
+            else if (wasReloading && !weaponState.IsReloading)
+                OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
         }
 
         void FireShot()
         {
-            if (currentWeapon == null || currentAmmo <= 0) return;
+            if (currentWeapon == null) return;
 
-            currentAmmo--;
             LastShotTime = Time.time;
-            OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
+            LastShotPosition = transform.position;
+            OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
 
             // Determine movement state for spread
             MovementState moveState;
@@ -689,17 +666,13 @@ namespace Updraft.Player
 
         void HandleReload(float dt)
         {
-            if (ReloadPressed && !isReloading && currentAmmo < currentWeapon.magazineSize)
-            {
-                StartReload();
-            }
+            if (ReloadPressed && combatAllowed && weaponState.RequestReload())
+                PlayReloadCues(emptied: false);
         }
 
-        void StartReload()
+        void PlayReloadCues(bool emptied)
         {
-            if (currentAmmo == 0) PlaySound(Updraft.Core.OriginalGameAudio.Get(Updraft.Core.GameCue.Empty), 0.6f);
-            isReloading = true;
-            reloadTimer = currentWeapon.reloadSeconds;
+            if (emptied) PlaySound(Updraft.Core.OriginalGameAudio.Get(Updraft.Core.GameCue.Empty), 0.6f);
             PlaySound(Updraft.Core.OriginalGameAudio.Get(Updraft.Core.GameCue.Reload), 0.55f);
         }
 
@@ -736,20 +709,16 @@ namespace Updraft.Player
 
         void Respawn()
         {
-            // Find spawn point based on team
-            Vector3 spawnPos = teamId == 0 ? mapConfig.northSpawnCenter : mapConfig.southSpawnCenter;
-            spawnPos.y = mapConfig.groundLevelY + 2f; // spawn slightly above ground
-
-            transform.position = spawnPos;
+            // Mirrored spawn exits (MapConfig.SpawnExit): the same layout for both teams.
+            Pose spawn = mapConfig.SpawnExit(teamId, Random.Range(0, mapConfig.exitsPerSpawn));
             charController.enabled = false;
-            transform.position = spawnPos;
+            transform.SetPositionAndRotation(spawn.position, spawn.rotation);
             charController.enabled = true;
 
             healthController.ResetForRespawn();
             movementSim.Reset();
-            currentAmmo = currentWeapon.magazineSize;
-            isReloading = false;
-            OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
+            weaponState.Equip(currentWeapon); // full magazine; the weapon may have changed while down
+            OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
             OnHealthChanged?.Invoke(1f);
 
             if (bodyMesh != null) bodyMesh.SetActive(true);
@@ -791,14 +760,12 @@ namespace Updraft.Player
             var physics = Physics.defaultPhysicsScene;
             string reason = PadPlacementRules.ResolvePosition(physics, transform.position, forward, padConfig, out position);
             if (reason != null) return reason;
-            int activeOther = 0;
-            foreach (var existing in FindObjectsByType<LaunchPadBehaviour>(FindObjectsSortMode.None))
-                if (existing.PadData != null && existing.PadData.OwnerId != playerId &&
-                    (existing.PadData.State == PadState.Arming || existing.PadData.State == PadState.Armed)) activeOther++;
+            int activeOther = LaunchPadBehaviour.ActiveCountExcludingOwner(playerId);
             return PadPlacementRules.Validate(physics, position, forward, activeOther, padConfig, mapConfig, movementConfig);
         }
 
         LineRenderer padPreview;
+        Material padPreviewMaterial;
         readonly Vector3[] previewPoints = new Vector3[32];
 
         // Hold-to-preview: draw the launch arc from the would-be pad, green if valid, red if not.
@@ -812,8 +779,8 @@ namespace Updraft.Player
                 padPreview.useWorldSpace = true;
                 padPreview.startWidth = 0.12f; padPreview.endWidth = 0.05f;
                 padPreview.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                padPreview.sharedMaterial = Resources.Load<Material>("Materials/Objective");
-                padPreview.material = new Material(padPreview.sharedMaterial);
+                padPreviewMaterial = new Material(Resources.Load<Material>("Materials/Objective"));
+                padPreview.sharedMaterial = padPreviewMaterial;
             }
             string reason = ResolvePadPlacement(out Vector3 position, out Vector3 forward);
             Vector3 velocity = forward * padConfig.launchHorizontalVelocity + Vector3.up * padConfig.launchUpwardVelocity;
@@ -828,15 +795,14 @@ namespace Updraft.Player
             }
             padPreview.positionCount = count;
             padPreview.SetPositions(previewPoints);
-            padPreview.material.color = reason == null ? new Color(0.4f, 1f, 0.55f) : new Color(1f, 0.39f, 0.46f);
+            padPreviewMaterial.color = reason == null ? new Color(0.4f, 1f, 0.55f) : new Color(1f, 0.39f, 0.46f);
             padPreview.enabled = true;
             touchInput.PadPreviewReason = reason;
         }
 
         void SpawnPadVisual(LaunchPad pad)
         {
-            // TODO: Instantiate pad prefab at pad.Position with pad.ForwardDirection
-            // For now, create a simple cylinder
+            // Graybox disc until the single pad mesh (spec 15 asset budget) exists.
             GameObject padObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             padObj.transform.position = pad.Position;
             padObj.transform.rotation = Quaternion.LookRotation(pad.ForwardDirection);
@@ -907,18 +873,17 @@ namespace Updraft.Player
 
         public void ResetForMatchStart()
         {
+            CancelInvoke(nameof(Respawn)); // a death in an earlier phase must not warp this player later
             healthController.ResetForRespawn();
             movementSim.Reset();
             padManager.ResetForMatchStart();
             hadPadCharge = true;
-            currentAmmo = currentWeapon.magazineSize;
-            isReloading = false;
-            fireTimer = currentWeapon.SecondsPerShot;
+            weaponState.Equip(currentWeapon);
             isSpawnProtected = false;
             if (!charController.enabled) charController.enabled = true;
             if (bodyMesh != null) bodyMesh.SetActive(true);
             OnHealthChanged?.Invoke(1f);
-            OnAmmoChanged?.Invoke(currentAmmo, currentWeapon.magazineSize);
+            OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
         }
     }
 }

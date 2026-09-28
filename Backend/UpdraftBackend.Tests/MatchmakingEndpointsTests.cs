@@ -120,6 +120,37 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
     }
 
     [Fact]
+    public async Task PartyQueue_RequiresLeaderAndEveryMemberReady()
+    {
+        var leaderId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var leader = _factory.CreateClientWithPlayerId(leaderId);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.AddRange(new PlayerAccount { Id = leaderId }, new PlayerAccount { Id = memberId });
+            await db.SaveChangesAsync();
+        }
+
+        var created = await leader.PostAsJsonAsync("/api/party/create", new { });
+        created.EnsureSuccessStatusCode();
+        var party = await created.Content.ReadFromJsonAsync<PartyResponse>();
+        Assert.NotNull(party);
+        var member = _factory.CreateClientWithPlayerId(memberId);
+        (await member.PostAsJsonAsync($"/api/party/{party.Code}/join", new { })).EnsureSuccessStatusCode();
+
+        var unready = await leader.PostAsJsonAsync("/api/matchmaking/enqueue", new { });
+        Assert.Equal(HttpStatusCode.Conflict, unready.StatusCode);
+
+        (await leader.PostAsJsonAsync($"/api/party/{party.Code}/ready", true)).EnsureSuccessStatusCode();
+        (await member.PostAsJsonAsync($"/api/party/{party.Code}/ready", true)).EnsureSuccessStatusCode();
+        var queued = await leader.PostAsJsonAsync("/api/matchmaking/enqueue", new { });
+        queued.EnsureSuccessStatusCode();
+        var nonLeaderQueue = await member.PostAsJsonAsync("/api/matchmaking/enqueue", new { });
+        Assert.Equal(HttpStatusCode.Forbidden, nonLeaderQueue.StatusCode);
+    }
+
+    [Fact]
     public async Task Cancel_StopsFurtherComposition()
     {
         var playerId = Guid.NewGuid();
@@ -180,4 +211,5 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
     private record CancelResponse(bool Cancelled);
     private record StatusResponse(string State, int ElapsedSeconds);
     private record TicketResponse(string? Ticket, string Note);
+    private record PartyResponse(string Code, string LeaderId, List<string> MemberIds, List<string> ReadyIds);
 }

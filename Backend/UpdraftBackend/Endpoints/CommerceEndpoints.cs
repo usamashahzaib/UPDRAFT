@@ -32,9 +32,9 @@ public static class CommerceEndpoints
             if (existing is not null)
                 return Results.Ok(new { status = existing.Status, alreadyProcessed = true });
 
-            // TODO(external dependency): call Google Play Developer API to verify
-            // request.PurchaseToken against request.ProductId before marking verified.
-            // Never mark a purchase verified without that round trip.
+            // External dependency: Google Play Developer API verification is not
+            // configured. Keep the transaction pending; never trust client product
+            // or purchase-token claims and never grant an entitlement here.
             var txn = new PurchaseTransaction
             {
                 Id = Guid.NewGuid(),

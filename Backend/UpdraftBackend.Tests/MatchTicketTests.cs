@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using UpdraftBackend.Data;
 using UpdraftBackend.Domain;
+using UpdraftBackend.Endpoints;
 using Xunit;
 
 namespace UpdraftBackend.Tests;
@@ -73,6 +75,40 @@ public class MatchTicketTests : IClassFixture<UpdraftWebApplicationFactory>
         Assert.Equal(HttpStatusCode.ServiceUnavailable, atCap.StatusCode);
         var denied = await factory.CreateClientWithPlayerId(player).PostAsync("/api/matches/claim", null);
         Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+    }
+
+    [Fact]
+    public async Task Claim_ExpiresCrashedAllocationWithoutInventingAResult()
+    {
+        using var factory = new UpdraftWebApplicationFactory();
+        var (player, match) = await SeedMatched(factory, allocated: false);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.MatchAllocations.Add(new MatchAllocation
+            {
+                MatchId = match,
+                ServerId = "crashed-server",
+                ClaimedAt = DateTimeOffset.UtcNow - MatchEndpoints.AllocationTimeout - TimeSpan.FromSeconds(1),
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await factory.CreateGameServerClient().PostAsync("/api/matches/claim", null);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            var allocation = await db.MatchAllocations.SingleAsync(a => a.MatchId == match);
+            var ticket = await db.MatchmakingTickets.SingleAsync(t => t.PlayerId == player);
+            var account = await db.PlayerAccounts.SingleAsync(a => a.Id == player);
+            Assert.NotNull(allocation.CompletedAt);
+            Assert.Equal("cancelled", ticket.Status);
+            Assert.False(await db.MatchParticipations.AnyAsync(p => p.MatchId == match));
+            Assert.False(await db.CreditLedgerEntries.AnyAsync(e => e.PlayerId == player));
+            Assert.Equal(0, account.ProfileXp);
+            Assert.Equal(1000, account.HiddenMatchmakingRating);
+        }
     }
 
     [Fact]
