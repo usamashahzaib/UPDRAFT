@@ -59,7 +59,8 @@ namespace Updraft.Network
         /// <summary>Enemy fire only (spec: friendly fire can't destroy pads).</summary>
         public void ServerDamage(float amount, int attackerTeam)
         {
-            if (Removed || attackerTeam == Team) return;
+            bool live = NetMatch.For(Runner)?.IsLive == true;
+            if (!live || Removed || attackerTeam == Team) return;
             HitPoints -= amount;
             if (HitPoints <= 0f) { Removed = true; NetMatch.For(Runner)?.RecordPadDestroyed(this); }
         }

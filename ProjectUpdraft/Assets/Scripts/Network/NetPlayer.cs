@@ -244,7 +244,7 @@ namespace Updraft.Network
             }
 
             bool firing = input.IsDown(NetButton.Fire) && !Map.IsInsideSpawnRoom(Team, transform.position);
-            if (!firing || (FireCooldown.IsRunning && !FireCooldown.Expired(Runner))) return;
+            if (!Match.IsLive || !firing || (FireCooldown.IsRunning && !FireCooldown.Expired(Runner))) return;
 
             FireCooldown = TickTimer.CreateFromSeconds(Runner, weapon.SecondsPerShot);
             Ammo--;
@@ -318,7 +318,7 @@ namespace Updraft.Network
 
         public void ServerDamage(float amount, int attackerSlot, int weapon)
         {
-            if (Dead || IsSpawnProtected) return;
+            if (!Match.IsLive || Dead || IsSpawnProtected) return;
             Health -= amount;
             RegenDelay = TickTimer.CreateFromSeconds(Runner, M.recoveryDelayAfterDamage);
             if (Health <= 0f) Match.Eliminate(this, attackerSlot, weapon);
