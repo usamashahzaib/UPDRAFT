@@ -48,8 +48,13 @@ namespace Updraft.Camera
         public Vector3 AimPosition => transform.position;
         public bool IsShaking => shakeTimer > 0f;
 
+        public const string ShakePrefKey = "CameraShakeEnabled";
+
         void Awake()
         {
+            // QA-021: restore the saved shake preference (default on) so gameplay matches the settings UI.
+            shakeEnabled = PlayerPrefs.GetInt(ShakePrefKey, 1) != 0;
+
             if (obstructionMask.value == 0)
                 obstructionMask = LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
             UnityEngine.Camera cam = GetComponent<UnityEngine.Camera>();
@@ -105,7 +110,7 @@ namespace Updraft.Camera
         public void SetShakeEnabled(bool enabled)
         {
             shakeEnabled = enabled;
-            PlayerPrefs.SetInt("CameraShakeEnabled", enabled ? 1 : 0);
+            PlayerPrefs.SetInt(ShakePrefKey, enabled ? 1 : 0);
         }
 
         void LateUpdate()
@@ -130,25 +135,44 @@ namespace Updraft.Camera
 
             // Calculate desired position
             Quaternion rotation = Quaternion.Euler(currentPitch, currentYaw, 0);
-            Vector3 targetPosition = target.position + Vector3.up * verticalOffset;
-            targetPosition += rotation * (Vector3.right * shoulderOffset); // shoulder offset
-            Vector3 desiredPosition = targetPosition - rotation * Vector3.forward * followDistance;
+            Vector3 head = target.position + Vector3.up * verticalOffset;
+            int mask = obstructionMask.value;
+            // QA-004: the shoulder offset is itself swept so the pivot never starts inside a wall.
+            Vector3 pivot = ClampToClearSpace(head, head + rotation * (Vector3.right * shoulderOffset), sphereCastRadius, mask);
+            Vector3 desiredPosition = ClampToClearSpace(pivot, pivot - rotation * Vector3.forward * followDistance, sphereCastRadius, mask);
 
-            // Obstruction check (sphere cast from target to desired position)
-            Vector3 direction = desiredPosition - targetPosition;
-            float distance = direction.magnitude;
-            if (distance > 0.01f)
-            {
-                RaycastHit hit;
-                if (Physics.SphereCast(targetPosition, sphereCastRadius, direction.normalized, out hit, distance, obstructionMask, QueryTriggerInteraction.Ignore))
-                {
-                    desiredPosition = hit.point + direction.normalized * sphereCastRadius;
-                }
-            }
-
-            // Smooth position
-            transform.position = Vector3.SmoothDamp(transform.position, desiredPosition + shakeOffset, ref currentVelocity, 1f / positionLerpSpeed);
+            // Smooth position, then a final corrective sweep so smoothing/shake can never carry
+            // the camera through a blocker (thin walls, corners, moving cover).
+            Vector3 smoothed = Vector3.SmoothDamp(transform.position, desiredPosition + shakeOffset, ref currentVelocity, 1f / positionLerpSpeed);
+            transform.position = ClampToClearSpace(pivot, smoothed, sphereCastRadius, mask);
             transform.rotation = Quaternion.Slerp(transform.rotation, rotation, rotationLerpSpeed * Time.deltaTime);
+        }
+
+        const float CollisionSkin = 0.05f;
+
+        /// <summary>
+        /// QA-004: moves a sphere of <paramref name="radius"/> from <paramref name="from"/> toward
+        /// <paramref name="to"/> and returns the furthest centre that stays on the near side of any
+        /// blocker. (The previous version offset hit.point further along the cast — into the wall.)
+        /// </summary>
+        public static Vector3 ClampToClearSpace(Vector3 from, Vector3 to, float radius, int mask)
+        {
+            Vector3 dir = to - from;
+            float dist = dir.magnitude;
+            if (dist < 1e-4f) return to;
+            dir /= dist;
+
+            // SphereCast ignores colliders the sphere already overlaps at its origin; fall back to
+            // a ray in that case so a pivot squeezed against geometry still cannot pass through it.
+            if (Physics.CheckSphere(from, radius, mask, QueryTriggerInteraction.Ignore))
+            {
+                if (Physics.Raycast(from, dir, out RaycastHit rayHit, dist, mask, QueryTriggerInteraction.Ignore))
+                    return from + dir * Mathf.Max(0f, rayHit.distance - CollisionSkin);
+                return to;
+            }
+            if (Physics.SphereCast(from, radius, dir, out RaycastHit hit, dist, mask, QueryTriggerInteraction.Ignore))
+                return from + dir * Mathf.Max(0f, hit.distance - CollisionSkin);
+            return to;
         }
 
         /// <summary>

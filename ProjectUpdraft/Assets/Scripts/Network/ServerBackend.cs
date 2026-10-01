@@ -8,10 +8,10 @@ using UnityEngine.Networking;
 namespace Updraft.Network
 {
     [Serializable] public class ServerTokenDto { public string token; public int expiresInSeconds; }
-    [Serializable] public class ClaimedPlayerDto { public string playerId; public string team; public string alias; }
+    [Serializable] public class ClaimedPlayerDto { public string playerId; public string team; public string alias; public string cosmetic; }
     [Serializable] public class ClaimDto { public string matchId; public string session; public string region; public bool hasBots; public List<ClaimedPlayerDto> players; }
     [Serializable] public class TicketCheckDto { public string playerId; public string matchId; public string team; public string alias; }
-    [Serializable] public class ResultParticipantDto { public string PlayerId; public bool Won; public bool Eligible; public bool HadBotSubstitution; public string Team; }
+    [Serializable] public class ResultParticipantDto { public string PlayerId; public bool Won; public bool Eligible; public bool HadBotSubstitution; public string Team; public int Slot = -1; }
     [Serializable] public class ResultDto { public bool Draw; public List<ResultParticipantDto> Participants; public bool ServerFailed; public bool HasBots; }
 
     /// <summary>
@@ -28,11 +28,14 @@ namespace Updraft.Network
         string token;
         DateTime tokenExpiresUtc;
 
-        public ServerBackend(string baseUrl, string serverKey, string serverId)
+        readonly Updraft.Core.PendingResultStore outbox;
+
+        public ServerBackend(string baseUrl, string serverKey, string serverId, Updraft.Core.PendingResultStore outbox = null)
         {
             this.baseUrl = baseUrl.TrimEnd('/');
             this.serverKey = serverKey;
             this.serverId = serverId;
+            this.outbox = outbox;
         }
 
         public bool Configured => !string.IsNullOrEmpty(baseUrl) && !string.IsNullOrEmpty(serverKey);
@@ -67,21 +70,53 @@ namespace Updraft.Network
             return status == 200 ? JsonUtility.FromJson<TicketCheckDto>(body) : null;
         }
 
+        /// <summary>
+        /// QA-017: results matter for rating and progression. Transient failures are retried a few
+        /// times; if the backend is still unreachable the result goes to the durable outbox and is
+        /// re-delivered later (<see cref="FlushOutboxAsync"/>). The backend records each participant
+        /// once per match, so re-delivery never grants twice.
+        /// </summary>
         public async Task<bool> SubmitResultAsync(string matchId, ResultDto result)
         {
-            // Results matter for rating and progression: retry transient failures a few times.
+            string json = JsonUtility.ToJson(result);
             for (int attempt = 0; attempt < 5; attempt++)
             {
-                if (await EnsureTokenAsync())
-                {
-                    var (status, _) = await SendAsync("POST", $"/api/matches/{matchId}/result", JsonUtility.ToJson(result), authed: true);
-                    if (status == 200) return true;
-                    if (status >= 400 && status < 500 && status != 401) return false;
-                    if (status == 401) token = null;
-                }
+                var delivery = await TryDeliverAsync(matchId, json);
+                if (delivery == Delivery.Delivered) return true;
+                if (delivery == Delivery.Rejected) return false;
                 await Task.Delay(1000 * (attempt + 1));
             }
+            if (outbox != null)
+            {
+                outbox.Save(matchId, json);
+                Debug.LogWarning($"[Server] result for {matchId} queued in the outbox for re-delivery");
+            }
             return false;
+        }
+
+        /// <summary>Re-delivers every queued result once; keeps the ones that still fail transiently.</summary>
+        public async Task FlushOutboxAsync()
+        {
+            if (outbox == null) return;
+            foreach (var (matchId, json) in outbox.Pending())
+            {
+                var delivery = await TryDeliverAsync(matchId, json);
+                if (delivery == Delivery.Transient) continue;
+                outbox.Remove(matchId);
+                Debug.Log($"[Server] outbox result {matchId}: {delivery}");
+            }
+        }
+
+        enum Delivery { Delivered, Rejected, Transient }
+
+        async Task<Delivery> TryDeliverAsync(string matchId, string json)
+        {
+            if (!await EnsureTokenAsync()) return Delivery.Transient;
+            var (status, _) = await SendAsync("POST", $"/api/matches/{matchId}/result", json, authed: true);
+            if (status == 200 || status == 409) return Delivery.Delivered; // 409: already recorded
+            if (status == 401) { token = null; return Delivery.Transient; }
+            if (status >= 400 && status < 500 && status != 408 && status != 429) return Delivery.Rejected; // malformed: retrying cannot help
+            return Delivery.Transient;
         }
 
         async Task<(long status, string body)> SendAsync(string method, string path, string json, bool authed)

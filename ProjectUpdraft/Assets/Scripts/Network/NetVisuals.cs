@@ -25,6 +25,9 @@ namespace Updraft.Network
             Part(root, "LegL", new Vector3(-0.14f, 0.38f, 0), new Vector3(0.2f, 0.76f, 0.24f), material);
             Part(root, "LegR", new Vector3(0.14f, 0.38f, 0), new Vector3(0.2f, 0.76f, 0.24f), material);
             Part(root, "Gun", new Vector3(0.28f, 1.15f, 0.35f), new Vector3(0.1f, 0.12f, 0.6f), Resources.Load<Material>("Materials/Structure"));
+            // QA-023: viewer-relative shape cue (ally orb + chest band / enemy cross + shoulder
+            // spikes) so team never relies on colour alone; collider-free, under "Visual".
+            Updraft.Player.TeamCueVisual.Apply(root, friendly, material);
         }
 
         static void Part(Transform parent, string name, Vector3 position, Vector3 scale, Material material)

@@ -144,7 +144,7 @@ namespace Updraft.Match
             localPlayer.OnEliminated += (killerId, weapon) =>
             {
                 var killer = PlayerController.Find(killerId);
-                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer.DisplayName : "", weapon);
+                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer.DisplayName : "", weapon, localPlayer.LastAttackDirection);
             };
 
             // Initialize

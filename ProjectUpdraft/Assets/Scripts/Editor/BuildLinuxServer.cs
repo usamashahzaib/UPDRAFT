@@ -22,7 +22,7 @@ namespace Updraft.Editor
                 scenes = new[] { "Assets/Scenes/Main.unity" },
                 locationPathName = "Builds/Linux/UpdraftServer.x86_64",
                 target = BuildTarget.StandaloneLinux64,
-                subtarget = StandaloneBuildSubtarget.Server,
+                subtarget = (int)StandaloneBuildSubtarget.Server,
                 options = BuildOptions.Development,
             };
 

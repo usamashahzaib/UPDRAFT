@@ -27,13 +27,22 @@ namespace Updraft.Core
 
     [Serializable] public class SessionDto { public string playerId; public string accessToken; public string refreshToken; public string accessExpiresAt; }
     [Serializable] public class RefreshDto { public string refreshToken; }
-    [Serializable] public class QueueStatusDto { public string state; public int elapsedSeconds; public string matchId; }
+    [Serializable] public class QueueStatusDto { public string state; public int elapsedSeconds; public string matchId; public string region; }
     [Serializable] public class TicketDto { public string ticket; public string expiresAt; public string matchId; public string session; public string region; public string team; public bool hasBots; public bool serverReady; public string note; }
     [Serializable] public class ReconnectDto { public string matchId; public bool reconnectAllowed; }
-    [Serializable] public class PartyDto { public string code; public string leaderId; public List<string> memberIds; public List<string> readyIds; }
-    [Serializable] public class ProfileDto { public string id; public string alias; public int profileXp; public int level; public string equippedCosmeticId; public bool isGuest; }
+    [Serializable] public class MatchReceiptDto { public bool recorded; public bool eligible; public int xpGained; public int creditsGained; public int level; public string[] unlocked; }
+    [Serializable] public class PartyMemberDto { public string playerId; public string alias; public bool isReady; }
+    [Serializable] public class PartyDto { public string code; public string leaderId; public List<string> memberIds; public List<string> readyIds; public PartyMemberDto[] members; }
+    [Serializable] public class ProfileDto { public string id; public string alias; public int profileXp; public int level; public string equippedCosmeticId; public string linkedPlatformIdentity; public bool isGuest; }
     [Serializable] public class WalletDto { public int credits; }
     [Serializable] public class ErrorDto { public string error; }
+    [Serializable] public class InventoryItemDto { public long id; public string cosmeticId; public string acquiredVia; }
+    [Serializable] public class InventoryDto { public InventoryItemDto[] items; }
+    [Serializable] public class ReportRequestDto { public string reportedPlayerId; public string reason; public string matchId; public string reportedAlias; public int reportedSlot = -1; }
+    [Serializable] public class LinkGooglePlayDto { public string serverAuthCode; }
+    [Serializable] public class ContactEmailDto { public string email; }
+    [Serializable] public class EquipDto { public string equipped; }
+    [Serializable] public class SupportResultDto { public bool submitted; public bool requested; public bool deleted; }
 
     /// <summary>
     /// HTTPS client for the single modular backend (spec sections 20/22). Ownership
@@ -97,6 +106,18 @@ namespace Updraft.Core
             return result.Ok ? result : Map(result, BackendError.AuthUnavailable);
         }
 
+        /// <summary>
+        /// QA-026: recover the account already linked to this platform identity (reinstall or new
+        /// device). Replaces the local session only on success; NotFound means nothing is linked.
+        /// </summary>
+        public async Task<BackendResult<SessionDto>> PlatformSignInAsync(string serverAuthCode)
+        {
+            if (!IsConfigured) return new BackendResult<SessionDto>(null, BackendError.NotConfigured, 0);
+            var result = await SendAsync<SessionDto>("POST", "/api/auth/platform-signin", JsonUtility.ToJson(new LinkGooglePlayDto { serverAuthCode = serverAuthCode }), auth: false);
+            if (result.Ok && result.Value != null) Store(result.Value);
+            return result;
+        }
+
         static BackendResult<SessionDto> Map(BackendResult<SessionDto> r, BackendError fallback) =>
             r.Error is BackendError.NoInternet or BackendError.UpdateRequired ? r : new BackendResult<SessionDto>(null, fallback, r.Status);
 
@@ -115,10 +136,15 @@ namespace Updraft.Core
 
         public Task<BackendResult<ProfileDto>> GetProfileAsync() => AuthedAsync<ProfileDto>("GET", "/api/profile/");
         public Task<BackendResult<WalletDto>> GetWalletAsync() => AuthedAsync<WalletDto>("GET", "/api/profile/wallet");
+        public Task<BackendResult<InventoryDto>> GetInventoryAsync() => AuthedAsync<InventoryDto>("GET", "/api/profile/inventory");
+        public Task<BackendResult<EquipDto>> EquipAsync(string cosmeticId) =>
+            AuthedAsync<EquipDto>("POST", "/api/profile/equip/" + UnityWebRequest.EscapeURL(cosmeticId), "{}");
         public Task<BackendResult<ErrorDto>> EnqueueAsync() => AuthedAsync<ErrorDto>("POST", "/api/matchmaking/enqueue", "{}");
         public Task<BackendResult<ErrorDto>> CancelQueueAsync() => AuthedAsync<ErrorDto>("POST", "/api/matchmaking/cancel", "{}");
         public Task<BackendResult<QueueStatusDto>> QueueStatusAsync() => AuthedAsync<QueueStatusDto>("GET", "/api/matchmaking/status");
         public Task<BackendResult<TicketDto>> TicketAsync() => AuthedAsync<TicketDto>("GET", "/api/matchmaking/ticket");
+        public Task<BackendResult<MatchReceiptDto>> MatchReceiptAsync(string matchId) =>
+            AuthedAsync<MatchReceiptDto>("GET", $"/api/matches/{UnityWebRequest.EscapeURL(matchId)}/receipt");
         public Task<BackendResult<ReconnectDto>> ReconnectAsync(string matchId) =>
             AuthedAsync<ReconnectDto>("POST", $"/api/matches/{UnityWebRequest.EscapeURL(matchId)}/reconnect", "{}");
         public Task<BackendResult<PartyDto>> CreatePartyAsync() => AuthedAsync<PartyDto>("POST", "/api/party/create", "{}");
@@ -126,6 +152,33 @@ namespace Updraft.Core
         public Task<BackendResult<PartyDto>> LeavePartyAsync(string code) => AuthedAsync<PartyDto>("POST", $"/api/party/{UnityWebRequest.EscapeURL(code)}/leave", "{}");
         public Task<BackendResult<PartyDto>> SetReadyAsync(string code, bool ready) => AuthedAsync<PartyDto>("POST", $"/api/party/{UnityWebRequest.EscapeURL(code)}/ready", ready ? "true" : "false");
         public Task<BackendResult<PartyDto>> CurrentPartyAsync() => AuthedAsync<PartyDto>("GET", "/api/party/current");
+        /// <summary>QA-025: report someone from a match by what was visible in-app (their alias and slot).</summary>
+        public Task<BackendResult<ErrorDto>> ReportInMatchAsync(string matchId, string alias, int slot, string reason) =>
+            AuthedAsync<ErrorDto>("POST", "/api/support/report", JsonUtility.ToJson(new ReportRequestDto { matchId = matchId, reportedAlias = alias, reportedSlot = slot, reason = reason }));
+        public Task<BackendResult<ErrorDto>> ReportAsync(string reportedPlayerId, string reason) =>
+            AuthedAsync<ErrorDto>("POST", "/api/support/report", JsonUtility.ToJson(new ReportRequestDto { reportedPlayerId = reportedPlayerId, reason = reason }));
+        public Task<BackendResult<SupportResultDto>> RequestDeletionAsync() =>
+            AuthedAsync<SupportResultDto>("POST", "/api/support/account-deletion", "{}");
+        public Task<BackendResult<SupportResultDto>> DeleteAccountAsync() =>
+            AuthedAsync<SupportResultDto>("DELETE", "/api/support/account");
+        /// <summary>QA-028: a contact email lets the public web form verify and complete account deletion.</summary>
+        public Task<BackendResult<ErrorDto>> SetContactEmailAsync(string email) =>
+            AuthedAsync<ErrorDto>("PUT", "/api/support/contact-email", JsonUtility.ToJson(new ContactEmailDto { email = email }));
+        public Task<BackendResult<ErrorDto>> RemoveContactEmailAsync() => AuthedAsync<ErrorDto>("DELETE", "/api/support/contact-email");
+        public Task<BackendResult<ErrorDto>> RevokeGooglePlayLinkAsync() =>
+            AuthedAsync<ErrorDto>("DELETE", "/api/auth/google-play");
+        public Task<BackendResult<ErrorDto>> LinkGooglePlayAsync(string serverAuthCode) =>
+            AuthedAsync<ErrorDto>("POST", "/api/auth/link-google-play", JsonUtility.ToJson(new LinkGooglePlayDto { serverAuthCode = serverAuthCode }));
+
+        public void ForgetLocalSession()
+        {
+            accessToken = null;
+            accessExpiresUtc = DateTime.MinValue;
+            PlayerId = "";
+            PlayerPrefs.DeleteKey(RefreshKey);
+            PlayerPrefs.DeleteKey(PlayerKey);
+            PlayerPrefs.Save();
+        }
 
         /// <summary>Uploads queued client-owned events in batches; offline match facts stay local.</summary>
         public async Task<int> UploadTelemetryAsync()

@@ -25,7 +25,10 @@ namespace Updraft.Network
         [Networked] public int Slot { get; set; }
         [Networked] public int Team { get; set; }
         [Networked] public NetworkString<_32> Alias { get; set; }
-        [Networked] public NetworkString<_64> AccountId { get; set; }
+        [Networked] public NetworkString<_32> Cosmetic { get; set; } // QA-024: shown on this avatar to everyone
+        // Server-only: the backend account behind this seat. Never replicated — clients have no
+        // need for another player's internal id (data minimisation; reports resolve by match slot).
+        public string AccountId { get; set; } = "";
         [Networked] public NetworkBool BotControlled { get; set; }
         [Networked] public NetworkBool HadBotSubstitution { get; set; }
         [Networked] public NetworkBool Connected { get; set; }
@@ -42,6 +45,7 @@ namespace Updraft.Network
         [Networked] public int Ammo { get; set; }
         [Networked] public TickTimer ReloadTimer { get; set; }
         [Networked] public TickTimer FireCooldown { get; set; }
+        [Networked] public float FireDebt { get; set; }       // QA-009: seconds until the next shot, remainder carried
         [Networked] public int ShotCounter { get; set; }
 
         [Networked] public Vector3 Velocity { get; set; }
@@ -51,26 +55,33 @@ namespace Updraft.Network
         [Networked] public TickTimer ActivationLockout { get; set; }
         [Networked] public TickTimer PingCooldown { get; set; }
         [Networked] public int PadPlacements { get; set; }
+        [Networked] public byte PadRejectCode { get; set; }    // QA-006: why the last placement failed
+        [Networked] public int PadRejectCounter { get; set; }
         [Networked] public NetworkButtons PreviousButtons { get; set; }
 
         [Networked] public int EliminationCount { get; set; }
+        [Networked] public int HitConfirmCounter { get; set; } // QA-010: bumps when this player lands damage
         [Networked] public int DeathCount { get; set; }
         [Networked] public int PadLaunchCount { get; set; }
         [Networked] public float ZoneSeconds { get; set; }
         [Networked] public int LastKillerSlot { get; set; }
         [Networked] public int LastKillerWeapon { get; set; }
+        [Networked] public byte LastKillerDirection { get; set; } // 0 unknown, 1 front, 2 right, 3 behind, 4 left
         [Networked] public int PresentTicks { get; set; }
         [Networked] public int LastActiveTick { get; set; }
         [Networked] public NetworkBool AfkWarned { get; set; }
+        [Networked] public NetworkBool AfkRemoved { get; set; } // spec 18: removed for inactivity; seat stays a bot
 
         public SimpleKCC Kcc { get; private set; }
         public NetInput LastInput { get; private set; }
-        public System.Action<Vector3, Vector3> OnLocalShot;      // predicted FX: muzzle, hit point
+        public System.Action<Vector3, Vector3> OnLocalShot;      // predicted FX per pellet: muzzle, hit point
+        public System.Action OnLocalFired;                       // once per trigger pull (recoil, fire sound)
         public System.Action OnLocalDamaged;
 
         PlayerMovementSimulator sim;
         static readonly RaycastHit[] fxHits = new RaycastHit[16];
         static readonly RaycastHit[] pingHits = new RaycastHit[16];
+        readonly PelletResult[] pelletBuffer = new PelletResult[16];
 
         MovementConfig M => NetConfigs.Movement;
         PadConfig P => NetConfigs.Pad;
@@ -94,6 +105,10 @@ namespace Updraft.Network
         public Vector3 GetMuzzlePosition(float yaw) => transform.position +
             Quaternion.Euler(0f, yaw, 0f) * NetAvatarVisual.MuzzleLocalPosition;
         public bool IsSpawnProtected => Protection.IsRunning && !Protection.Expired(Runner);
+        public bool IsReloading => ReloadTimer.IsRunning && !ReloadTimer.Expired(Runner);
+        public float ReloadProgress => IsReloading && Weapon.reloadSeconds > 0f
+            ? Mathf.Clamp01(1f - (ReloadTimer.RemainingTime(Runner) ?? Weapon.reloadSeconds) / Weapon.reloadSeconds) : 0f;
+        public string LastAttackDirection => LastKillerDirection switch { 1 => "FRONT", 2 => "RIGHT", 3 => "BEHIND", 4 => "LEFT", _ => "" };
 
         public override void Spawned()
         {
@@ -113,7 +128,94 @@ namespace Updraft.Network
             NetAvatarVisual.Attach(this);
         }
 
-        public override void Despawned(NetworkRunner runner, bool hasState) => All.Remove(this);
+        public override void Despawned(NetworkRunner runner, bool hasState)
+        {
+            All.Remove(this);
+            NetBotDriver.Forget(this); // QA-034: drop the bot brain so long-lived servers don't retain past players
+        }
+
+        // ---- QA-011: client-side threat presentation driven by replicated state ----
+        // Every client (local and remote avatars alike) hears fire, reload, steps, jumps,
+        // landings, pad launches, damage and eliminations spatialised at the avatar, and a
+        // dead avatar's body is hidden until respawn. Replicated state alone plays nothing,
+        // so these transitions are what make a fight legible online.
+        int cueShotCounter = -1;
+        string cueCosmetic;
+        bool cueReloading, cueLaunched, cueDead, cueAirborne;
+        float cueHealth, cueFallSpeed, cueStepTimer;
+
+        public override void Render()
+        {
+            if (Application.isBatchMode && Runner.IsServer) return; // headless server plays nothing
+            string cosmetic = Cosmetic.ToString(); // QA-024: everyone sees this player's equipped identity
+            if (cosmetic != cueCosmetic) { Updraft.UI.CosmeticLook.Apply(transform.Find("Visual"), cosmetic); cueCosmetic = cosmetic; }
+            bool reloading = ReloadTimer.IsRunning && !ReloadTimer.Expired(Runner);
+            bool grounded = Kcc != null && Kcc.IsGrounded;
+            if (cueShotCounter < 0)
+            {
+                cueShotCounter = ShotCounter; cueReloading = reloading; cueLaunched = Launched;
+                cueDead = Dead; cueAirborne = !grounded; cueHealth = Health;
+                SetBodyVisible(!Dead);
+                return;
+            }
+
+            bool mine = HasInputAuthority;
+            Vector3 chest = transform.position + Vector3.up * 1.1f;
+            if (ShotCounter > cueShotCounter)
+                Updraft.Core.GameAudio.Play((Updraft.Core.GameCue)Mathf.Clamp(WeaponIndex, 0, 2), chest, mine ? 0.85f : 1f);
+            cueShotCounter = Mathf.Max(cueShotCounter, ShotCounter); // resimulation never replays a shot
+
+            if (reloading && !cueReloading)
+            {
+                if (Ammo <= 0) Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.Empty, chest, 0.6f);
+                Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.Reload, chest, 0.55f);
+            }
+            cueReloading = reloading;
+
+            if (Launched && !cueLaunched) Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.PadLaunch, transform.position);
+            cueLaunched = Launched;
+
+            if (!Dead)
+            {
+                if (!grounded && !cueAirborne && Velocity.y > 2f && !Launched)
+                    Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.Jump, transform.position, 0.7f);
+                if (grounded && cueAirborne && cueFallSpeed < -4f)
+                    Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.Land, transform.position, 0.8f);
+                if (!grounded) cueFallSpeed = Velocity.y;
+                cueAirborne = !grounded;
+
+                if (grounded && new Vector2(Velocity.x, Velocity.z).sqrMagnitude > 1f)
+                {
+                    cueStepTimer -= Time.deltaTime;
+                    if (cueStepTimer <= 0f)
+                    {
+                        Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.Step, transform.position, 0.5f);
+                        cueStepTimer = 0.38f;
+                    }
+                }
+                else cueStepTimer = 0f;
+
+                if (Health < cueHealth - 0.01f)
+                {
+                    if (mine) Updraft.Core.GameAudio.Play2D(Updraft.Core.GameCue.Hurt, 0.9f);
+                    else Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.Hurt, chest, 0.6f);
+                }
+            }
+            cueHealth = Health;
+
+            if (Dead != cueDead)
+            {
+                if (Dead) Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.Elimination, chest);
+                SetBodyVisible(!Dead);
+                cueDead = Dead;
+            }
+        }
+
+        void SetBodyVisible(bool visible)
+        {
+            var body = transform.Find("Visual");
+            if (body != null && body.gameObject.activeSelf != visible) body.gameObject.SetActive(visible);
+        }
 
         public override void FixedUpdateNetwork()
         {
@@ -130,9 +232,10 @@ namespace Updraft.Network
                 input.Pitch = LastInput.Pitch;
             }
             input.Sanitize();
+            var previousInput = LastInput;
             LastInput = input;
 
-            if (HasStateAuthority && hasInput && !BotControlled && IsActivity(input)) { LastActiveTick = Runner.Tick; AfkWarned = false; }
+            if (HasStateAuthority && hasInput && !BotControlled && IsActivity(input, previousInput)) { LastActiveTick = Runner.Tick; AfkWarned = false; }
 
             bool live = match.IsLive;
             if (input.WeaponChoice > 0 && (Dead || match.Phase == MatchPhase.Preparation))
@@ -156,7 +259,7 @@ namespace Updraft.Network
             }
 
             if (live) Weapons(input, match);
-            if (live && HasStateAuthority && input.Buttons.WasPressed(PreviousButtons, (int)NetButton.Pad)) TryPlacePad(match);
+            if (HasStateAuthority && input.Buttons.WasPressed(PreviousButtons, (int)NetButton.Pad)) TryPlacePad(match, input.Yaw);
             if (live && HasStateAuthority && input.Buttons.WasPressed(PreviousButtons, (int)NetButton.Ping)) TrySendPing(match, input);
             PreviousButtons = input.Buttons;
         }
@@ -174,7 +277,9 @@ namespace Updraft.Network
             match.BroadcastPing(Slot, Team, kind, position);
         }
 
-        static bool IsActivity(NetInput i) => i.Move.sqrMagnitude > 0.01f || i.Buttons.Bits != 0;
+        // QA-018: aim changes count as activity (spec 18), not only movement and buttons.
+        static bool IsActivity(NetInput i, NetInput previous) =>
+            AfkRules.IsActivity(i.Move, i.Buttons.Bits != 0, previous.Yaw, previous.Pitch, i.Yaw, i.Pitch);
 
         bool InsideBounds(Vector3 p) =>
             p.x >= Map.boundsMin.x - 5f && p.x <= Map.boundsMax.x + 5f && p.z >= Map.boundsMin.y - 5f && p.z <= Map.boundsMax.y + 5f;
@@ -227,6 +332,8 @@ namespace Updraft.Network
 
         bool ActivationLockoutRunning() => ActivationLockout.IsRunning && !ActivationLockout.Expired(Runner);
 
+        const float MaxAimDistance = 100f; // matches the client's crosshair ray (NetClientPresenter.SampleInput)
+
         void Weapons(NetInput input, NetMatch match)
         {
             var weapon = Weapon;
@@ -235,6 +342,7 @@ namespace Updraft.Network
                 if (!ReloadTimer.Expired(Runner)) return;
                 ReloadTimer = TickTimer.None;
                 Ammo = weapon.magazineSize;
+                FireDebt = 0f;
             }
             bool reload = input.Buttons.WasPressed(PreviousButtons, (int)NetButton.Reload);
             if (Ammo <= 0 || (reload && Ammo < weapon.magazineSize))
@@ -243,9 +351,13 @@ namespace Updraft.Network
                 return;
             }
 
-            bool firing = input.IsDown(NetButton.Fire) && !Map.IsInsideSpawnRoom(Team, transform.position);
-            if (!Match.IsLive || !firing || (FireCooldown.IsRunning && !FireCooldown.Expired(Runner))) return;
+            bool firing = Match.IsLive && input.IsDown(NetButton.Fire) && !Map.IsInsideSpawnRoom(Team, transform.position);
+            float debt = FireDebt;
+            bool fires = FireCadence.Step(ref debt, Runner.DeltaTime, firing, weapon.SecondsPerShot);
+            FireDebt = debt;
+            if (!fires) return;
 
+            // Kept for bot hearing ("recently fired"); cadence itself is FireDebt (QA-009).
             FireCooldown = TickTimer.CreateFromSeconds(Runner, weapon.SecondsPerShot);
             Ammo--;
             ShotCounter++;
@@ -253,9 +365,14 @@ namespace Updraft.Network
 
             Vector3 eye = transform.position + Vector3.up * (M.capsuleHeight * 0.8f);
             Vector3 muzzle = GetMuzzlePosition(input.Yaw);
-            Vector3 cameraAimPoint = input.AimPoint;
-            if (cameraAimPoint == Vector3.zero)
-                cameraAimPoint = eye + Quaternion.Euler(input.Pitch, input.Yaw, 0f) * Vector3.forward * weapon.maxRange;
+            // Anti-cheat: the client only chooses how far along its look ray the crosshair lands
+            // (third-person parallax). The direction always comes from the replicated Yaw/Pitch
+            // everyone sees, so a modified client can't face one way and shoot another ("silent aim").
+            // Honest clients derive Yaw/Pitch from this same eye→point ray, so their shots are unchanged.
+            Vector3 lookDir = Quaternion.Euler(input.Pitch, input.Yaw, 0f) * Vector3.forward;
+            float aimDistance = input.AimPoint == Vector3.zero ? weapon.maxRange
+                : Mathf.Clamp(Vector3.Distance(input.AimPoint, eye), 0.5f, MaxAimDistance);
+            Vector3 cameraAimPoint = eye + lookDir * aimDistance;
             Vector3 aim = (cameraAimPoint - muzzle).sqrMagnitude > 0.0001f
                 ? (cameraAimPoint - muzzle).normalized
                 : Quaternion.Euler(input.Pitch, input.Yaw, 0f) * Vector3.forward;
@@ -265,19 +382,41 @@ namespace Updraft.Network
             // prediction and the server roll the same pellets (spec section 7).
             uint seed = (uint)(Runner.Tick.Raw * 2654435761u) ^ (uint)(Slot * 40503 + ShotCounter * 97);
 
-            if (HasStateAuthority) match.QueueShot(this, muzzle, aim, seed, state);
+            // QA-012: a muzzle pushed into/through thin cover fires into that cover (no damage).
+            var physics = Runner.GetPhysicsScene();
+            bool buried = MuzzleObstruction.IsBuried(physics, new Vector3(transform.position.x, muzzle.y, transform.position.z),
+                muzzle, MuzzleObstruction.GeometryMask, out Vector3 buriedAt);
+
+            if (HasStateAuthority && !buried) match.QueueShot(this, muzzle, aim, seed, state);
             if (HasInputAuthority && Runner.IsForward)
             {
-                // Predicted presentation only; the server decides every hit.
-                var physics = Runner.GetPhysicsScene();
-                Vector3 end = muzzle + aim * weapon.maxRange;
-                int count = physics.Raycast(muzzle, aim, fxHits, weapon.maxRange, ~0, QueryTriggerInteraction.Ignore);
-                float nearest = weapon.maxRange;
-                for (int i = 0; i < count; i++)
-                    if (fxHits[i].distance < nearest && fxHits[i].collider.GetComponentInParent<NetPlayer>() != this)
-                    { nearest = fxHits[i].distance; end = fxHits[i].point; }
-                OnLocalShot?.Invoke(muzzle, end);
+                // Predicted presentation only; the server decides every hit. QA-008: the tracers
+                // run the SAME seeded pellet resolver the server runs (same seed, spread and
+                // movement state), so BRICK shows its eight pellets and ARC/ZIP show their spread.
+                OnLocalFired?.Invoke();
+                if (buried) { OnLocalShot?.Invoke(muzzle, buriedAt); return; }
+                int pelletCount = ShotResolver.ResolvePellets(weapon, aim, seed, state, pelletBuffer);
+                for (int i = 0; i < pelletCount; i++)
+                    OnLocalShot?.Invoke(muzzle, PredictPelletEnd(physics, muzzle, pelletBuffer[i].direction, weapon.maxRange));
             }
+        }
+
+        /// <summary>Where a pellet visibly stops, using the server's blocking rules: the shooter
+        /// and living teammates never stop it; enemies, walls and pads do.</summary>
+        Vector3 PredictPelletEnd(PhysicsScene physics, Vector3 muzzle, Vector3 direction, float range)
+        {
+            Vector3 end = muzzle + direction * range;
+            int count = physics.Raycast(muzzle, direction, fxHits, range, ~0, QueryTriggerInteraction.Ignore);
+            float nearest = range;
+            for (int i = 0; i < count; i++)
+            {
+                if (fxHits[i].distance >= nearest) continue;
+                var player = fxHits[i].collider.GetComponentInParent<NetPlayer>();
+                if (player == this || (player != null && (player.Team == Team || player.Dead))) continue;
+                nearest = fxHits[i].distance;
+                end = fxHits[i].point;
+            }
+            return end;
         }
 
         void EquipWeapon(int index)
@@ -285,6 +424,7 @@ namespace Updraft.Network
             WeaponIndex = Mathf.Clamp(index, 0, 2);
             Ammo = Weapon.magazineSize;
             ReloadTimer = TickTimer.None;
+            FireDebt = 0f;
         }
 
         void RegenerateHealth()
@@ -299,14 +439,35 @@ namespace Updraft.Network
             if (PadRecharge.Expired(Runner)) { HasPadCharge = true; PadRecharge = TickTimer.None; }
         }
 
-        void TryPlacePad(NetMatch match)
+        /// <summary>
+        /// Full placement check shared by the server (authoritative) and the owning client's
+        /// hold preview (QA-006), so the preview and the eventual rejection always agree.
+        /// </summary>
+        public string EvaluatePadPlacement(NetMatch match, float yaw, out Vector3 position, out Vector3 forward)
         {
-            if (!Updraft.Core.StudySettings.PadsEnabled || !HasPadCharge || !Kcc.IsGrounded) return;
-            Vector3 forward = Quaternion.Euler(0, LastInput.Yaw, 0) * Vector3.forward;
+            forward = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
+            position = transform.position + forward * P.placementForwardOffset;
+            if (!Updraft.Core.StudySettings.PadsEnabled) return "PADS DISABLED IN THIS VERSION";
+            if (match == null || !match.IsLive) return "NOT DURING THIS PHASE";
+            if (!HasPadCharge) return "RECHARGING";
+            if (!Kcc.IsGrounded) return "MUST BE GROUNDED";
             var physics = Runner.GetPhysicsScene();
-            if (Updraft.Pads.PadPlacementRules.ResolvePosition(physics, transform.position, forward, P, out var position) != null) return;
-            if (Updraft.Pads.PadPlacementRules.Validate(physics, position, forward, NetPad.ActiveCountExcludingOwner(Runner, Slot), P, Map, M) != null) return;
-            if (PadPlacements >= P.maxActivePadsPerMatch * 10) return; // sanity bound against a modified client
+            return Updraft.Pads.PadPlacementRules.ResolvePosition(physics, transform.position, forward, P, out position)
+                ?? Updraft.Pads.PadPlacementRules.Validate(physics, position, forward, NetPad.ActiveCountExcludingOwner(Runner, Slot), P, Map, M);
+        }
+
+        void RejectPad(string reason)
+        {
+            PadRejectCode = Updraft.Pads.PadPlacementRules.CodeOf(reason);
+            PadRejectCounter++; // the owning client shows the reason once per change
+        }
+
+        void TryPlacePad(NetMatch match, float yaw)
+        {
+            if (Dead) return;
+            string reason = EvaluatePadPlacement(match, yaw, out var position, out var forward);
+            if (reason == null && PadPlacements >= P.maxActivePadsPerMatch * 10) reason = "ARENA PAD LIMIT"; // sanity bound against a modified client
+            if (reason != null) { RejectPad(reason); return; }
             match.SpawnPad(this, position, forward);
             HasPadCharge = false;
             PadPlacements++;
@@ -331,9 +492,27 @@ namespace Updraft.Network
             DeathCount++;
             LastKillerSlot = killerSlot;
             LastKillerWeapon = weapon;
+            LastKillerDirection = 0;
+            foreach (var attacker in All)
+            {
+                if (attacker.Runner != Runner || attacker.Slot != killerSlot || attacker == this) continue;
+                float angle = Vector3.SignedAngle(transform.forward, attacker.transform.position - transform.position, Vector3.up);
+                LastKillerDirection = (byte)(Mathf.Abs(angle) < 45f ? 1 : Mathf.Abs(angle) > 135f ? 3 : angle > 0f ? 2 : 4);
+                break;
+            }
             Velocity = Vector3.zero;
             Launched = false;
             RespawnTimer = TickTimer.CreateFromSeconds(Runner, M.respawnDelaySeconds);
+        }
+
+        public void MarkBotSubstitution(bool afk = false)
+        {
+            BotControlled = true;
+            HadBotSubstitution = true;
+            if (afk) AfkRemoved = true;
+            string alias = Alias.ToString();
+            if (!alias.StartsWith("[BOT] ", System.StringComparison.Ordinal))
+                Alias = "[BOT] " + alias.Substring(0, Mathf.Min(alias.Length, 25));
         }
 
         public void ServerRespawn(Pose spawn, bool matchStart)

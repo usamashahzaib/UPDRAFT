@@ -42,6 +42,8 @@ namespace Updraft.Input
         [SerializeField] bool invertY = false;
         [SerializeField] bool gyroAimEnabled = false;
         [SerializeField] bool vibrationEnabled = true;
+        Vector3 gyroBias;
+        bool gyroCalibrating;
 
         [Header("Button Sizes (dp, converted to screen pixels)")]
         [SerializeField] float fireButtonSize = 80f;
@@ -103,6 +105,7 @@ namespace Updraft.Input
         readonly float[] buttonOpacity = { 0.65f, 0.65f, 0.65f, 0.65f, 0.65f, 0.65f };
         readonly Vector2[] buttonOffsetDp = new Vector2[6];
         readonly System.Collections.Generic.HashSet<int> consumedTouches = new System.Collections.Generic.HashSet<int>();
+        readonly System.Collections.Generic.HashSet<int> liveTouchIds = new System.Collections.Generic.HashSet<int>();
         readonly System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult> uiHits = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
         UnityEngine.EventSystems.PointerEventData pointerData;
         int lastWidth, lastHeight;
@@ -182,50 +185,15 @@ namespace Updraft.Input
             if (EditingLayout) { UpdateLayoutEditor(touches); return; }
 
             // Process each touch
+            liveTouchIds.Clear();
             for (int i = 0; i < touches.Count; i++)
             {
                 var touch = touches[i];
-                var phase = touch.phase;
-                var pos = touch.screenPosition;
-
-                if (phase == UnityEngine.InputSystem.TouchPhase.None) continue;
-
-                int touchId = touch.touchId;
-                if (Debug.isDebugBuild && phase == UnityEngine.InputSystem.TouchPhase.Began)
-                    Debug.Log($"[TouchDiag] began id={touchId} pos={pos} overMenu={IsOverMenu(pos)} firstHit={(uiHits.Count > 0 ? uiHits[0].gameObject.name : "-")}");
-                if (consumedTouches.Contains(touchId))
-                {
-                    if (phase == UnityEngine.InputSystem.TouchPhase.Ended || phase == UnityEngine.InputSystem.TouchPhase.Canceled)
-                        consumedTouches.Remove(touchId);
-                    continue;
-                }
-                if (phase == UnityEngine.InputSystem.TouchPhase.Began && IsOverMenu(pos))
-                {
-                    consumedTouches.Add(touchId);
-                    continue;
-                }
-
-                // Check UI buttons first (they consume the touch)
-                if (CheckButtonTouch(touch, phase, pos)) continue;
-
-                // Joystick (left side)
-                bool isLeftSide = leftHandedMode ? pos.x > Screen.width * 0.5f : pos.x < Screen.width * 0.5f;
-
-                if (isLeftSide && (moveTouchId == -1 || moveTouchId == touch.touchId))
-                {
-                    HandleMoveTouch(touch, phase, pos);
-                    continue;
-                }
-
-                // Aim/Fire (right side)
-                bool isRightSide = leftHandedMode ? pos.x < Screen.width * 0.5f : pos.x > Screen.width * 0.5f;
-
-                if (isRightSide)
-                {
-                    HandleAimFireTouch(touch, phase, pos);
-                    continue;
-                }
+                if (touch.phase == UnityEngine.InputSystem.TouchPhase.None) continue;
+                liveTouchIds.Add(touch.touchId);
+                ProcessTouch(touch.touchId, touch.phase, touch.screenPosition);
             }
+            ReleaseOwnersNotIn(liveTouchIds);
 
             // Handle gyro aim if enabled
             if (gyroAimEnabled && GyroAvailable)
@@ -234,7 +202,11 @@ namespace Updraft.Input
                 if (!gyro.enabled) InputSystem.EnableDevice(gyro);
                 // Device axes are portrait-relative; in landscape the device X axis is
                 // world-vertical (yaw) and the device Y axis runs along the screen (pitch).
-                Vector3 w = gyro.angularVelocity.ReadValue() * Mathf.Rad2Deg * Time.deltaTime;
+                Vector3 rawRate = gyro.angularVelocity.ReadValue() - gyroBias;
+                // Ignore sensor noise while the phone is resting; calibrating stores its
+                // measured stationary bias so users can establish a neutral hold position.
+                if (rawRate.sqrMagnitude < 0.0004f) rawRate = Vector3.zero;
+                Vector3 w = rawRate * Mathf.Rad2Deg * Time.deltaTime;
                 float sign = Screen.orientation == ScreenOrientation.LandscapeRight ? -1f : 1f;
                 Vector2 gyroDelta = new Vector2(-w.x * sign, w.y * sign) * aimSensitivity * AimSensitivityScale;
                 if (invertY) gyroDelta.y = -gyroDelta.y;
@@ -245,9 +217,66 @@ namespace Updraft.Input
                 OnPingWorldPositionRequested?.Invoke(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
         }
 
-        bool CheckButtonTouch(RecordedTouch touch, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
+        /// <summary>
+        /// Routes one touch event. QA-003: ownership persists by finger ID until Ended/Cancelled;
+        /// the screen half is consulted only when a NEW finger is acquired, so a finger that
+        /// drags across the midpoint still releases into the handler that owns it.
+        /// </summary>
+#if DEVELOPMENT_BUILD
+        int diagFrames;
+        string diagLastEvent = "-";
+#endif
+
+        void ProcessTouch(int touchId, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
         {
-            int id = touch.touchId;
+#if DEVELOPMENT_BUILD
+            diagLastEvent = $"{touchId}:{phase}@{pos.x:0},{pos.y:0}";
+#endif
+            bool ending = phase == UnityEngine.InputSystem.TouchPhase.Ended || phase == UnityEngine.InputSystem.TouchPhase.Canceled;
+            if (Debug.isDebugBuild && phase == UnityEngine.InputSystem.TouchPhase.Began)
+                Debug.Log($"[TouchDiag] began id={touchId} pos={pos} overMenu={IsOverMenu(pos)} firstHit={(uiHits.Count > 0 ? uiHits[0].gameObject.name : "-")}");
+            if (consumedTouches.Contains(touchId))
+            {
+                if (ending) consumedTouches.Remove(touchId);
+                return;
+            }
+            if (phase == UnityEngine.InputSystem.TouchPhase.Began && IsOverMenu(pos))
+            {
+                consumedTouches.Add(touchId);
+                return;
+            }
+
+            // Owned fingers first: a move/aim finger sliding over a control stays move/aim.
+            if (touchId == moveTouchId) { HandleMoveTouch(touchId, phase, pos); return; }
+            if (touchId == aimTouchId) { HandleAimFireTouch(touchId, phase, pos); return; }
+
+            // Check UI buttons (they consume the touch)
+            if (CheckButtonTouch(touchId, phase, pos)) return;
+
+            if (phase == UnityEngine.InputSystem.TouchPhase.Began)
+            {
+                bool isLeftSide = leftHandedMode ? pos.x > Screen.width * 0.5f : pos.x < Screen.width * 0.5f;
+                if (isLeftSide && moveTouchId == -1) HandleMoveTouch(touchId, phase, pos);
+                else if (!isLeftSide && aimTouchId == -1) HandleAimFireTouch(touchId, phase, pos);
+            }
+        }
+
+        /// <summary>
+        /// QA-003: the OS can drop a finger without delivering Ended/Cancelled (notification
+        /// shade, system gesture). Any owner whose finger is no longer active is released so
+        /// movement, aim, fire and pad can never stay latched.
+        /// </summary>
+        void ReleaseOwnersNotIn(System.Collections.Generic.HashSet<int> live)
+        {
+            if (moveTouchId != -1 && !live.Contains(moveTouchId)) { moveTouchId = -1; MoveInput = Vector2.zero; }
+            if (aimTouchId != -1 && !live.Contains(aimTouchId)) aimTouchId = -1;
+            if (fireTouchId != -1 && !live.Contains(fireTouchId)) { fireTouchId = -1; FireHeld = false; FireReleasedThisFrame = true; }
+            if (padTouchId != -1 && !live.Contains(padTouchId)) { padTouchId = -1; PadPreviewActive = false; }
+            consumedTouches.IntersectWith(live);
+        }
+
+        bool CheckButtonTouch(int id, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
+        {
             bool insideFire = fireButtonRect.Contains(pos);
             bool insideJump = jumpButtonRect.Contains(pos);
             bool insidePad = padButtonRect.Contains(pos);
@@ -257,6 +286,9 @@ namespace Updraft.Input
 
             if (phase == UnityEngine.InputSystem.TouchPhase.Began)
             {
+                // A second finger on an already-held Fire is swallowed rather than stealing
+                // ownership (otherwise lifting it would stop fire while the first finger holds).
+                if (insideFire && fireTouchId != -1) { consumedTouches.Add(id); return true; }
                 if (insideFire) { fireTouchId = id; fireStartPos = pos; FireHeld = true; FirePressedThisFrame = true; return true; }
                 if (insideJump) { consumedTouches.Add(id); JumpPressed = true; Vibrate(); return true; }
                 if (insidePad && Updraft.Core.StudySettings.PadsEnabled) { padTouchId = id; padTouchStart = Time.unscaledTime; padLastPos = pos; PadCancelled = false; Vibrate(); return true; }
@@ -313,9 +345,8 @@ namespace Updraft.Input
             return uiHits.Count > 0;
         }
 
-        void HandleMoveTouch(RecordedTouch touch, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
+        void HandleMoveTouch(int id, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
         {
-            int id = touch.touchId;
 
             switch (phase)
             {
@@ -351,9 +382,8 @@ namespace Updraft.Input
             }
         }
 
-        void HandleAimFireTouch(RecordedTouch touch, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
+        void HandleAimFireTouch(int id, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos)
         {
-            int id = touch.touchId;
 
             switch (phase)
             {
@@ -472,6 +502,32 @@ namespace Updraft.Input
         }
 
         public static bool GyroAvailable => UnityEngine.InputSystem.Gyroscope.current != null;
+
+        public void CalibrateGyroNeutral()
+        {
+            if (!GyroAvailable || gyroCalibrating) return;
+            StartCoroutine(CalibrateGyroNeutralRoutine());
+        }
+
+        System.Collections.IEnumerator CalibrateGyroNeutralRoutine()
+        {
+            gyroCalibrating = true;
+            var gyro = UnityEngine.InputSystem.Gyroscope.current;
+            if (!gyro.enabled) InputSystem.EnableDevice(gyro);
+            Vector3 sum = Vector3.zero;
+            const int samples = 40;
+            for (int i = 0; i < samples; i++)
+            {
+                sum += gyro.angularVelocity.ReadValue();
+                yield return null;
+            }
+            gyroBias = sum / samples;
+            PlayerPrefs.SetFloat("GyroBiasX", gyroBias.x);
+            PlayerPrefs.SetFloat("GyroBiasY", gyroBias.y);
+            PlayerPrefs.SetFloat("GyroBiasZ", gyroBias.z);
+            PlayerPrefs.Save();
+            gyroCalibrating = false;
+        }
 
         public void SetVibration(bool enabled)
         {
@@ -639,7 +695,10 @@ namespace Updraft.Input
 
         void Vibrate()
         {
+#if UNITY_ANDROID || UNITY_IOS
+            // Handheld only exists in mobile player builds; the Linux server build excludes it.
             if (vibrationEnabled && Application.isMobilePlatform) Handheld.Vibrate();
+#endif
         }
 
         void LoadSettings()
@@ -648,6 +707,7 @@ namespace Updraft.Input
             aimSensitivity = PlayerPrefs.GetFloat("AimSensitivity", 1f);
             invertY = PlayerPrefs.GetInt("InvertY", 0) == 1;
             gyroAimEnabled = PlayerPrefs.GetInt("GyroAim", 0) == 1;
+            gyroBias = new Vector3(PlayerPrefs.GetFloat("GyroBiasX"), PlayerPrefs.GetFloat("GyroBiasY"), PlayerPrefs.GetFloat("GyroBiasZ"));
             vibrationEnabled = PlayerPrefs.GetInt("VibrationEnabled", 1) == 1;
             for (int i = 0; i < buttonScale.Length; i++)
             {
@@ -719,6 +779,16 @@ namespace Updraft.Input
             DrawButton(reloadButtonRect, "RELOAD", ControlButton.Reload);
             DrawButton(pingButtonRect, "PING", ControlButton.Ping);
             DrawButton(pauseButtonRect, "PAUSE", ControlButton.Pause);
+            if (PadPreviewActive && !EditingLayout) DrawPadPreviewCaption();
+#if DEVELOPMENT_BUILD
+            // Device diagnostics (development builds only; audit U03): proves the game loop is
+            // live and which fingers the input system sees and who owns them.
+            if (Event.current.type == EventType.Repaint) diagFrames++;
+            controlLabel.fontSize = Mathf.RoundToInt(10 * dpiScale);
+            controlLabel.normal.textColor = Color.yellow;
+            GUI.Label(new Rect(Screen.width - 420 * dpiScale, Screen.height - 18 * dpiScale, 400 * dpiScale, 16 * dpiScale),
+                $"f{diagFrames} touches {RecordedTouch.activeTouches.Count} last {diagLastEvent} move {moveTouchId} aim {aimTouchId} fire {fireTouchId}", controlLabel);
+#endif
 
             // Joystick visualization
             if (moveTouchId != -1)
@@ -733,6 +803,21 @@ namespace Updraft.Input
             GUI.color = Color.white;
         }
 
+        /// <summary>QA-006: while previewing, say why the spot is invalid (or that release places it).</summary>
+        void DrawPadPreviewCaption()
+        {
+            string text = PadPreviewReason == null ? "RELEASE TO PLACE PAD" : "CAN'T PLACE — " + PadPreviewReason;
+            controlLabel.fontSize = Mathf.RoundToInt(16 * dpiScale);
+            Vector2 size = controlLabel.CalcSize(new GUIContent(text));
+            var box = new Rect(Screen.width * 0.5f - size.x * 0.5f - 12 * dpiScale, Screen.height * 0.5f + 28 * dpiScale,
+                size.x + 24 * dpiScale, size.y + 10 * dpiScale);
+            GUI.color = new Color(0.063f, 0.094f, 0.153f, 0.85f);
+            GUI.DrawTexture(box, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            controlLabel.normal.textColor = PadPreviewReason == null ? new Color(0.4f, 1f, 0.55f) : new Color(1f, 0.39f, 0.46f);
+            GUI.Label(box, text, controlLabel);
+        }
+
         void DrawButton(Rect rect, string label, ControlButton button)
         {
             Rect guiRect = new Rect(rect.x, Screen.height - rect.yMax, rect.width, rect.height);
@@ -741,7 +826,13 @@ namespace Updraft.Input
             GUI.DrawTexture(guiRect, controlDisc);
             // Shrink long labels (RELOAD, CANCEL) so they stay inside the disc's inner 80%.
             int longest = 1;
-            foreach (var line in label.Split('\n')) longest = Mathf.Max(longest, line.Length);
+            int lineLength = 0;
+            for (int i = 0; i <= label.Length; i++)
+            {
+                if (i < label.Length && label[i] != '\n') { lineLength++; continue; }
+                longest = Mathf.Max(longest, lineLength);
+                lineLength = 0;
+            }
             float fit = rect.width * 0.8f / (longest * 0.68f);
             controlLabel.fontSize = Mathf.RoundToInt(Mathf.Min(13 * dpiScale, fit));
             controlLabel.normal.textColor = new Color(0.957f, 0.969f, 0.984f);

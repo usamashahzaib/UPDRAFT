@@ -21,13 +21,18 @@ namespace Updraft.Network
         NetMatch match;
         MatchPhase lastPhase = (MatchPhase)(-1);
         bool wasDead;
-        int lastAmmo = -1, lastEliminations, lastShotCounter;
+        int lastEliminations, lastShotCounter, lastHitConfirms;
         float lastHealth = -1f;
         byte pendingWeaponChoice;
         // Button presses are latched until the next network tick consumes them, so a
         // tap shorter than a tick is never lost.
         bool jumpLatch, padLatch, reloadLatch, pingLatch;
         bool shotBlocked;
+        float nextBlockedWarning;
+        float lastSampledYaw;
+        bool hasSampledYaw;
+        int lastPadRejectCounter = -1;
+        readonly Updraft.Pads.PadPreviewArc padPreview = new Updraft.Pads.PadPreviewArc();
         static readonly RaycastHit[] aimHits = new RaycastHit[8];
         static readonly RaycastHit[] obstructionHits = new RaycastHit[16];
         static readonly Collider[] aimAssistCandidates = new Collider[32];
@@ -35,6 +40,9 @@ namespace Updraft.Network
         LayerMask shotObstructionMask;
 
         public bool ShowingResults { get; private set; }
+        /// <summary>Spec 18: the server replaced the local player with a bot for inactivity.</summary>
+        public event Action OnRemovedForInactivity;
+        bool removedForInactivity;
 
         public void Bind(GameBootstrap bootstrap, NetSession net, Action onReturnHome)
         {
@@ -46,9 +54,10 @@ namespace Updraft.Network
             session.OnShutdownComplete += () =>
             {
                 MatchView.Unregister(match);
+                padPreview.Hide();
                 game.mainCamera.SetTarget(null);
-                if (!ShowingResults) return;
-                ShowingResults = false;
+                // QA-016: when the server closes after the match, keep the results screen and its
+                // HOME / PLAY AGAIN actions usable; nothing else needs the session any more.
             };
         }
 
@@ -58,11 +67,18 @@ namespace Updraft.Network
             if (match == null) match = NetMatch.For(session.Runner);
             if (local == null) FindLocal();
             if (match == null || local == null) return;
+            if (local.AfkRemoved && !ShowingResults)
+            {
+                // Without this the player would sit in the match with dead controls, watching a bot play as them.
+                if (!removedForInactivity) { removedForInactivity = true; OnRemovedForInactivity?.Invoke(); }
+                return;
+            }
 
             LatchButtons();
             UpdateAimAssist();
             ApplyLook();
             UpdateBlockedShotFeedback();
+            UpdatePadFeedback();
             UpdateHud();
         }
 
@@ -72,6 +88,10 @@ namespace Updraft.Network
             {
                 if (p.Runner != session.Runner || !p.Object.HasInputAuthority) continue;
                 local = p;
+                lastPadRejectCounter = -1;
+                lastEliminations = p.EliminationCount;
+                lastHitConfirms = p.HitConfirmCounter;
+                hasSampledYaw = false;
                 match.LocalParticipant = p;
                 MatchView.Register(match);
                 game.mainCamera.SetTarget(p.transform);
@@ -79,11 +99,8 @@ namespace Updraft.Network
                 game.matchHUD.InitializeNetwork(p, game.touchInput, NetConfigs.Weapons, PlayAgain, Home, i => pendingWeaponChoice = (byte)(i + 1));
                 game.matchHUD.HideAllPanels();
                 match.OnPingBroadcast += ReceivePing;
-                p.OnLocalShot += (from, to) =>
-            {
-                Updraft.Weapons.ShotTracers.Show(from, to, true);
-                game.mainCamera.AddYawPitch(0f, -p.Weapon.verticalRecoilDegreesPerShot);
-            };
+                p.OnLocalShot += (from, to) => Updraft.Weapons.ShotTracers.Show(from, to, true);
+                p.OnLocalFired += () => game.mainCamera.AddYawPitch(0f, -p.Weapon.verticalRecoilDegreesPerShot);
                 Telemetry.Track("online_match_joined", ("slot", p.Slot.ToString()));
                 return;
             }
@@ -205,10 +222,36 @@ namespace Updraft.Network
             Vector3 dir = (target - eye).normalized;
             var look = Quaternion.LookRotation(dir).eulerAngles;
             input.Yaw = look.y;
+            lastSampledYaw = look.y;
+            hasSampledYaw = true;
             input.Pitch = look.x > 180f ? look.x - 360f : look.x;
             input.AimPoint = target;
             return input;
         }
+
+        /// <summary>
+        /// QA-006: the same hold-to-preview arc and reason as offline play, evaluated with the
+        /// server's own rule set against this client's scene; server rejections are shown too.
+        /// </summary>
+        void UpdatePadFeedback()
+        {
+            var touch = game.touchInput;
+            if (lastPadRejectCounter < 0) lastPadRejectCounter = local.PadRejectCounter; // ignore history on join
+            if (local.PadRejectCounter != lastPadRejectCounter)
+            {
+                lastPadRejectCounter = local.PadRejectCounter;
+                string rejected = Updraft.Pads.PadPlacementRules.ReasonOf(local.PadRejectCode);
+                if (rejected != null) game.matchHUD.ShowPadRejected(rejected);
+            }
+
+            if (touch == null || !touch.PadPreviewActive || local.Dead) { padPreview.Hide(); return; }
+            float yaw = hasSampledYaw ? lastSampledYaw : game.mainCamera.transform.eulerAngles.y;
+            string reason = local.EvaluatePadPlacement(match, yaw, out Vector3 position, out Vector3 forward);
+            padPreview.Show(position, forward, reason == null, NetConfigs.Pad, NetConfigs.Movement.gravity);
+            touch.PadPreviewReason = reason;
+        }
+
+        void OnDestroy() => padPreview.Destroy();
 
         void UpdateBlockedShotFeedback()
         {
@@ -234,8 +277,9 @@ namespace Updraft.Network
             Vector3 muzzle = local.GetMuzzlePosition(cam.eulerAngles.y);
             Vector3 toTarget = target - muzzle;
             float distance = toTarget.magnitude;
-            bool blocked = false;
-            if (distance > 0.1f && shotObstructionMask.value != 0)
+            Vector3 body = new Vector3(local.transform.position.x, muzzle.y, local.transform.position.z);
+            bool blocked = Updraft.Weapons.MuzzleObstruction.IsBuried(Physics.defaultPhysicsScene, body, muzzle, shotObstructionMask, out _);
+            if (!blocked && distance > 0.1f && shotObstructionMask.value != 0)
             {
                 int count = Physics.RaycastNonAlloc(muzzle, toTarget / distance, obstructionHits,
                     distance, shotObstructionMask, QueryTriggerInteraction.Ignore);
@@ -243,7 +287,14 @@ namespace Updraft.Network
                     if (obstructionHits[i].distance < distance - 0.1f) { blocked = true; break; }
             }
 
-            if (blocked && !shotBlocked && game.touchInput.FireHeld) game.matchHUD.ShowBlockedShot();
+            // QA-012: warn whenever the trigger is held on a blocked line — including aiming at
+            // cover first and firing afterwards — repeating while held, not only on the transition.
+            if (blocked && game.touchInput.FireHeld &&
+                (!shotBlocked || game.touchInput.FirePressedThisFrame || Time.unscaledTime >= nextBlockedWarning))
+            {
+                game.matchHUD.ShowBlockedShot();
+                nextBlockedWarning = Time.unscaledTime + 0.7f;
+            }
             shotBlocked = blocked;
         }
 
@@ -264,12 +315,7 @@ namespace Updraft.Network
                 lastHealth = local.HealthFraction;
                 hud.UpdateHealth(lastHealth);
             }
-            if (local.Ammo != lastAmmo)
-            {
-                lastAmmo = local.Ammo;
-                hud.UpdateAmmo(local.Ammo, local.Weapon.magazineSize);
-                touch.AmmoLabel = $"{local.Ammo}/{local.Weapon.magazineSize}";
-            }
+            hud.UpdateAmmo(local.Ammo, local.Weapon.magazineSize, local.IsReloading, local.ReloadProgress);
             touch.PadAvailable = local.HasPadCharge;
             touch.PadCooldown = local.HasPadCharge ? 0f : local.PadRecharge.RemainingTime(session.Runner) ?? 0f;
             // Match the offline control affordance: jump becomes LAUNCH when the
@@ -278,8 +324,12 @@ namespace Updraft.Network
             touch.LaunchAvailable = !local.Dead &&
                 NetPad.FindUsableUnder(session.Runner, local.transform.position, NetConfigs.Pad) != null;
 
-            if (local.EliminationCount > lastEliminations) { hud.ShowHitConfirmed(); GameAudio.Play2D(GameCue.EliminationConfirm); }
+            // QA-010: every landed hit confirms (marker + sound); eliminations get the stronger cue.
+            bool eliminated = local.EliminationCount > lastEliminations;
+            if (eliminated) { hud.ShowHitConfirmed(); GameAudio.Play2D(GameCue.EliminationConfirm); }
+            else if (local.HitConfirmCounter != lastHitConfirms) { hud.ShowHitConfirmed(); GameAudio.Play2D(GameCue.Hit, 0.8f); }
             lastEliminations = local.EliminationCount;
+            lastHitConfirms = local.HitConfirmCounter;
 
             if (preparing)
             {
@@ -310,7 +360,7 @@ namespace Updraft.Network
                 foreach (var p in NetPlayer.All)
                     if (p.Runner == session.Runner && p.Slot == local.LastKillerSlot && p != local) killer = p.DisplayName;
                 var weaponId = NetConfigs.Weapons[Mathf.Clamp(local.LastKillerWeapon, 0, 2)].id;
-                hud.ShowEliminated(killer, weaponId);
+                hud.ShowEliminated(killer, weaponId, local.LastAttackDirection);
             }
             if (!local.Dead && wasDead) game.mainCamera.SetTarget(local.transform);
             if (local.Dead) SpectateTeammate();
@@ -342,8 +392,57 @@ namespace Updraft.Network
             string footer = match.Cancelled ? "MATCH CANCELLED  ·  NO RATING OR REWARDS CHANGED"
                 : match.HasBots ? "BOT-FILLED MATCH  ·  RATING UNCHANGED" : "RANKED 3v3";
             game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, match.Participants, footer);
+            if (!match.Cancelled) PollRewardReceipt();
+            // QA-025: remember who was in this match so the player can report someone by name.
+            var others = new System.Collections.Generic.List<RecentMatch.Entry>();
+            foreach (var p in NetPlayer.All)
+                if (p.Runner == session.Runner && p != local && (!p.BotControlled || p.HadBotSubstitution)) // humans who quit/idled stay reportable
+                    others.Add(new RecentMatch.Entry { alias = HumanAlias(p.Alias.ToString()), slot = p.Slot, team = p.Team });
+            RecentMatch.Remember(MatchId, others);
             GameAudio.Play2D(draw ? GameCue.ZoneMilestone : won ? GameCue.Victory : GameCue.Defeat);
             Telemetry.Track("online_match_completed", ("result", draw ? "draw" : won ? "win" : "loss"));
+        }
+
+        public string MatchId { get; set; }
+
+        static string HumanAlias(string alias) => alias.StartsWith("[BOT] ", StringComparison.Ordinal) ? alias.Substring(6) : alias;
+
+        /// <summary>
+        /// QA-017: show what the player actually earned, as recorded by the backend. Until the
+        /// server's result arrives (it may be retried from the server outbox) the screen says the
+        /// reward is pending instead of implying nothing was earned. Runs while results are shown.
+        /// </summary>
+        async void PollRewardReceipt()
+        {
+            if (string.IsNullOrEmpty(MatchId) || BackendClient.Instance == null) return; // dev sessions
+            var hud = game.matchHUD;
+            hud.SetResultsReceipt("REWARD PENDING — confirming your result with the server…", Updraft.UI.MatchHUD.SecondaryText);
+            float delay = 2f;
+            while (ShowingResults)
+            {
+                var receipt = await BackendClient.Instance.MatchReceiptAsync(MatchId);
+                if (!ShowingResults) return;
+                if (receipt.Ok && receipt.Value != null && receipt.Value.recorded)
+                {
+                    var r = receipt.Value;
+                    if (!r.eligible)
+                        hud.SetResultsReceipt("NO REWARD FOR THIS MATCH (not eligible: left early, replaced by a bot, or server failure)", Updraft.UI.MatchHUD.SecondaryText);
+                    else
+                    {
+                        string unlocked = r.unlocked != null && r.unlocked.Length > 0 ? "  ·  UNLOCKED " + string.Join(", ", r.unlocked) : "";
+                        hud.SetResultsReceipt($"+{r.xpGained} XP  ·  +{r.creditsGained} CREDITS  ·  LEVEL {r.level}{unlocked}", Updraft.UI.MatchHUD.Objective);
+                    }
+                    return;
+                }
+                if (!receipt.Ok && receipt.Error != BackendError.NoInternet && receipt.Error != BackendError.ServerBusy && receipt.Error != BackendError.ServerError)
+                {
+                    hud.SetResultsReceipt("REWARD STATUS UNAVAILABLE — it will appear in your profile once recorded", Updraft.UI.MatchHUD.SecondaryText);
+                    return;
+                }
+                hud.SetResultsReceipt("REWARD PENDING — the server is still delivering this result; it is kept until it arrives", Updraft.UI.MatchHUD.SecondaryText);
+                await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(delay));
+                delay = Mathf.Min(delay * 1.5f, 15f);
+            }
         }
 
         void PlayAgain()
@@ -352,10 +451,13 @@ namespace Updraft.Network
             OnlineHooks.PlayOnline?.Invoke(game);
         }
 
+        // QA-016: results can stay on screen long after the server has closed the session (its
+        // teardown destroys this component's GameObject). The results actions are plain delegates,
+        // so they must not assume the session still exists: leave it only if it is still alive.
         void Home()
         {
             ShowingResults = false;
-            session.Leave();
+            if (session != null) session.Leave(); // Unity null: false once the session is destroyed
             returnHome?.Invoke();
         }
     }

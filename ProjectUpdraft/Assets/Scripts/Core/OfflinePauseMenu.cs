@@ -69,50 +69,56 @@ namespace Updraft.Core
 
         void OnDestroy() { if (IsOpen && pausedGame) Time.timeScale = previousScale; }
 
+        // QA-019/020: density-aware scrolling layout (>= 48 dp controls, ~12 dp text) instead of
+        // fixed 1920x1080 coordinates that overflowed a phone. BACK sits in the top bar.
         void CreatePanel()
         {
-            panel = new GameObject("OfflinePause", typeof(RectTransform), typeof(Image));
-            panel.transform.SetParent(game.matchHUD.transform, false);
-            var rect = panel.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.sizeDelta = Vector2.zero;
-            panel.GetComponent<Image>().color = new Color(.063f, .094f, .153f, .99f);
-            title = Label("PRACTICE PAUSED", new Vector2(0, 420), 44);
+            var screen = Updraft.UI.MenuLayout.Create(game.matchHUD.transform, "OfflinePause", "PRACTICE PAUSED", Close);
+            panel = screen.Root;
+            title = screen.Title;
+            backButton = screen.Back;
+            content = screen.Content;
+            screen.Status.text = "Settings save on this device.";
 
-            float y = 330f, step = 80f;
-            resumeButton = Action("RESUME", new Vector2(-300, y), () => { Tap(); Close(); }).transform.parent.gameObject;
-            homeButton = Action("RETURN HOME", new Vector2(300, y), () => { Tap(); Close(); game.ReturnToHome(); }).transform.parent.gameObject;
-            backButton = Action("BACK", new Vector2(0, y), () => { Tap(); Close(); }).transform.parent.gameObject;
+            var pauseRow = Updraft.UI.MenuLayout.Row(content, "PauseActions");
+            Updraft.UI.MenuLayout.AddButton(pauseRow, "RESUME", Close, "RESUME");
+            Updraft.UI.MenuLayout.AddButton(pauseRow, "RETURN HOME", () => { Close(); game.ReturnToHome(); }, "RETURN HOME");
+            resumeButton = homeButton = pauseRow.gameObject;
 
             var input = game.touchInput;
-            y -= step;
-            Toggle("LEFT-HANDED", "LeftHandedMode", false, new Vector2(-300, y), input.SetLeftHanded);
-            Toggle("INVERT LOOK", "InvertY", false, new Vector2(300, y), input.SetInvertY);
-            y -= step;
-            Toggle("VIBRATION", "VibrationEnabled", true, new Vector2(-300, y), input.SetVibration);
-            Toggle("AIM ASSIST", "AimAssistEnabled", true, new Vector2(300, y), value =>
+            NextRow();
+            Toggle("LEFT-HANDED", "LeftHandedMode", false, input.SetLeftHanded);
+            Toggle("INVERT LOOK", "InvertY", false, input.SetInvertY);
+            NextRow();
+            Toggle("VIBRATION", "VibrationEnabled", true, input.SetVibration);
+            Toggle("AIM ASSIST", "AimAssistEnabled", true, value =>
             {
                 foreach (var player in Updraft.Player.PlayerController.All) player.SetAimAssistEnabled(value);
             });
-            y -= step;
-            Cycle("LOOK SENSITIVITY", "AimSensitivity", 1f, new[] { .5f, .75f, 1f, 1.25f, 1.5f, 2f, 2.5f }, v => $"{v:0.00}x",
-                new Vector2(-300, y), input.SetAimSensitivity);
+            NextRow();
+            Cycle("LOOK SENSITIVITY", "AimSensitivity", 1f, new[] { .5f, .75f, 1f, 1.25f, 1.5f, 2f, 2.5f }, v => $"{v:0.00}x", input.SetAimSensitivity);
             if (TouchInputManager.GyroAvailable)
-                Toggle("GYRO AIM", "GyroAim", false, new Vector2(300, y), input.SetGyroAim);
-            else
-                Label("GYRO AIM  —  NO GYROSCOPE ON THIS DEVICE", new Vector2(300, y), 20, width: 550);
-            y -= step;
-            Toggle("CAMERA SHAKE", "CameraShakeEnabled", true, new Vector2(-300, y), value => game.mainCamera.SetShakeEnabled(value));
-            Toggle("MUTE TEAM PINGS", Updraft.UI.PingSystem.MuteKey, false, new Vector2(300, y), _ => { });
-            y -= step;
-            Volume("MASTER VOLUME", GameAudio.MasterKey, new Vector2(-300, y));
-            Volume("SFX VOLUME", GameAudio.SfxKey, new Vector2(300, y));
-            y -= step;
-            Volume("MUSIC VOLUME", GameAudio.MusicKey, new Vector2(-300, y));
-            Volume("ANNOUNCER VOLUME", GameAudio.AnnouncerKey, new Vector2(300, y));
-            y -= step;
-            Action("CUSTOMIZE CONTROLS", new Vector2(-300, y), () =>
             {
-                Tap();
+                Toggle("GYRO AIM", "GyroAim", false, input.SetGyroAim);
+                NextRow();
+                Updraft.UI.MenuLayout.AddText(row, "Hold device still, then calibrate neutral aim", 18, Updraft.UI.MatchHUD.SecondaryText);
+                NextRow();
+                Updraft.UI.MenuLayout.AddButton(row, "CALIBRATE GYRO (HOLD STILL)", input.CalibrateGyroNeutral, "CALIBRATE");
+            }
+            else
+                Updraft.UI.MenuLayout.AddText(row, "GYRO AIM  —  NO GYROSCOPE ON THIS DEVICE", 20, Updraft.UI.MatchHUD.SecondaryText);
+            NextRow();
+            Toggle("CAMERA SHAKE", "CameraShakeEnabled", true, value => game.mainCamera.SetShakeEnabled(value));
+            Toggle("MUTE TEAM PINGS", Updraft.UI.PingSystem.MuteKey, false, _ => { });
+            NextRow();
+            Volume("MASTER VOLUME", GameAudio.MasterKey);
+            Volume("SFX VOLUME", GameAudio.SfxKey);
+            NextRow();
+            Volume("MUSIC VOLUME", GameAudio.MusicKey);
+            Volume("ANNOUNCER VOLUME", GameAudio.AnnouncerKey);
+            NextRow();
+            Updraft.UI.MenuLayout.AddButton(row, "CUSTOMIZE CONTROLS", () =>
+            {
                 panel.SetActive(false);
                 input.BeginLayoutEdit(() =>
                 {
@@ -121,15 +127,17 @@ namespace Updraft.Core
                     panel.transform.SetAsLastSibling();
                 });
             });
-            Action("RESET CONTROL LAYOUT", new Vector2(300, y), () => { Tap(); input.ResetButtonLayout(); });
-            Label("Settings save on this device.", new Vector2(0, y - 75f), 20);
+            Updraft.UI.MenuLayout.AddButton(row, "RESET CONTROL LAYOUT", input.ResetButtonLayout);
         }
+
+        RectTransform content, row;
+        void NextRow() => row = Updraft.UI.MenuLayout.Row(content, "SettingsRow");
 
         static void Tap() => GameAudio.Play2D(GameCue.UiTap);
 
-        void Toggle(string name, string key, bool defaultValue, Vector2 position, System.Action<bool> apply)
+        void Toggle(string name, string key, bool defaultValue, System.Action<bool> apply)
         {
-            var label = Action("", position, null);
+            var label = Action("", null);
             System.Action refresh = () => label.text = name + "  " + (PlayerPrefs.GetInt(key, defaultValue ? 1 : 0) == 1 ? "ON" : "OFF");
             refresh();
             refreshers.Add(refresh);
@@ -141,9 +149,9 @@ namespace Updraft.Core
             });
         }
 
-        void Cycle(string name, string key, float defaultValue, float[] values, System.Func<float, string> format, Vector2 position, System.Action<float> apply)
+        void Cycle(string name, string key, float defaultValue, float[] values, System.Func<float, string> format, System.Action<float> apply)
         {
-            var label = Action("", position, null);
+            var label = Action("", null);
             System.Action refresh = () => label.text = $"{name}  {format(PlayerPrefs.GetFloat(key, defaultValue))}";
             refresh();
             refreshers.Add(refresh);
@@ -157,29 +165,14 @@ namespace Updraft.Core
             });
         }
 
-        void Volume(string name, string key, Vector2 position) =>
-            Cycle(name, key, GameAudio.Volume(key), new[] { 0f, .25f, .5f, .75f, 1f }, v => $"{v * 100:0}%", position, v => GameAudio.SetVolume(key, v));
+        void Volume(string name, string key) =>
+            Cycle(name, key, GameAudio.Volume(key), new[] { 0f, .25f, .5f, .75f, 1f }, v => $"{v * 100:0}%", v => GameAudio.SetVolume(key, v));
 
-        TextMeshProUGUI Action(string name, Vector2 position, UnityEngine.Events.UnityAction action)
+        /// <summary>A settings button in the current row; returns its label for live refresh.</summary>
+        TextMeshProUGUI Action(string name, UnityEngine.Events.UnityAction action)
         {
-            var obj = new GameObject(string.IsNullOrEmpty(name) ? "Setting" : name, typeof(RectTransform), typeof(Image), typeof(Button));
-            obj.transform.SetParent(panel.transform, false);
-            var rect = obj.GetComponent<RectTransform>(); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(550, 66);
-            var image = obj.GetComponent<Image>(); image.color = new Color(.106f, .161f, .251f);
-            var button = obj.GetComponent<Button>(); button.targetGraphic = image;
-            if (action != null) button.onClick.AddListener(action);
-            return Label(name, Vector2.zero, 24, obj.transform);
-        }
-
-        TextMeshProUGUI Label(string text, Vector2 position, float size, Transform parent = null, float width = 0f)
-        {
-            var obj = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-            obj.transform.SetParent(parent == null ? panel.transform : parent, false);
-            var rect = obj.GetComponent<RectTransform>(); rect.anchoredPosition = position;
-            rect.sizeDelta = new Vector2(width > 0 ? width : parent == null ? 1400 : 540, size + 24);
-            var tmp = obj.GetComponent<TextMeshProUGUI>(); tmp.text = text; tmp.fontSize = size;
-            tmp.alignment = TextAlignmentOptions.Center; tmp.color = Color.white; tmp.raycastTarget = false;
-            return tmp;
+            var button = Updraft.UI.MenuLayout.AddButton(row, name, action, string.IsNullOrEmpty(name) ? "Setting" : name);
+            return button.GetComponentInChildren<TextMeshProUGUI>();
         }
     }
 }

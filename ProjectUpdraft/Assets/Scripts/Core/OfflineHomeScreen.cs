@@ -15,37 +15,60 @@ namespace Updraft.Core
         {
             this.game = game;
             if (panel != null) { panel.SetActive(true); return; }
-            panel = new GameObject("Home", typeof(RectTransform), typeof(Image));
-            panel.transform.SetParent(game.matchHUD.transform, false);
-            var rt = panel.GetComponent<RectTransform>(); rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.sizeDelta = Vector2.zero;
-            panel.GetComponent<Image>().color = new Color(0.063f, 0.094f, 0.153f, 0.98f);
-            Label("UPDRAFT", new Vector2(0, 220), 88);
+            // QA-019/020: density-aware menu layout — two columns of >= 48 dp buttons that fit a
+            // phone screen; online availability and the fairness note share the status line.
+            var screen = Updraft.UI.MenuLayout.Create(game.matchHUD.transform, "Home", "UPDRAFT", null);
+            panel = screen.Root;
+            screen.Title.fontSizeMax = 52; screen.Title.fontSize = 52;
             // Facilitator-only study controls: tap the title five times.
-            Button("", new Vector2(0, 220), () =>
+            var titleTap = screen.Title.gameObject.AddComponent<Button>();
+            screen.Title.raycastTarget = true;
+            titleTap.transition = Selectable.Transition.None;
+            titleTap.onClick.AddListener(() =>
             {
                 if (Time.unscaledTime - lastTitleTap > 1.5f) titleTaps = 0;
                 lastTitleTap = Time.unscaledTime;
                 if (++titleTaps >= 5) { titleTaps = 0; ToggleStudyPanel(); }
-            }, transparent: true);
-            Label("THREE TEAMMATES. THREE MINUTES.", new Vector2(0, 135), 24);
-            Label("Build shortcuts. Watch who follows.", new Vector2(0, 90), 24);
-            Button("PLAY ONLINE  ·  3v3", new Vector2(0, 0), () =>
+            });
+            var columns = Updraft.UI.MenuLayout.Row(screen.Content, "Home_Columns");
+            var play = Column(columns, "Home_Play");
+            var account = Column(columns, "Home_Account");
+            Updraft.UI.MenuLayout.AddButton(play, "PLAY ONLINE  ·  3v3", () =>
             {
-                Tap();
                 string reason = OnlineHooks.UnavailableReason?.Invoke() ?? (OnlineHooks.PlayOnline == null ? "Online play is not included in this build." : null);
                 if (reason != null) { onlineStatus.text = reason; return; }
                 panel.SetActive(false);
                 OnlineHooks.PlayOnline(game);
-            }, height: 80);
-            Button("PRACTICE  /  RELAY", new Vector2(0, -90), () => { Tap(); panel.SetActive(false); game.touchInput.enabled = true; game.StartOfflinePractice(); }, height: 80);
-            Button("REPLAY TRAINING", new Vector2(0, -180), () => { Tap(); panel.SetActive(false); game.touchInput.enabled = true; game.StartTutorial(); }, height: 80);
-            Button("SETTINGS", new Vector2(0, -270), () => { Tap(); game.GetComponent<OfflinePauseMenu>().OpenSettings(); }, height: 80);
-            onlineStatus = Label(OnlineHooks.UnavailableReason?.Invoke() ?? "", new Vector2(0, -345), 20);
-            Label("All three weapons unlocked  •  Cosmetics never change power", new Vector2(0, -380), 18);
+            }, "PLAY ONLINE", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddButton(play, "PRACTICE  /  RELAY", () => { panel.SetActive(false); game.touchInput.enabled = true; game.StartOfflinePractice(); }, "PRACTICE", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddButton(play, "REPLAY TRAINING", () => { panel.SetActive(false); game.touchInput.enabled = true; game.StartTutorial(); }, "REPLAY TRAINING", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddButton(play, "SETTINGS", () => game.GetComponent<OfflinePauseMenu>().OpenSettings(), "SETTINGS", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddText(play, "THREE TEAMMATES. THREE MINUTES.\nBuild shortcuts. Watch who follows.", 22, Updraft.UI.MatchHUD.MainText, "Tagline");
+            Updraft.UI.MenuLayout.AddButton(account, "PARTY", () => PlayerProductScreens.Open(game, panel, "Party"), "PARTY", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddButton(account, "PROFILE", () => PlayerProductScreens.Open(game, panel, "Profile"), "PROFILE", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddButton(account, "APPEARANCE", () => PlayerProductScreens.Open(game, panel, "Appearance"), "APPEARANCE", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddButton(account, "ACCOUNT", () => PlayerProductScreens.Open(game, panel, "Account"), "ACCOUNT", HomeButtonHeight);
+            Updraft.UI.MenuLayout.AddButton(account, "SUPPORT / REPORT", () => PlayerProductScreens.Open(game, panel, "Support"), "SUPPORT", HomeButtonHeight);
+            onlineStatus = screen.Status;
+            onlineStatus.text = OnlineHooks.UnavailableReason?.Invoke() ?? "All three weapons unlocked  •  Cosmetics never change power";
         }
 
+        static RectTransform Column(Transform parent, string name)
+        {
+            var column = new GameObject(name, typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+            var element = column.GetComponent<LayoutElement>(); element.preferredWidth = 0; element.flexibleWidth = 1; // equal columns
+            column.transform.SetParent(parent, false);
+            var layout = column.GetComponent<VerticalLayoutGroup>();
+            layout.spacing = Updraft.UI.MenuLayout.Spacing;
+            layout.childControlWidth = true; layout.childControlHeight = true;
+            layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
+            return column.GetComponent<RectTransform>();
+        }
+
+        // Five rows must fit a 20:9 phone without scrolling; still above the 48 dp floor.
+        const float HomeButtonHeight = Updraft.UI.UiMetrics.MinTouchUnits + 1f;
+
         TextMeshProUGUI onlineStatus;
-        static void Tap() => GameAudio.Play2D(GameCue.UiTap);
 
         int titleTaps;
         float lastTitleTap;
@@ -56,18 +79,16 @@ namespace Updraft.Core
         {
             if (studyPanel != null) { studyPanel.SetActive(!studyPanel.activeSelf); RefreshStudy(); return; }
             var root = panel;
-            studyPanel = new GameObject("StudyPanel", typeof(RectTransform), typeof(Image));
-            studyPanel.transform.SetParent(root.transform, false);
-            var rt = studyPanel.GetComponent<RectTransform>(); rt.sizeDelta = new Vector2(1300, 820);
-            studyPanel.GetComponent<Image>().color = new Color(0.106f, 0.161f, 0.251f, 1f);
-            panel = studyPanel;
-            Label("PAD STUDY — FACILITATOR", new Vector2(0, 330), 36);
-            studyStatus = Label("", new Vector2(0, 250), 24);
-            Button("VERSION: WITH PADS", new Vector2(-300, 140), () => { StudySettings.SetCohort(StudySettings.PadsOn); RefreshStudy(); });
-            Button("VERSION: WITHOUT PADS", new Vector2(300, 140), () => { StudySettings.SetCohort(StudySettings.PadsOff); RefreshStudy(); });
-            Button("NORMAL PLAY (NOT STUDY)", new Vector2(0, 45), () => { StudySettings.SetCohort("default"); RefreshStudy(); });
-            Button("TOGGLE INCENTIVIZED TESTER FLAG", new Vector2(0, -25), () => { StudySettings.SetIncentivizedTester(!StudySettings.IncentivizedTester); RefreshStudy(); });
-            Button("NEW PARTICIPANT (REPLAY TUTORIAL)", new Vector2(0, -95), () =>
+            var screen = Updraft.UI.MenuLayout.Create(root.transform, "StudyPanel", "PAD STUDY — FACILITATOR", () => studyPanel.SetActive(false));
+            studyPanel = screen.Root;
+            var content = screen.Content;
+            studyStatus = Updraft.UI.MenuLayout.AddText(content, "", 22, Updraft.UI.MatchHUD.MainText, "StudyStatus");
+            var versions = Updraft.UI.MenuLayout.Row(content);
+            Updraft.UI.MenuLayout.AddButton(versions, "VERSION: WITH PADS", () => { StudySettings.SetCohort(StudySettings.PadsOn); RefreshStudy(); });
+            Updraft.UI.MenuLayout.AddButton(versions, "VERSION: WITHOUT PADS", () => { StudySettings.SetCohort(StudySettings.PadsOff); RefreshStudy(); });
+            Updraft.UI.MenuLayout.AddButton(content, "NORMAL PLAY (NOT STUDY)", () => { StudySettings.SetCohort("default"); RefreshStudy(); });
+            Updraft.UI.MenuLayout.AddButton(content, "TOGGLE INCENTIVIZED TESTER FLAG", () => { StudySettings.SetIncentivizedTester(!StudySettings.IncentivizedTester); RefreshStudy(); });
+            Updraft.UI.MenuLayout.AddButton(content, "NEW PARTICIPANT (REPLAY TUTORIAL)", () =>
             {
                 PlayerPrefs.DeleteKey(GameBootstrap.TutorialDoneKey);
                 Telemetry.Track("study_participant_started");
@@ -76,10 +97,8 @@ namespace Updraft.Core
                 game.touchInput.enabled = true;
                 game.StartTutorial();
             });
-            Label("Collect data:  adb pull /sdcard/Android/data/" + Application.identifier + "/files/" + Telemetry.QueueFileName, new Vector2(0, -190), 20);
-            Label("Never reward participants for choosing either version (spec section 25).", new Vector2(0, -235), 20);
-            Button("CLOSE", new Vector2(0, -320), () => studyPanel.SetActive(false));
-            panel = root;
+            Updraft.UI.MenuLayout.AddText(content, "Collect data:  adb pull /sdcard/Android/data/" + Application.identifier + "/files/" + Telemetry.QueueFileName, 20, Updraft.UI.MatchHUD.SecondaryText);
+            screen.Status.text = "Never reward participants for choosing either version (spec section 25).";
             RefreshStudy();
         }
 
@@ -90,22 +109,5 @@ namespace Updraft.Core
                                $"Queued events: {Telemetry.ReadQueued().Length}   ·   Tutorial will {(PlayerPrefs.GetInt(GameBootstrap.TutorialDoneKey, 0) == 0 ? "run" : "not run")} next launch";
         }
 
-        TextMeshProUGUI Label(string value, Vector2 position, float size)
-        {
-            var obj = new GameObject(value, typeof(RectTransform), typeof(TextMeshProUGUI)); obj.transform.SetParent(panel.transform, false);
-            var rt = obj.GetComponent<RectTransform>(); rt.anchoredPosition = position; rt.sizeDelta = new Vector2(1100, size + 20);
-            var text = obj.GetComponent<TextMeshProUGUI>(); text.text = value; text.fontSize = size; text.alignment = TextAlignmentOptions.Center;
-            text.color = new Color(0.957f, 0.969f, 0.984f); text.raycastTarget = false; return text;
-        }
-        void Button(string value, Vector2 position, UnityEngine.Events.UnityAction action, bool transparent = false, float height = 90)
-        {
-            var obj = new GameObject(value, typeof(RectTransform), typeof(Image), typeof(Button)); obj.transform.SetParent(panel.transform, false);
-            var rt = obj.GetComponent<RectTransform>(); rt.anchoredPosition = position; rt.sizeDelta = new Vector2(540, height);
-            var image = obj.GetComponent<Image>(); image.color = transparent ? new Color(0, 0, 0, 0) : new Color(0.106f, 0.161f, 0.251f);
-            var button = obj.GetComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(action);
-            var label = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI)); label.transform.SetParent(obj.transform, false);
-            label.GetComponent<RectTransform>().sizeDelta = new Vector2(520, 80);
-            var text = label.GetComponent<TextMeshProUGUI>(); text.text = value; text.fontSize = 26; text.alignment = TextAlignmentOptions.Center; text.color = new Color(0.188f, 0.835f, 0.91f); text.raycastTarget = false;
-        }
     }
 }

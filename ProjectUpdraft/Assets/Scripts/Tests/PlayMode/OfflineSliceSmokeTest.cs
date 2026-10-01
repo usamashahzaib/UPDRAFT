@@ -587,6 +587,22 @@ namespace Updraft.Tests.PlayMode
             Assert.AreEqual(TutorialController.TutorialStep.CaptureZone, tutorial.CurrentStep);
             yield return WaitForStep(tutorial, TutorialController.TutorialStep.BotFight);
             var bot = Object.FindFirstObjectByType<Updraft.Bots.BotController>().GetComponent<PlayerController>();
+
+            // QA-013: losing the tutorial fight explains the death, counts down and returns the
+            // player to the exercise instead of the arena spawn room.
+            Vector3 fightStart = player.transform.position;
+            player.ApplyDamage(1000, bot.PlayerId, bot.CurrentWeapon.id);
+            yield return null;
+            var hud = GameBootstrap.Instance.matchHUD;
+            Assert.IsFalse(player.IsAlive);
+            Assert.IsTrue(hud.IsDeathPanelVisible, "A tutorial death must show the elimination/respawn panel.");
+            yield return new WaitForSeconds(4.3f);
+            Assert.IsTrue(player.IsAlive, "The tutorial player must respawn after the 4 s delay.");
+            yield return null;
+            Assert.IsFalse(hud.IsDeathPanelVisible);
+            Assert.Less(Vector3.Distance(player.transform.position, fightStart), 1f, "Respawn returns to the bot-fight exercise.");
+            Assert.AreEqual(TutorialController.TutorialStep.BotFight, tutorial.CurrentStep);
+
             bot.ApplyDamage(1000, player.PlayerId, player.CurrentWeapon.id);
             yield return null;
             Assert.IsNotNull(GameObject.Find("Home"), "Completing all nine authored steps must return home.");

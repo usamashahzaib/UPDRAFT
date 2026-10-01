@@ -32,8 +32,15 @@ namespace Updraft.Weapons
         public static PelletResult[] ResolvePellets(WeaponDefinition weapon, Vector3 aimDirection, uint shotSeed, MovementState state)
         {
             var results = new PelletResult[weapon.pelletsPerShot];
+            ResolvePellets(weapon, aimDirection, shotSeed, state, results);
+            return results;
+        }
+
+        public static int ResolvePellets(WeaponDefinition weapon, Vector3 aimDirection, uint shotSeed, MovementState state, PelletResult[] results)
+        {
+            int count = Mathf.Min(weapon.pelletsPerShot, results.Length);
             float halfAngle = GetSpreadHalfAngle(weapon, state);
-            var rng = new System.Random((int)shotSeed);
+            uint rng = shotSeed == 0 ? 0x9E3779B9u : shotSeed;
             aimDirection = aimDirection.normalized;
             // Any axis perpendicular to the aim works; fall back when aiming straight up/down.
             Vector3 tiltAxis = Vector3.Cross(aimDirection, Vector3.up);
@@ -42,13 +49,11 @@ namespace Updraft.Weapons
 
             // Even angular rotation offset per pellet plus a seeded jitter keeps the
             // pattern from clustering while still varying shot-to-shot.
-            float baseRotation = (float)(rng.NextDouble() * 360.0);
+            float baseRotation = Next01(ref rng) * 360f;
 
-            for (int i = 0; i < weapon.pelletsPerShot; i++)
+            for (int i = 0; i < count; i++)
             {
-                float ring = weapon.pelletsPerShot > 1
-                    ? Mathf.Sqrt((i + 0.5f) / weapon.pelletsPerShot)
-                    : (float)rng.NextDouble();
+                float ring = weapon.pelletsPerShot > 1 ? Mathf.Sqrt((i + 0.5f) / weapon.pelletsPerShot) : Next01(ref rng);
 
                 float angleFromCenter = ring * halfAngle;
                 float rotationAroundAxis = baseRotation + (360f / Mathf.Max(1, weapon.pelletsPerShot)) * i;
@@ -59,7 +64,13 @@ namespace Updraft.Weapons
                 results[i] = new PelletResult { direction = spreadRot * aimDirection };
             }
 
-            return results;
+            return count;
+        }
+
+        static float Next01(ref uint state)
+        {
+            state ^= state << 13; state ^= state >> 17; state ^= state << 5;
+            return (state & 0x00FFFFFFu) / 16777216f;
         }
 
         public static float GetDamage(WeaponDefinition weapon, float distance, bool isHeadshot)

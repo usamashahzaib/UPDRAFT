@@ -36,6 +36,7 @@ namespace Updraft.Network
         {
             config ??= Resources.Load<BotConfig>("Config/BotConfig");
             if (path == null) { try { path = new UnityEngine.AI.NavMeshPath(); } catch { path = null; } }
+            PruneDestroyed(); // QA-034
             if (!brains.TryGetValue(self, out var brain))
             {
                 brain = new Brain { decisions = new BotDecisionMaker(config, self.Slot * 7919 + 13), rng = new System.Random(self.Slot * 31 + 7), yaw = self.transform.eulerAngles.y };
@@ -153,5 +154,22 @@ namespace Updraft.Network
         }
 
         public static void Forget(NetPlayer player) => brains.Remove(player);
+
+        static readonly List<NetPlayer> pruneScratch = new List<NetPlayer>();
+
+        // QA-034: safety net behind NetPlayer.Despawned -> Forget. Drops brains whose
+        // player has been destroyed (Unity null) so a long-lived server never retains
+        // past players, and clears stale targets held by live brains.
+        static void PruneDestroyed()
+        {
+            pruneScratch.Clear();
+            foreach (var pair in brains)
+            {
+                if (pair.Key == null) pruneScratch.Add(pair.Key);
+                else if (pair.Value.target == null) pair.Value.target = null; // release a destroyed target reference
+            }
+            for (int i = 0; i < pruneScratch.Count; i++) brains.Remove(pruneScratch[i]);
+            pruneScratch.Clear();
+        }
     }
 }

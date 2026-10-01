@@ -138,8 +138,8 @@ namespace Updraft.Pads
             if (armedEffect != null)
                 armedEffect.SetActive(false);
 
-            if (deploySound != null) audioSource.PlayOneShot(deploySound);
-            audioSource.PlayOneShot(Updraft.Core.OriginalGameAudio.Get(Updraft.Core.GameCue.PadCharging), 0.7f);
+            if (deploySound != null) audioSource.PlayOneShot(deploySound, Updraft.Core.GameAudio.SfxVolume); // QA-022
+            audioSource.PlayOneShot(Updraft.Core.OriginalGameAudio.Get(Updraft.Core.GameCue.PadCharging), 0.7f * Updraft.Core.GameAudio.SfxVolume);
         }
 
         Color baseColor = Color.white;
@@ -211,7 +211,7 @@ namespace Updraft.Pads
 
             bool isArming = padData.State == PadState.Arming;
             bool isArmed = padData.State == PadState.Armed;
-            if (isArmed && lastState == PadState.Arming && armSound != null) audioSource.PlayOneShot(armSound);
+            if (isArmed && lastState == PadState.Arming && armSound != null) audioSource.PlayOneShot(armSound, Updraft.Core.GameAudio.SfxVolume);
             lastState = padData.State;
             // Arming pads read as dim and blinking; armed pads at full colour.
             if (padRenderer != null && colorBlock != null)
@@ -238,7 +238,7 @@ namespace Updraft.Pads
         public void NotifyActivated()
         {
             if (launchSound != null)
-                audioSource.PlayOneShot(launchSound);
+                audioSource.PlayOneShot(launchSound, Updraft.Core.GameAudio.SfxVolume);
         }
 
         public void ApplyDamage(float amount)
@@ -250,7 +250,7 @@ namespace Updraft.Pads
                 Updraft.Core.Telemetry.TrackOfflineMatchFact("pad_destroyed", ("padTeam", padData.TeamId),
                     ("ageSeconds", Time.time - spawnTime));
                 if (destroySound != null)
-                    audioSource.PlayOneShot(destroySound);
+                    audioSource.PlayOneShot(destroySound, Updraft.Core.GameAudio.SfxVolume);
                 if (destroyEffect != null)
                 {
                     Instantiate(destroyEffect, transform.position, transform.rotation);

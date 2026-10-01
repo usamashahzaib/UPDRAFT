@@ -105,6 +105,13 @@ namespace Updraft.Tutorial
             localPlayer.OnPadActivated += (pad) => CheckPadActivationStep(pad);
             localPlayer.OnPadRejected += reason => matchHUD?.ShowPadRejected(reason);
             localPlayer.OnHitConfirmed += () => matchHUD?.ShowHitConfirmed();
+            // QA-013: a tutorial death explains who/what eliminated the player and counts down.
+            localPlayer.OnEliminated += (killerId, weapon) =>
+            {
+                var killer = PlayerController.Find(killerId);
+                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer.DisplayName : "", weapon, localPlayer.LastAttackDirection);
+            };
+            localPlayer.OnRespawn += _ => ReturnAfterRespawn();
             localPlayer.DisplayName = "YOU";
 
             // Initialize HUD
@@ -287,9 +294,27 @@ namespace Updraft.Tutorial
                 botPlayer.IsBot = true;
                 botPlayer.DisplayName = "[BOT] Trainer";
 
-                localPlayer.OnDeath += _ => { /* respawn handled */ };
                 botPlayer.OnDeath += _ => CheckStepCompletion(TutorialStep.BotFight);
             }
+            tutorialRespawnPose = new Pose(localPlayer.transform.position, localPlayer.transform.rotation);
+            hasTutorialRespawnPose = true;
+        }
+
+        Pose tutorialRespawnPose;
+        bool hasTutorialRespawnPose;
+
+        /// <summary>
+        /// QA-013: the regular respawn uses the arena's spawn exits; in the tutorial the player
+        /// returns to where the current exercise started, facing the same way, and resumes it.
+        /// </summary>
+        void ReturnAfterRespawn()
+        {
+            matchHUD?.HideCombatFeedback();
+            Pose pose = hasTutorialRespawnPose ? tutorialRespawnPose
+                : startPosition != null ? new Pose(startPosition.position, startPosition.rotation)
+                : new Pose(localPlayer.transform.position, localPlayer.transform.rotation);
+            localPlayer.WarpForTraining(pose.position, pose.rotation);
+            mainCamera?.SnapBehindTarget();
         }
 
         void CheckStepConditions()

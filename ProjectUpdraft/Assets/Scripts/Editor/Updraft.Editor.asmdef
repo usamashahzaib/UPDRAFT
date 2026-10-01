@@ -3,6 +3,7 @@
     "rootNamespace": "Updraft.Editor",
     "references": [
         "Updraft.Runtime",
+        "Updraft.Network",
         "Photon.Realtime",
         "Unity.RenderPipelines.Universal.Runtime",
         "Unity.RenderPipelines.Core.Runtime"

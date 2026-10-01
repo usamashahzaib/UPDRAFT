@@ -27,22 +27,29 @@ namespace Updraft.UI
             panel.transform.SetParent(canvas, false);
             var rect = panel.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1);
-            rect.anchoredPosition = new Vector2(0, -280);
-            rect.sizeDelta = new Vector2(850, 120);
+            // QA-019/020: text column and SKIP never overlap; text wraps/shrinks but stays >= ~12 dp;
+            // SKIP is >= 48 dp. Sits below the score/timer block on the density-scaled canvas.
+            rect.anchoredPosition = new Vector2(0, -210);
+            rect.sizeDelta = new Vector2(900, 128);
             var image = panel.GetComponent<Image>();
             image.color = new Color(0.063f, 0.094f, 0.153f, 0.93f);
             image.raycastTarget = false;
             var ui = panel.GetComponent<TutorialUI>();
-            ui.instructionText = Label(panel.transform, "Instruction", new Vector2(0, -10), new Vector2(650, 65), 24);
-            ui.stepCounterText = Label(panel.transform, "Progress", new Vector2(0, 38), new Vector2(650, 25), 16);
+            const float skipWidth = 150f, pad = 14f;
+            float textWidth = 900f - skipWidth - pad * 3;
+            float textCentre = -450f + pad + textWidth * 0.5f;
+            ui.instructionText = Label(panel.transform, "Instruction", new Vector2(textCentre, -14), new Vector2(textWidth, 84), 26);
+            ui.instructionText.enableWordWrapping = true;
+            ui.instructionText.enableAutoSizing = true; ui.instructionText.fontSizeMin = UiMetrics.MinTextUnits; ui.instructionText.fontSizeMax = 26;
+            ui.stepCounterText = Label(panel.transform, "Progress", new Vector2(textCentre, 44), new Vector2(textWidth, 30), UiMetrics.MinTextUnits + 1);
             var buttonObj = new GameObject("Skip training", typeof(RectTransform), typeof(Image), typeof(Button));
             buttonObj.transform.SetParent(panel.transform, false);
             var br = buttonObj.GetComponent<RectTransform>();
-            br.anchoredPosition = new Vector2(345, 0); br.sizeDelta = new Vector2(135, 90);
+            br.anchoredPosition = new Vector2(450f - pad - skipWidth * 0.5f, 0); br.sizeDelta = new Vector2(skipWidth, 100);
             buttonObj.GetComponent<Image>().color = new Color(0.106f, 0.161f, 0.251f);
             ui.skipButton = buttonObj.GetComponent<Button>();
             ui.skipButton.targetGraphic = buttonObj.GetComponent<Image>();
-            Label(buttonObj.transform, "Skip label", Vector2.zero, new Vector2(125, 60), 20).text = "SKIP";
+            Label(buttonObj.transform, "Skip label", Vector2.zero, new Vector2(skipWidth - 10, 60), 24).text = "SKIP";
             return ui;
         }
 

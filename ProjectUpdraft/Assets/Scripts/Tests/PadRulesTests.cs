@@ -129,6 +129,75 @@ namespace Updraft.Tests
             Assert.AreEqual("LAUNCH PATH BLOCKED", Validate(OpenFloor, Vector3.right));
         }
 
+        /// <summary>
+        /// QA-005: a 0.3 m hole inside the footprint but between the old centre + 8 rim rays.
+        /// The raised platform has nothing within a metre below, so the hole is unsupported.
+        /// </summary>
+        [Test]
+        public void HoleBetweenRimSamples_IsRejected()
+        {
+            Vector3 padPos = new Vector3(OpenFloor.x + 1.6f, 3f, OpenFloor.z);
+            float hx0 = padPos.x + 0.2f, hx1 = padPos.x + 0.5f, hz0 = padPos.z - 0.03f, hz1 = padPos.z + 0.27f;
+            float x0 = padPos.x - 3f, x1 = padPos.x + 3f, z0 = padPos.z - 3f, z1 = padPos.z + 3f;
+            void Slab(float ax, float bx, float az, float bz) =>
+                Box("Platform", new Vector3((ax + bx) * 0.5f, 2.75f, (az + bz) * 0.5f), new Vector3(bx - ax, 0.5f, bz - az), "Ground");
+            Slab(x0, hx0, z0, z1);
+            Slab(hx1, x1, z0, z1);
+            Slab(hx0, hx1, z0, hz0);
+            Slab(hx0, hx1, hz1, z1);
+
+            Assert.AreEqual("DOESN'T FIT", Validate(new Vector3(OpenFloor.x, 3f, OpenFloor.z), Vector3.right));
+        }
+
+        /// <summary>QA-005: a beam at head height over the pad, behind the launch direction.</summary>
+        [Test]
+        public void HeadHeightBeamOverPad_IsRejected()
+        {
+            Vector3 padPos = OpenFloor + Vector3.right * 1.6f;
+            Box("Beam", padPos + new Vector3(-0.15f, 1.6f, 0f), new Vector3(0.3f, 0.2f, 3f), "Cover");
+            Assert.AreEqual("NO HEADROOM", Validate(OpenFloor, Vector3.right));
+        }
+
+        /// <summary>
+        /// QA-006: online rejections travel as a one-byte code. Every reason the placement rules
+        /// (or the offline/online pre-checks) can return must survive that round trip unchanged.
+        /// </summary>
+        [Test]
+        public void EveryRejectReason_RoundTripsThroughNetworkCode()
+        {
+            // Only the placement paths: other methods in these files return unrelated uppercase
+            // labels (e.g. the death-direction "FRONT"), which are not pad reasons.
+            var source = System.IO.File.ReadAllText("Assets/Scripts/Pads/PadPlacementRules.cs")
+                + MethodBody("Assets/Scripts/Network/NetPlayer.cs", "string EvaluatePadPlacement(")
+                + MethodBody("Assets/Scripts/Player/PlayerController.cs", "string ResolvePadPlacement(");
+            var returned = System.Text.RegularExpressions.Regex.Matches(source, "return \"([A-Z' ]+)\"");
+            Assert.Greater(returned.Count, 8, "expected to find the placement reason literals");
+            foreach (System.Text.RegularExpressions.Match m in returned)
+            {
+                string reason = m.Groups[1].Value;
+                byte code = PadPlacementRules.CodeOf(reason);
+                Assert.AreEqual(reason, PadPlacementRules.ReasonOf(code), $"'{reason}' has no dedicated network code");
+            }
+            Assert.AreEqual(0, PadPlacementRules.CodeOf(null));
+            Assert.IsNull(PadPlacementRules.ReasonOf(0));
+        }
+
+        static string MethodBody(string path, string signature)
+        {
+            string text = System.IO.File.ReadAllText(path);
+            int start = text.IndexOf(signature, System.StringComparison.Ordinal);
+            Assert.GreaterOrEqual(start, 0, $"'{signature}' not found in {path}");
+            int open = text.IndexOf('{', start);
+            int depth = 0;
+            for (int i = open; i < text.Length; i++)
+            {
+                if (text[i] == '{') depth++;
+                else if (text[i] == '}' && --depth == 0) return text.Substring(open, i - open + 1);
+            }
+            Assert.Fail($"unbalanced braces after '{signature}' in {path}");
+            return null;
+        }
+
         [Test]
         public void ArenaCap_SixActivePadsFromOthers()
         {

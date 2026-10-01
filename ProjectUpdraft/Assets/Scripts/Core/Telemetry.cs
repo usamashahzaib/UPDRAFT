@@ -33,6 +33,7 @@ namespace Updraft.Core
         public static bool CurrentMatchIsBotSubstituted;
         public static int CurrentMatchBotCount;
         public static int PartySize = 1;
+        public static string Region = "offline"; // QA-027: the joined match region online, "offline" otherwise
 
         static string pseudonymousId;
         static readonly StringBuilder sb = new StringBuilder(512);
@@ -89,7 +90,7 @@ namespace Updraft.Core
                 Field("balanceVersion", BalanceVersion); sb.Append(',');
                 Field("pseudonymousId", PseudonymousId); sb.Append(',');
                 Field("matchId", CurrentMatchId); sb.Append(',');
-                Field("region", "offline"); sb.Append(',');
+                Field("region", Region); sb.Append(',');
                 Field("deviceTier", DeviceTier); sb.Append(',');
                 sb.Append("\"partySize\":").Append(PartySize).Append(',');
                 sb.Append("\"hasBots\":").Append(CurrentMatchHasBots ? "true" : "false").Append(',');

@@ -15,6 +15,7 @@ namespace Updraft.Network
         public string AccountId;
         public int Team;
         public string Alias;
+        public string Cosmetic; // QA-024: equipped cosmetic from the backend claim (presentation only)
     }
 
     /// <summary>
@@ -82,12 +83,17 @@ namespace Updraft.Network
             return s;
         }
 
+        // Default Fusion UDP port for Server mode. Fixed (rather than Fusion's default
+        // ephemeral OS-assigned port) so ops can open one known port in a firewall/security
+        // list instead of reading it from a log line per run. Override with UPDRAFT_SERVER_PORT.
+        const ushort DefaultServerPort = 27015;
+
         async Task<StartGameResult> StartRunner(GameMode mode, string session, string region, byte[] token)
         {
             Runner.ProvideInput = mode == GameMode.Client;
             var settings = PhotonAppSettings.Global.AppSettings.GetCopy();
             if (!string.IsNullOrEmpty(region)) settings.FixedRegion = region;
-            return await Runner.StartGame(new StartGameArgs
+            var args = new StartGameArgs
             {
                 GameMode = mode,
                 SessionName = session,
@@ -97,7 +103,13 @@ namespace Updraft.Network
                 ConnectionToken = token,
                 CustomPhotonAppSettings = settings,
                 EnableClientSessionCreation = false,
-            });
+            };
+            if (mode == GameMode.Server)
+            {
+                ushort port = ushort.TryParse(Environment.GetEnvironmentVariable("UPDRAFT_SERVER_PORT"), out var p) ? p : DefaultServerPort;
+                args.Address = NetAddress.Any(port);
+            }
+            return await Runner.StartGame(args);
         }
 
         public static string Describe(ShutdownReason reason) => reason switch
@@ -121,8 +133,9 @@ namespace Updraft.Network
 
         public async void Leave()
         {
+            if (this == null) return; // already torn down (QA-016)
             if (Runner != null && Runner.IsRunning) await Runner.Shutdown();
-            else Destroy(gameObject);
+            else if (this != null) Destroy(gameObject);
         }
 
         void OnDestroy()
@@ -183,6 +196,7 @@ namespace Updraft.Network
                 p.Connected = !bot;
                 p.AccountId = identity?.AccountId ?? "";
                 p.Alias = bot ? "[BOT] " + OfflineAlias.Next(slot * 7919 + (MatchId ?? "").GetHashCode()) : identity?.Alias ?? $"Player{slot + 1}";
+                p.Cosmetic = bot ? "" : identity?.Cosmetic ?? "";
             });
             if (owner != PlayerRef.None) Runner.SetPlayerObject(owner, obj);
             return obj.GetComponent<NetPlayer>();
@@ -282,9 +296,11 @@ namespace Updraft.Network
             foreach (var existing in NetPlayer.All)
             {
                 if (existing.Runner != runner || existing.Slot != slot) continue;
-                if (existing.Connected) { runner.Disconnect(player); return; }
+                // Spec 18: an AFK removal is final for this match — the labeled bot keeps the seat.
+                if (existing.Connected || existing.AfkRemoved) { runner.Disconnect(player); return; }
                 existing.Object.AssignInputAuthority(player);
                 runner.SetPlayerObject(player, existing.Object);
+                if (identity != null && !string.IsNullOrWhiteSpace(identity.Alias)) existing.Alias = identity.Alias;
                 existing.Connected = true;
                 existing.BotControlled = false;
                 existing.DisconnectGrace = default;

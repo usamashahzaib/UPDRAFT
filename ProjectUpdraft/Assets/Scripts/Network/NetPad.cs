@@ -44,9 +44,26 @@ namespace Updraft.Network
         {
             All.Add(this);
             NetPadVisual.Attach(this);
+            if (!Headless) Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.PadDeploy, transform.position, 0.8f);
         }
 
-        public override void Despawned(NetworkRunner runner, bool hasState) => All.Remove(this);
+        public override void Despawned(NetworkRunner runner, bool hasState)
+        {
+            All.Remove(this);
+            // QA-011: destruction is audible to everyone nearby; a quiet expiry is not.
+            if (!Headless && hasState && Removed) Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.PadDestroy, transform.position);
+        }
+
+        bool Headless => Application.isBatchMode && Runner != null && Runner.IsServer;
+        bool cueArmed;
+
+        public override void Render()
+        {
+            if (Headless) return;
+            bool armed = IsArmed;
+            if (armed && !cueArmed) Updraft.Core.GameAudio.Play(Updraft.Core.GameCue.PadArm, transform.position, 0.7f);
+            cueArmed = armed;
+        }
 
         public override void FixedUpdateNetwork()
         {

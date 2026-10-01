@@ -136,6 +136,99 @@ namespace Updraft.Tests
             }
         }
 
+        // ---- QA-003: ownership by finger ID across the screen midpoint ----
+
+        static readonly string[] ButtonRects = { "fireButtonRect", "jumpButtonRect", "padButtonRect", "reloadButtonRect", "pingButtonRect", "pauseButtonRect" };
+
+        static void Touch(TouchInputManager input, int id, UnityEngine.InputSystem.TouchPhase phase, Vector2 pos) =>
+            typeof(TouchInputManager).GetMethod("ProcessTouch", Hidden).Invoke(input, new object[] { id, phase, pos });
+
+        /// <summary>A point on the requested half that no on-screen control covers.</summary>
+        static Vector2 FreePoint(TouchInputManager input, bool leftHalf)
+        {
+            for (float fy = 0.45f; fy < 0.95f; fy += 0.05f)
+                for (float fx = 0.1f; fx < 0.5f; fx += 0.05f)
+                {
+                    var p = new Vector2((leftHalf ? fx : 1f - fx) * Screen.width, fy * Screen.height);
+                    if (ButtonRects.All(r => !GetRect(input, r).Contains(p))) return p;
+                }
+            Assert.Fail("No free touch point found on the " + (leftHalf ? "left" : "right") + " half.");
+            return default;
+        }
+
+        static int Field(TouchInputManager input, string name) => (int)typeof(TouchInputManager).GetField(name, Hidden).GetValue(input);
+
+        [Test]
+        public void MoveFinger_CrossingMidpoint_ReleasesMovementOnLift()
+        {
+            var input = CreateManager(false);
+            var start = FreePoint(input, leftHalf: true);
+            var across = FreePoint(input, leftHalf: false);
+
+            Touch(input, 7, UnityEngine.InputSystem.TouchPhase.Began, start);
+            Touch(input, 7, UnityEngine.InputSystem.TouchPhase.Moved, across);
+            Assert.AreNotEqual(Vector2.zero, input.MoveInput, "Dragging the stick must produce movement.");
+            Assert.AreEqual(-1, Field(input, "aimTouchId"), "A move finger crossing the midpoint must not become aim.");
+
+            Touch(input, 7, UnityEngine.InputSystem.TouchPhase.Ended, across);
+            Assert.AreEqual(Vector2.zero, input.MoveInput, "Releasing on the aim half must stop movement (no latch).");
+            Assert.AreEqual(-1, Field(input, "moveTouchId"));
+        }
+
+        [Test]
+        public void AimFinger_CrossingMidpoint_ReleasesAimOnLift()
+        {
+            var input = CreateManager(false);
+            var start = FreePoint(input, leftHalf: false);
+            var across = FreePoint(input, leftHalf: true);
+
+            Touch(input, 8, UnityEngine.InputSystem.TouchPhase.Began, start);
+            Assert.AreEqual(8, Field(input, "aimTouchId"));
+            Touch(input, 8, UnityEngine.InputSystem.TouchPhase.Moved, across);
+            Assert.AreEqual(-1, Field(input, "moveTouchId"), "An aim finger crossing the midpoint must not become movement.");
+            Assert.AreEqual(Vector2.zero, input.MoveInput);
+
+            Touch(input, 8, UnityEngine.InputSystem.TouchPhase.Canceled, across);
+            Assert.AreEqual(-1, Field(input, "aimTouchId"), "Aim ownership must end on its own finger's cancel.");
+
+            // A fresh finger on the right can now acquire aim again.
+            Touch(input, 9, UnityEngine.InputSystem.TouchPhase.Began, start);
+            Assert.AreEqual(9, Field(input, "aimTouchId"));
+        }
+
+        [Test]
+        public void LostFingers_WithoutEndedEvent_AreReleased()
+        {
+            var input = CreateManager(false);
+            Set(input, "moveTouchId", 1);
+            SetProperty(input, "MoveInput", Vector2.one);
+            Set(input, "aimTouchId", 2);
+            Set(input, "fireTouchId", 3);
+            SetProperty(input, "FireHeld", true);
+
+            var live = new System.Collections.Generic.HashSet<int> { 2 }; // only the aim finger is still down
+            typeof(TouchInputManager).GetMethod("ReleaseOwnersNotIn", Hidden).Invoke(input, new object[] { live });
+
+            Assert.AreEqual(Vector2.zero, input.MoveInput, "A vanished move finger must stop movement.");
+            Assert.IsFalse(input.FireHeld, "A vanished fire finger must release the trigger.");
+            Assert.AreEqual(2, Field(input, "aimTouchId"), "Fingers that are still down keep their ownership.");
+        }
+
+        [Test]
+        public void SecondFireFinger_DoesNotStealTrigger()
+        {
+            var input = CreateManager(false);
+            var fire = GetRect(input, "fireButtonRect").center;
+
+            Touch(input, 1, UnityEngine.InputSystem.TouchPhase.Began, fire);
+            Touch(input, 2, UnityEngine.InputSystem.TouchPhase.Began, fire);
+            Touch(input, 2, UnityEngine.InputSystem.TouchPhase.Ended, fire);
+            Assert.IsTrue(input.FireHeld, "Lifting a second finger must not stop fire while the first still holds.");
+
+            Touch(input, 1, UnityEngine.InputSystem.TouchPhase.Ended, fire);
+            Assert.IsFalse(input.FireHeld);
+        }
+
         static Rect GetRect(TouchInputManager input, string field) =>
             (Rect)typeof(TouchInputManager).GetField(field, Hidden).GetValue(input);
     }

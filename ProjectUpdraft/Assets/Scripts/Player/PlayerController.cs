@@ -56,6 +56,7 @@ namespace Updraft.Player
         WeaponDefinition currentWeapon;
         int currentWeaponIndex = 0;
         readonly WeaponState weaponState = new WeaponState();
+        readonly PelletResult[] pelletBuffer = new PelletResult[16];
         bool wasGrounded;
         float timeSinceLastFootstep;
         int teamId = 0; // 0 = TeamA (friendly), 1 = TeamB (enemy)
@@ -159,6 +160,10 @@ namespace Updraft.Player
         public int CurrentAmmo => weaponState.Ammo;
         public int MaxAmmo => currentWeapon?.magazineSize ?? 0;
         public bool IsReloading => weaponState.IsReloading;
+        public string LastAttackDirection { get; private set; }
+        /// <summary>QA-031: 0..1 progress of the current reload (0 when not reloading).</summary>
+        public float ReloadProgress => weaponState.IsReloading && currentWeapon != null && currentWeapon.reloadSeconds > 0f
+            ? Mathf.Clamp01(1f - weaponState.ReloadRemaining / currentWeapon.reloadSeconds) : 0f;
         public WeaponDefinition CurrentWeapon => currentWeapon;
         public PlayerPadManager PadManager => padManager;
         public bool HasPadCharge => padManager.HasCharge;
@@ -244,8 +249,7 @@ namespace Updraft.Player
 
         void OnDestroy()
         {
-            if (padPreview != null) Destroy(padPreview.gameObject);
-            if (padPreviewMaterial != null) Destroy(padPreviewMaterial); // per-player preview tint
+            padPreview.Destroy();
             if (touchInput != null)
                 touchInput.OnPingWorldPositionRequested -= HandlePingRequest;
         }
@@ -397,13 +401,9 @@ namespace Updraft.Player
                 isSpawnProtected = false;
         }
 
-        bool IsInsideOwnSpawnRoom()
-        {
-            Vector3 center = teamId == 0 ? mapConfig.northSpawnCenter : mapConfig.southSpawnCenter;
-            Vector3 half = mapConfig.spawnRoomSize * 0.5f;
-            Vector3 offset = transform.position - center;
-            return Mathf.Abs(offset.x) <= half.x && Mathf.Abs(offset.z) <= half.z;
-        }
+        // QA-007: one rule for offline and online. The old inline version widened the Vector2 room
+        // size to a Vector3 (z = 0), so only the room's centre line counted as "inside".
+        bool IsInsideOwnSpawnRoom() => mapConfig.IsInsideSpawnRoom(teamId, transform.position);
 
         MovementInput GetMovementInput()
         {
@@ -543,12 +543,21 @@ namespace Updraft.Player
             uint shotSeed = (uint)Random.Range(0, int.MaxValue);
 
             // Resolve pellets
-            var pellets = ShotResolver.ResolvePellets(currentWeapon, aimDirection, shotSeed, moveState);
+            int pelletCount = ShotResolver.ResolvePellets(currentWeapon, aimDirection, shotSeed, moveState, pelletBuffer);
 
-            // Fire each pellet (in offline mode, we process locally)
-            foreach (var pellet in pellets)
+            // QA-012: a muzzle pushed into or through thin cover fires into that cover.
+            if (IsMuzzleBuried(out Vector3 buriedAt))
             {
-                ProcessPellet(pellet.direction);
+                ShotTracers.Show(muzzleTransform.position, buriedAt, LaunchPadBehaviour.IsFriendlyToViewer(teamId));
+                OnShotBlocked?.Invoke();
+            }
+            else
+            {
+                // Fire each pellet (in offline mode, we process locally)
+                for (int i = 0; i < pelletCount; i++)
+                {
+                    ProcessPellet(pelletBuffer[i].direction);
+                }
             }
 
             // Recoil
@@ -565,18 +574,33 @@ namespace Updraft.Player
             Vector3 aimPoint = playerCamera.GetAimPoint(currentWeapon.maxRange, ~0);
             Vector3 direction = aimPoint - muzzleTransform.position;
             float distance = direction.magnitude;
-            if (distance > 0.01f)
+            if (distance > 0.01f && !IsMuzzleBuried(out _)) // a buried muzzle is reported by the fire path
             {
-                var hits = Physics.RaycastAll(muzzleTransform.position, direction.normalized, distance, ~0, QueryTriggerInteraction.Ignore);
-                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                foreach (var hit in hits)
+                // QA-012: the same pass-through rule as ProcessPellet — the shooter, teammates and
+                // the dead never block, so a teammate in the way no longer shows a false warning.
+                int count = Physics.RaycastNonAlloc(muzzleTransform.position, direction / distance, shotHits, distance, ~0, QueryTriggerInteraction.Ignore);
+                float nearest = distance;
+                bool blocked = false;
+                for (int i = 0; i < count; i++)
                 {
-                    if (hit.collider.GetComponentInParent<PlayerController>() == this) continue;
-                    if (hit.distance < distance - 0.1f) OnShotBlocked?.Invoke();
-                    break;
+                    if (shotHits[i].distance >= nearest) continue;
+                    var player = shotHits[i].collider.GetComponentInParent<PlayerController>();
+                    if (player != null && (player == this || player.TeamId == teamId || !player.IsAlive)) continue;
+                    nearest = shotHits[i].distance;
+                    blocked = player == null && shotHits[i].distance < distance - 0.1f;
                 }
+                if (blocked) OnShotBlocked?.Invoke();
             }
             return direction.sqrMagnitude > 0.0001f ? direction.normalized : playerCamera.transform.forward;
+        }
+
+        bool IsMuzzleBuried(out Vector3 blockPoint)
+        {
+            blockPoint = muzzleTransform != null ? muzzleTransform.position : transform.position;
+            if (muzzleTransform == null) return false;
+            Vector3 muzzle = muzzleTransform.position;
+            Vector3 body = new Vector3(transform.position.x, muzzle.y, transform.position.z);
+            return MuzzleObstruction.IsBuried(Physics.defaultPhysicsScene, body, muzzle, MuzzleObstruction.GeometryMask, out blockPoint);
         }
 
         bool IsAimAssistRegionActive()
@@ -697,6 +721,7 @@ namespace Updraft.Player
             Deaths++;
             LastKillerId = killerId;
             var killer = Find(killerId);
+            LastAttackDirection = killer == null || killer == this ? "" : DirectionLabel(killer.transform.position - transform.position);
             if (killer != null && killer != this) killer.Eliminations++;
             OnEliminated?.Invoke(killerId, weaponId);
             OnDeath?.Invoke(this);
@@ -705,6 +730,14 @@ namespace Updraft.Player
             if (bodyMesh != null) bodyMesh.SetActive(false);
             respawnAt = Time.time + movementConfig.respawnDelaySeconds;
             Invoke(nameof(Respawn), movementConfig.respawnDelaySeconds);
+        }
+
+        string DirectionLabel(Vector3 from)
+        {
+            float angle = Vector3.SignedAngle(transform.forward, from, Vector3.up);
+            if (Mathf.Abs(angle) < 45f) return "FRONT";
+            if (Mathf.Abs(angle) > 135f) return "BEHIND";
+            return angle > 0f ? "RIGHT" : "LEFT";
         }
 
         void Respawn()
@@ -764,39 +797,15 @@ namespace Updraft.Player
             return PadPlacementRules.Validate(physics, position, forward, activeOther, padConfig, mapConfig, movementConfig);
         }
 
-        LineRenderer padPreview;
-        Material padPreviewMaterial;
-        readonly Vector3[] previewPoints = new Vector3[32];
+        readonly PadPreviewArc padPreview = new PadPreviewArc();
 
         // Hold-to-preview: draw the launch arc from the would-be pad, green if valid, red if not.
         void UpdatePadPreview()
         {
             bool show = touchInput != null && touchInput.PadPreviewActive && IsAlive;
-            if (!show) { if (padPreview != null && padPreview.enabled) padPreview.enabled = false; return; }
-            if (padPreview == null)
-            {
-                padPreview = new GameObject("Pad preview").AddComponent<LineRenderer>();
-                padPreview.useWorldSpace = true;
-                padPreview.startWidth = 0.12f; padPreview.endWidth = 0.05f;
-                padPreview.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                padPreviewMaterial = new Material(Resources.Load<Material>("Materials/Objective"));
-                padPreview.sharedMaterial = padPreviewMaterial;
-            }
+            if (!show) { padPreview.Hide(); return; }
             string reason = ResolvePadPlacement(out Vector3 position, out Vector3 forward);
-            Vector3 velocity = forward * padConfig.launchHorizontalVelocity + Vector3.up * padConfig.launchUpwardVelocity;
-            Vector3 point = position + Vector3.up * 0.1f;
-            int count = 0;
-            for (; count < previewPoints.Length; count++)
-            {
-                previewPoints[count] = point;
-                velocity += Vector3.down * movementConfig.gravity * 0.06f;
-                point += velocity * 0.06f;
-                if (point.y < position.y - 0.5f) { count++; break; }
-            }
-            padPreview.positionCount = count;
-            padPreview.SetPositions(previewPoints);
-            padPreviewMaterial.color = reason == null ? new Color(0.4f, 1f, 0.55f) : new Color(1f, 0.39f, 0.46f);
-            padPreview.enabled = true;
+            padPreview.Show(position, forward, reason == null, padConfig, movementConfig.gravity);
             touchInput.PadPreviewReason = reason;
         }
 
@@ -834,21 +843,47 @@ namespace Updraft.Player
 
         void SetTeamMaterial(int team)
         {
+            bool friendly = LaunchPadBehaviour.IsFriendlyToViewer(team);
             if (bodyRenderer != null)
             {
-                bool friendly = LaunchPadBehaviour.IsFriendlyToViewer(team);
                 var material = friendly ? friendlyMaterial : enemyMaterial;
                 if (material != null) bodyRenderer.sharedMaterial = material;
                 else bodyRenderer.material.color = friendly
                     ? new Color(0.188f, 0.835f, 0.91f) : new Color(1f, 0.388f, 0.463f);
             }
+            // QA-023: shape cue (ally orb + chest band / enemy cross + shoulder spikes) so team
+            // never relies on colour alone. Parented to the body so it hides with it on death.
+            TeamCueVisual.Apply(bodyMesh != null ? bodyMesh.transform : transform, friendly, friendly ? friendlyMaterial : enemyMaterial);
+            // QA-024: the human player's equipped cosmetic is visible on their own avatar in play.
+            if (touchInput != null) ApplyCosmetic(Updraft.UI.CosmeticLook.LocalEquipped);
         }
+
+        Material[] defaultWeaponMaterials;
+
+        public void ApplyCosmetic(string cosmeticId)
+        {
+            Updraft.UI.CosmeticLook.Apply(bodyMesh != null ? bodyMesh.transform : transform, cosmeticId);
+            if (weaponMeshes == null) return;
+            if (defaultWeaponMaterials == null)
+            {
+                defaultWeaponMaterials = new Material[weaponMeshes.Length];
+                for (int i = 0; i < weaponMeshes.Length; i++)
+                    if (weaponMeshes[i] != null && weaponMeshes[i].GetComponent<Renderer>() is Renderer r) defaultWeaponMaterials[i] = r.sharedMaterial;
+            }
+            var wrap = Updraft.UI.CosmeticLook.WrapMaterialFor(cosmeticId);
+            for (int i = 0; i < weaponMeshes.Length; i++)
+                if (weaponMeshes[i] != null && weaponMeshes[i].GetComponent<Renderer>() is Renderer r)
+                    r.sharedMaterial = wrap != null ? wrap : defaultWeaponMaterials[i];
+        }
+
+        // QA-022: the direct AudioSource path honours the same SFX volume setting as GameAudio.
+        static float EffectiveSfxVolume(float baseVolume) => baseVolume * Updraft.Core.GameAudio.SfxVolume;
 
         void PlaySound(AudioClip clip, float volume = 1f)
         {
             if (clip != null && audioSource != null)
             {
-                audioSource.PlayOneShot(clip, volume);
+                audioSource.PlayOneShot(clip, EffectiveSfxVolume(volume));
             }
         }
 

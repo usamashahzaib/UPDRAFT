@@ -60,6 +60,8 @@ namespace Updraft.Core
                 return;
             }
             instance = this;
+            // QA-019/020: size every UI element from the device's real density (48 dp targets, ~12 dp text).
+            if (matchHUD != null) Updraft.UI.DensityCanvasScaler.Install(matchHUD.GetComponent<Canvas>());
             DontDestroyOnLoad(gameObject);
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
             if (firstAwakeRealSeconds < 0f) firstAwakeRealSeconds = Time.realtimeSinceStartup;
@@ -95,6 +97,7 @@ namespace Updraft.Core
                 int engineMs = (int)(firstAwakeRealSeconds * 1000f);
                 Debug.Log($"UPDRAFT_BUDGET engine_to_first_script={engineMs}ms (process boot measured externally via am start -W)");
                 Telemetry.Track("startup_budget", ("ms", engineMs));
+                TelemetryUploader.Kick(force: true); // QA-027: deliver queued events from earlier sessions
             }
 
             // Initialize systems
@@ -242,6 +245,7 @@ namespace Updraft.Core
 
         public void ReturnToHome()
         {
+            TelemetryUploader.Kick(); // QA-027
             FindFirstObjectByType<TutorialController>()?.Shutdown();
             matchController?.StopOfflinePractice();
             matchHUD?.HideAllPanels();

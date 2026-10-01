@@ -48,9 +48,11 @@ namespace Updraft.Network
         MatchFlowController flow;
         RelayScoringController scoring;
         readonly List<Shot> shots = new List<Shot>();
+        readonly PelletResult[] pelletBuffer = new PelletResult[16];
         readonly List<LagCompensatedHit> hits = new List<LagCompensatedHit>();
         readonly Dictionary<NetPlayer, float> pendingDamage = new Dictionary<NetPlayer, float>();
         readonly Dictionary<NetPlayer, (int slot, int weapon)> lastAttacker = new Dictionary<NetPlayer, (int, int)>();
+        readonly HashSet<NetPlayer> shootersWhoHit = new HashSet<NetPlayer>(); // QA-010
         readonly List<IMatchParticipant> participants = new List<IMatchParticipant>();
         bool endReported;
 
@@ -176,13 +178,15 @@ namespace Updraft.Network
             // applied only after every shot this tick, so mutual eliminations both land.
             shots.Sort((x, y) => x.shooter.Slot.CompareTo(y.shooter.Slot));
             pendingDamage.Clear();
+            shootersWhoHit.Clear();
             foreach (var shot in shots)
             {
                 if (shot.shooter == null || shot.shooter.Dead) continue;
                 var weapon = shot.shooter.Weapon;
-                var pellets = ShotResolver.ResolvePellets(weapon, shot.aim, shot.seed, shot.state);
-                foreach (var pellet in pellets)
+                int pelletCount = ShotResolver.ResolvePellets(weapon, shot.aim, shot.seed, shot.state, pelletBuffer);
+                for (int pelletIndex = 0; pelletIndex < pelletCount; pelletIndex++)
                 {
+                    var pellet = pelletBuffer[pelletIndex];
                     hits.Clear();
                     // Lag-compensated to the shooter's view (buffer capped at 150 ms in the project config).
                     Runner.LagCompensation.RaycastAll(shot.origin, pellet.direction, weapon.maxRange, shot.shooter.Object.InputAuthority,
@@ -200,6 +204,7 @@ namespace Updraft.Network
                             pendingDamage.TryGetValue(target, out float sum);
                             pendingDamage[target] = sum + damage;
                             lastAttacker[target] = (shot.shooter.Slot, shot.shooter.WeaponIndex);
+                            if (IsLive && !target.IsSpawnProtected) shootersWhoHit.Add(shot.shooter); // only hits that deal damage confirm
                             break;
                         }
                         var pad = hit.GameObject != null ? hit.GameObject.GetComponentInParent<NetPad>() : null;
@@ -215,6 +220,8 @@ namespace Updraft.Network
                     var (slot, weaponIndex) = lastAttacker[p];
                     p.ServerDamage(amount, slot, weaponIndex);
                 }
+            // QA-010: every shooter who landed damage this tick gets an immediate hit confirmation.
+            foreach (var shooter in shootersWhoHit) if (shooter != null) shooter.HitConfirmCounter++;
         }
 
         public void Eliminate(NetPlayer victim, int killerSlot, int weapon)
@@ -243,12 +250,12 @@ namespace Updraft.Network
                 if (p.Runner != Runner || p.BotControlled) continue;
                 if (!p.Connected)
                 {
-                    if (p.DisconnectGrace.Expired(Runner)) { p.BotControlled = true; p.HadBotSubstitution = true; }
+                    if (p.DisconnectGrace.Expired(Runner)) p.MarkBotSubstitution();
                     continue;
                 }
                 if (!IsLive) continue;
                 int idle = Runner.Tick.Raw - p.LastActiveTick;
-                if (idle >= afkRemoveTicks) { p.BotControlled = true; p.HadBotSubstitution = true; }
+                if (idle >= afkRemoveTicks) p.MarkBotSubstitution(afk: true);
                 else if (idle >= afkWarnTicks) p.AfkWarned = true;
             }
         }

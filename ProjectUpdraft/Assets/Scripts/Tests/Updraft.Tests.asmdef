@@ -3,6 +3,7 @@
     "rootNamespace": "Updraft.Tests",
     "references": [
         "Updraft.Runtime",
+        "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

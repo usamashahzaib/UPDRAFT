@@ -109,6 +109,7 @@ namespace Updraft.Core
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
             canvasObj.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+            canvasObj.AddComponent<DensityCanvasScaler>(); // QA-019/020: physical sizing at runtime
 
             // EventSystem
             if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)

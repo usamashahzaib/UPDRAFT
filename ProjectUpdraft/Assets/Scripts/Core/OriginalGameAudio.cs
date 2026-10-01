@@ -168,6 +168,9 @@ namespace Updraft.Core
 
         public static float Volume(string key) => PlayerPrefs.GetFloat(key, key == MusicKey ? 0.5f : 1f);
 
+        /// <summary>QA-022: SFX multiplier for sounds played outside the pool (e.g. PlayerController's own AudioSource).</summary>
+        public static float SfxVolume => Volume(SfxKey);
+
         public static void SetVolume(string key, float value)
         {
             PlayerPrefs.SetFloat(key, Mathf.Clamp01(value));

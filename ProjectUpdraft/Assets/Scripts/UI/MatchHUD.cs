@@ -101,6 +101,7 @@ namespace Updraft.UI
         TextMeshProUGUI objectiveMarkerText;
         GameObject deathPanel;
         TextMeshProUGUI deathTitle, deathCountdown, deathSpectate;
+        string lastAttackDirection = "";
         TextMeshProUGUI healthValueText;
         TextMeshProUGUI resultTableText;
         TextMeshProUGUI hitMarkerText;
@@ -124,6 +125,7 @@ namespace Updraft.UI
             }
 
             BuildRuntimeElements();
+            UiFloor.Apply(transform); // QA-019/020: >= 48 dp controls and ~12 dp text on every HUD element
             HideAllPanels();
         }
 
@@ -148,7 +150,7 @@ namespace Updraft.UI
             // Death / respawn panel.
             var death = Ui.Panel("DeathPanel", transform, new Vector2(760, 150), PanelBg);
             death.anchorMin = death.anchorMax = new Vector2(0.5f, 0.5f);
-            death.anchoredPosition = new Vector2(0, 250);
+            death.anchoredPosition = new Vector2(0, 150); // stays on screen on the density-scaled canvas
             deathPanel = death.gameObject;
             deathTitle = Ui.Text("Title", death, "", 30, Enemy); deathTitle.rectTransform.anchoredPosition = new Vector2(0, 40);
             deathCountdown = Ui.Text("Countdown", death, "", 26, MainText); deathCountdown.rectTransform.anchoredPosition = new Vector2(0, 0);
@@ -176,21 +178,22 @@ namespace Updraft.UI
 
             if (resultsPanel != null)
             {
+                // QA-019/020: fill the screen (whatever its size) instead of a fixed 1100x760 box
+                // that overflowed a phone; table text shrinks to fit but never below ~12 dp.
                 var rt = resultsPanel.GetComponent<RectTransform>();
-                rt.sizeDelta = new Vector2(1100, 760);
-                if (resultTitleText != null) resultTitleText.rectTransform.anchoredPosition = new Vector2(0, 310);
-                if (resultStatsText != null)
-                {
-                    resultStatsText.rectTransform.anchoredPosition = new Vector2(0, 235);
-                    resultStatsText.rectTransform.sizeDelta = new Vector2(1000, 90);
-                }
+                rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+                rt.offsetMin = new Vector2(24, 16); rt.offsetMax = new Vector2(-24, -16);
+                if (resultTitleText != null) PinTop(resultTitleText.rectTransform, 8, 64);
+                if (resultStatsText != null) PinTop(resultStatsText.rectTransform, 72, 96);
                 resultTableText = Ui.Text("Table", resultsPanel.transform, "", 24, MainText);
                 resultTableText.alignment = TextAlignmentOptions.Top;
-                resultTableText.enableAutoSizing = false;
-                resultTableText.rectTransform.anchoredPosition = new Vector2(0, -10);
-                resultTableText.rectTransform.sizeDelta = new Vector2(1000, 390);
-                if (playAgainButton != null) PlaceButton(playAgainButton, new Vector2(-170, -310));
-                if (homeButton != null) PlaceButton(homeButton, new Vector2(170, -310));
+                resultTableText.enableAutoSizing = true;
+                resultTableText.fontSizeMin = UiMetrics.MinTextUnits; resultTableText.fontSizeMax = 24;
+                var table = resultTableText.rectTransform;
+                table.anchorMin = Vector2.zero; table.anchorMax = Vector2.one;
+                table.offsetMin = new Vector2(16, UiMetrics.MinTouchUnits + 28); table.offsetMax = new Vector2(-16, -176);
+                if (playAgainButton != null) PinBottom(playAgainButton, -1);
+                if (homeButton != null) PinBottom(homeButton, 1);
             }
 
             if (weaponSelectPanel != null)
@@ -253,6 +256,22 @@ namespace Updraft.UI
             var rt = button.GetComponent<RectTransform>();
             rt.anchoredPosition = position;
             rt.sizeDelta = new Vector2(300, 90);
+        }
+
+        /// <summary>Anchors a results element to the panel top, <paramref name="top"/> units down.</summary>
+        static void PinTop(RectTransform rt, float top, float height)
+        {
+            rt.anchorMin = new Vector2(0, 1); rt.anchorMax = new Vector2(1, 1); rt.pivot = new Vector2(0.5f, 1);
+            rt.offsetMin = new Vector2(16, -top - height); rt.offsetMax = new Vector2(-16, -top);
+        }
+
+        /// <summary>Results actions: a 48 dp row pinned to the panel bottom (side -1 left, +1 right).</summary>
+        static void PinBottom(Button button, int side)
+        {
+            var rt = button.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0); rt.pivot = new Vector2(0.5f, 0);
+            rt.sizeDelta = new Vector2(320, UiMetrics.MinTouchUnits + 9);
+            rt.anchoredPosition = new Vector2(side * 175f, 12);
         }
 
         /// <summary>Offline practice / tutorial (controller null = tutorial).</summary>
@@ -326,10 +345,15 @@ namespace Updraft.UI
             if (hitMarkerText != null && hitMarkerText.gameObject.activeSelf && Time.unscaledTime >= hitMarkerUntil)
                 hitMarkerText.gameObject.SetActive(false);
             if (localPlayer == null) return;
+            // QA-016: an online avatar is destroyed when the server closes the session while the
+            // results screen is still up; interface equality does not see Unity's destroyed state.
+            if (localPlayer is Object unityPlayer && unityPlayer == null) return;
 
             UpdateObjectiveMarker();
             UpdateTeammates();
             UpdateDeathPanel();
+            if (localPlayer is PlayerController offline)
+                UpdateAmmo(offline.CurrentAmmo, offline.MaxAmmo, offline.IsReloading, offline.ReloadProgress);
         }
 
         void UpdateObjectiveMarker()
@@ -392,19 +416,22 @@ namespace Updraft.UI
         {
             if (deathPanel == null) return;
             var phase = hasMatch ? MatchView.Current?.CurrentPhase : null;
-            bool dead = !localPlayer.IsAlive && (phase == MatchPhase.InProgress || phase == MatchPhase.Overtime);
+            // QA-013: without a match (the tutorial) a death still gets the explanation panel.
+            bool dead = !localPlayer.IsAlive && (!hasMatch || phase == MatchPhase.InProgress || phase == MatchPhase.Overtime);
             if (deathPanel.activeSelf != dead)
             {
                 deathPanel.SetActive(dead);
-                EnableWeaponSelect(dead || phase == MatchPhase.Preparation);
+                if (hasMatch) EnableWeaponSelect(dead || phase == MatchPhase.Preparation);
             }
             if (!dead) return;
             deathTitle.text = string.IsNullOrEmpty(lastKillerName)
                 ? "ELIMINATED — LEFT THE ARENA"
-                : $"ELIMINATED BY {lastKillerName}  ·  {lastWeaponName}";
-            deathCountdown.text = $"RESPAWN IN {Mathf.CeilToInt(localPlayer.RespawnRemaining)}   ·   CHANGE WEAPON BELOW";
+                : $"ELIMINATED BY {lastKillerName}  ·  {lastWeaponName}" + (string.IsNullOrEmpty(lastAttackDirection) ? "" : $"  ·  FROM {lastAttackDirection}");
+            int seconds = Mathf.CeilToInt(localPlayer.RespawnRemaining);
+            deathCountdown.text = hasMatch ? $"RESPAWN IN {seconds}   ·   CHANGE WEAPON BELOW" : $"RESPAWN IN {seconds}";
             var spectated = MatchView.Current?.SpectatedTeammate;
-            deathSpectate.text = spectated != null ? $"WATCHING {spectated.DisplayName}" : "";
+            deathSpectate.text = !hasMatch ? "TIP: STRAFE WHILE FIRING AND FIGHT FROM COVER — THE BOT AIMS WHERE YOU WERE"
+                : spectated != null ? $"WATCHING {spectated.DisplayName}" : "";
         }
 
         public void UpdateScores(int scoreA, int scoreB)
@@ -445,8 +472,11 @@ namespace Updraft.UI
         }
 
         public void UpdateAmmo(int current, int max)
+            => UpdateAmmo(current, max, false, 0f);
+
+        public void UpdateAmmo(int current, int max, bool reloading, float reloadProgress)
         {
-            string label = current == 0 ? "RELOADING" : $"{current}/{max}";
+            string label = reloading ? $"RELOADING {Mathf.RoundToInt(Mathf.Clamp01(reloadProgress) * 100f)}%" : $"{current}/{max}";
             if (ammoText != null)
             {
                 ammoText.text = label;
@@ -456,7 +486,7 @@ namespace Updraft.UI
             }
             if (touch != null) touch.AmmoLabel = label;
             if (ammoProgressFill != null) ammoProgressFill.fillAmount = max > 0 ? (float)current / max : 0f;
-            if (reloadIndicator != null) reloadIndicator.SetActive(current == 0);
+            if (reloadIndicator != null) reloadIndicator.SetActive(reloading);
         }
 
         public void UpdatePadState(LaunchPad pad) { }
@@ -477,10 +507,11 @@ namespace Updraft.UI
         }
 
         /// <summary>killerName empty = left the arena / no killer.</summary>
-        public void ShowEliminated(string killerName, WeaponId weapon)
+        public void ShowEliminated(string killerName, WeaponId weapon, string attackDirection = "")
         {
             lastKillerName = killerName ?? "";
             lastWeaponName = weapon.ToString().ToUpperInvariant();
+            lastAttackDirection = attackDirection ?? "";
             HideCombatFeedback();
         }
 
@@ -588,6 +619,19 @@ namespace Updraft.UI
                 nextZoneText.text = $"NEXT: {zone.Value.ToString().ToUpperInvariant()}";
         }
 
+        string resultsHeader = "";
+
+        /// <summary>
+        /// QA-017: the authoritative reward receipt (or a truthful pending state) under the score
+        /// line of the results screen. Pass null to clear it.
+        /// </summary>
+        public void SetResultsReceipt(string receipt, Color color)
+        {
+            if (resultStatsText == null) return;
+            resultStatsText.text = string.IsNullOrEmpty(receipt) ? resultsHeader
+                : $"{resultsHeader}\n<size=85%><color=#{ColorUtility.ToHtmlStringRGB(color)}>{receipt}</color></size>";
+        }
+
         public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB) =>
             ShowResults(isWin, isDraw, scoreA, scoreB, null, "OFFLINE PRACTICE  ·  NO RATING OR CURRENCY");
 
@@ -608,7 +652,8 @@ namespace Updraft.UI
 
             bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
             int ally = localIsA ? scoreA : scoreB, enemy = localIsA ? scoreB : scoreA;
-            if (resultStatsText != null) resultStatsText.text = $"ALLY {ally}  —  {enemy} ENEMY\n<size=70%>{footer}</size>";
+            resultsHeader = $"ALLY {ally}  —  {enemy} ENEMY\n<size=85%>{footer}</size>";
+            if (resultStatsText != null) resultStatsText.text = resultsHeader;
 
             if (resultTableText == null || players == null) return;
             var sb = new System.Text.StringBuilder();

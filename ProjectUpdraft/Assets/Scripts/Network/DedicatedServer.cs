@@ -52,7 +52,9 @@ namespace Updraft.Network
             string baseUrl = Arg("-backendUrl") ?? Environment.GetEnvironmentVariable("UPDRAFT_BACKEND_URL");
             string key = Environment.GetEnvironmentVariable("UPDRAFT_SERVER_KEY");
             string serverId = Arg("-serverId") ?? $"{Environment.MachineName}-{System.Diagnostics.Process.GetCurrentProcess().Id}";
-            var backend = new ServerBackend(baseUrl ?? "", key ?? "", serverId);
+            string outboxDir = Environment.GetEnvironmentVariable("UPDRAFT_OUTBOX_DIR")
+                ?? System.IO.Path.Combine(Application.persistentDataPath, "result_outbox");
+            var backend = new ServerBackend(baseUrl ?? "", key ?? "", serverId, new Updraft.Core.PendingResultStore(outboxDir));
             if (!backend.Configured)
             {
                 Debug.LogError("[Server] Set -backendUrl (or UPDRAFT_BACKEND_URL) and UPDRAFT_SERVER_KEY, or use the dev flags.");
@@ -60,13 +62,21 @@ namespace Updraft.Network
                 return;
             }
             Debug.Log($"[Server] {serverId} polling {baseUrl} for matches");
+            float nextOutboxFlush = 0f;
             while (true)
             {
+                // QA-017: undelivered results from earlier matches (or an earlier process) are
+                // re-sent between matches until the backend accepts them.
+                if (Time.realtimeSinceStartup >= nextOutboxFlush)
+                {
+                    await backend.FlushOutboxAsync();
+                    nextOutboxFlush = Time.realtimeSinceStartup + 30f;
+                }
                 var claim = await backend.ClaimAsync();
                 if (claim == null) { await Task.Delay(2000); continue; }
                 var players = new List<ExpectedPlayer>();
                 foreach (var p in claim.players)
-                    players.Add(new ExpectedPlayer { AccountId = p.playerId, Team = p.team == "B" ? 1 : 0, Alias = p.alias });
+                    players.Add(new ExpectedPlayer { AccountId = p.playerId, Team = p.team == "B" ? 1 : 0, Alias = p.alias, Cosmetic = p.cosmetic });
                 Debug.Log($"[Server] hosting match {claim.matchId} ({players.Count} human(s), bots={claim.hasBots})");
                 await HostAsync(claim.session, Arg("-region") ?? claim.region, claim.matchId, players, backend, false);
             }
@@ -119,6 +129,7 @@ namespace Updraft.Network
                     Eligible = match.IsEligible(p),
                     HadBotSubstitution = p.HadBotSubstitution,
                     Team = p.Team == 0 ? "A" : "B",
+                    Slot = p.Slot, // QA-025: lets players report someone by what they saw in-match
                 });
             }
             return result;

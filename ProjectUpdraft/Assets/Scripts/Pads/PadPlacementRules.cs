@@ -13,6 +13,27 @@ namespace Updraft.Pads
     {
         static readonly Collider[] overlap = new Collider[8];
 
+        /// <summary>
+        /// QA-006: every player-facing rejection, indexed so the server can replicate a one-byte
+        /// code to the placing client. Index 0 means "no rejection".
+        /// </summary>
+        public static readonly string[] RejectReasons =
+        {
+            null, "PADS DISABLED IN THIS VERSION", "NOT DURING THIS PHASE", "RECHARGING", "MUST BE GROUNDED",
+            "NO FLOOR", "ARENA PAD LIMIT", "TOO STEEP", "OVERLAPS A PAD", "SPAWN ROOM", "TOO CLOSE TO SPAWN EXIT",
+            "INSIDE A CAPTURE ZONE", "DOESN'T FIT", "NO HEADROOM", "LAUNCH PATH BLOCKED", "CAN'T PLACE HERE",
+        };
+
+        public static byte CodeOf(string reason)
+        {
+            if (reason == null) return 0;
+            int index = System.Array.IndexOf(RejectReasons, reason);
+            return (byte)(index > 0 ? index : RejectReasons.Length - 1);
+        }
+
+        public static string ReasonOf(byte code) =>
+            code == 0 ? null : RejectReasons[Mathf.Min(code, RejectReasons.Length - 1)];
+
         /// <summary>Where a pad would go ~1.6 m ahead, snapped to the supporting surface.</summary>
         public static string ResolvePosition(PhysicsScene physics, Vector3 feet, Vector3 forward, PadConfig pad, out Vector3 position)
         {
@@ -55,20 +76,39 @@ namespace Updraft.Pads
             int groundMask = LayerMask.GetMask("Ground");
             // The rim of a disc on a legal (<= max tilt) plane sits up to r*tan(tilt) off the centre height.
             float rimTolerance = pad.diameter * 0.5f * Mathf.Tan(pad.maxSurfaceTiltDegrees * Mathf.Deg2Rad) + 0.02f;
-            for (int i = 0; i < 8; i++)
+            // QA-005: sample the whole disc, not just its rim. Rings at full, 2/3 and 1/3 radius keep
+            // every gap between samples under ~0.28 m — narrower than the 0.7 m player capsule —
+            // so any notch or hole large enough to matter to a player is found.
+            float radius = pad.diameter * 0.5f;
+            for (int ring = 0; ring < SupportRings.Length; ring++)
             {
-                float angle = i * Mathf.PI * 0.25f;
-                Vector3 edge = position + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * pad.diameter * 0.5f;
-                if (!physics.Raycast(edge + Vector3.up * 0.5f, Vector3.down, out var support, 1f, groundMask, QueryTriggerInteraction.Ignore) ||
-                    Mathf.Abs(support.point.y - hit.point.y) > rimTolerance) return "DOESN'T FIT";
+                float r = radius * SupportRings[ring].fraction;
+                int count = SupportRings[ring].samples;
+                for (int i = 0; i < count; i++)
+                {
+                    float angle = (i + ring * 0.5f) * Mathf.PI * 2f / count;
+                    Vector3 sample = position + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * r;
+                    if (!physics.Raycast(sample + Vector3.up * 0.5f, Vector3.down, out var support, 1f, groundMask, QueryTriggerInteraction.Ignore) ||
+                        Mathf.Abs(support.point.y - hit.point.y) > rimTolerance) return "DOESN'T FIT";
+                }
             }
 
+            // QA-005: clearance for the full standing player (not a small sphere starting 0.5 m up):
+            // the capsule must fit on the pad, then sweep clear along the first 0.3 s of the launch.
+            int blockMask = LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
+            float capsuleR = movement.capsuleRadius;
+            Vector3 bottom = position + Vector3.up * (capsuleR + 0.05f);
+            Vector3 top = position + Vector3.up * Mathf.Max(capsuleR + 0.05f, movement.capsuleHeight - capsuleR);
+            if (physics.OverlapCapsule(bottom, top, capsuleR, overlap, blockMask, QueryTriggerInteraction.Ignore) > 0)
+                return "NO HEADROOM";
             Vector3 launch = forward * pad.launchHorizontalVelocity + Vector3.up * pad.launchUpwardVelocity;
-            if (physics.SphereCast(position + Vector3.up * 0.5f, movement.capsuleRadius, launch.normalized, out _, launch.magnitude * 0.3f,
-                LayerMask.GetMask("Ground", "Cover", "SpawnBarrier"), QueryTriggerInteraction.Ignore))
+            if (physics.CapsuleCast(bottom, top, capsuleR, launch.normalized, out _, launch.magnitude * 0.3f,
+                blockMask, QueryTriggerInteraction.Ignore))
                 return "LAUNCH PATH BLOCKED";
 
             return null;
         }
+
+        static readonly (float fraction, int samples)[] SupportRings = { (1f, 16), (0.66f, 10), (0.33f, 6) };
     }
 }
