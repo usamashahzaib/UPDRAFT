@@ -1,0 +1,8 @@
+{
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	reverse_proxy backend:8080
+}

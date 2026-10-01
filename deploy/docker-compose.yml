@@ -1,0 +1,62 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Jwt__Issuer: "${JWT_ISSUER}"
+      Jwt__Audience: "${JWT_AUDIENCE}"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8080"
+    # Private-VCN-only binding: lets the match server (separate host, same VCN) reach the
+    # backend over plain HTTP on the 10.0.0.x network without needing a domain/HTTPS yet.
+    # Never bind 0.0.0.0 here - the Oracle Security List rule that allows this port is scoped
+    # to the VCN CIDR (10.0.0.0/16), not the public internet, but a 0.0.0.0 bind plus any future
+    # looser Security List edit would expose plaintext auth/game traffic to the internet.
+    ports:
+      - "10.0.0.59:8080:8080"
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: "${DOMAIN}"
+      ACME_EMAIL: "${ACME_EMAIL}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

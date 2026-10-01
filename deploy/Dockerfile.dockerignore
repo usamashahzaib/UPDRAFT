@@ -1,0 +1,14 @@
+**
+
+!Backend/
+!Backend/UpdraftBackend/
+!Backend/UpdraftBackend/**
+Backend/UpdraftBackend/bin/
+Backend/UpdraftBackend/obj/
+
+!docs/
+!docs/legal/
+!docs/legal/account-deletion.html
+
+!deploy/
+!deploy/Dockerfile
