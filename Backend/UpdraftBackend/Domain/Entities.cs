@@ -13,6 +13,11 @@ public class PlayerAccount
     public string? EquippedCosmeticId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public bool IsGuest { get; set; } = true;
+
+    // QA-028: SHA-256 of the normalized contact email the player chose in-app, so a
+    // verified public web deletion request can be matched to the account. The
+    // plaintext address is never stored on the account.
+    public string? ContactEmailHash { get; set; }
 }
 
 public class PlayerSession
@@ -73,6 +78,18 @@ public class MatchParticipation
     public bool Eligible { get; set; } // 75% presence, no AFK removal, present at result
     public bool HadBotSubstitution { get; set; }
     public DateTimeOffset CompletedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    // QA-025: what other players saw in-match (alias snapshot at result time and
+    // the server-assigned slot), so a report made from the results/scoreboard UI
+    // can be resolved to the account without the client ever exposing a GUID.
+    public string? Alias { get; set; }
+    public int? Slot { get; set; }
+
+    // QA-017: exactly what the result granted, so the client's results screen can
+    // show authoritative rewards from a receipt (0/empty when ineligible).
+    public int XpGained { get; set; }
+    public int CreditsGained { get; set; }
+    public string? UnlockedCsv { get; set; }
 }
 
 public class PurchaseTransaction
@@ -92,6 +109,9 @@ public class PlayerReport
     public Guid ReportedPlayerId { get; set; }
     public string Reason { get; set; } = string.Empty;
     public Guid? MatchId { get; set; }
+    // QA-025: moderation context — the in-match alias/slot the reporter picked, when reported that way.
+    public string? ReportedAlias { get; set; }
+    public int? ReportedSlot { get; set; }
     public string Status { get; set; } = "submitted"; // submitted, reviewed, actioned, dismissed
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
@@ -104,6 +124,12 @@ public class AccountDeletionRequest
     public string? ContactEmail { get; set; }
     public string Status { get; set; } = "requested"; // pending_verification, requested, completed
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    // QA-028: single-use email verification for the public web path. Only the
+    // SHA-256 of the token is stored; it is cleared once used.
+    public string? VerificationTokenHash { get; set; }
+    public DateTimeOffset? VerificationExpiresAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
 }
 
 public class AnalyticsEvent
@@ -121,6 +147,10 @@ public class AnalyticsEvent
     public int PartySize { get; set; }
     public bool HasBots { get; set; }
     public string Cohort { get; set; } = string.Empty;
+    // QA-027: client envelope dimensions (see Unity Telemetry.cs).
+    public bool BotSubstituted { get; set; }
+    public int BotCount { get; set; }
+    public bool IncentivizedTester { get; set; }
     public DateTimeOffset Timestamp { get; set; }
     public string PayloadJson { get; set; } = "{}";
 

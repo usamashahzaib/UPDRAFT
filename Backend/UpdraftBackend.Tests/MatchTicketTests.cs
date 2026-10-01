@@ -23,7 +23,7 @@ public class MatchTicketTests : IClassFixture<UpdraftWebApplicationFactory>
         var match = Guid.NewGuid();
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
-        db.PlayerAccounts.Add(new PlayerAccount { Id = player, Alias = "SwiftOtter-1234" });
+        db.PlayerAccounts.Add(new PlayerAccount { Id = player, Alias = "SwiftOtter-1234", EquippedCosmeticId = "body_teal_stripe" });
         db.MatchmakingTickets.Add(new MatchmakingTicket { Id = Guid.NewGuid(), PlayerId = player, Status = "matched", MatchId = match, Team = "B" });
         if (allocated) db.MatchAllocations.Add(new MatchAllocation { MatchId = match, ServerId = "srv-seed" });
         await db.SaveChangesAsync();
@@ -50,6 +50,8 @@ public class MatchTicketTests : IClassFixture<UpdraftWebApplicationFactory>
         Assert.Single(players);
         Assert.Equal("B", players[0].GetProperty("team").GetString());
         Assert.Equal("SwiftOtter-1234", players[0].GetProperty("alias").GetString());
+        // QA-024: the equipped cosmetic reaches the match server so every client can render it.
+        Assert.Equal("body_teal_stripe", players[0].GetProperty("cosmetic").GetString());
 
         // Nothing else to host: a second server gets 204, never the same match.
         var second = await server.PostAsync("/api/matches/claim", null);

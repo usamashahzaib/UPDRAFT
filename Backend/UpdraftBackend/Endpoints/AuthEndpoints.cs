@@ -43,6 +43,31 @@ public static class AuthEndpoints
             return Results.Ok(new { token = tickets.IssueServerToken(request.ServerId), expiresInSeconds = (int)MatchTicketService.ServerTokenLifetime.TotalSeconds });
         }).RequireRateLimiting("auth");
 
+        // QA-026 account recovery: after a reinstall the client has no session.
+        // It exchanges a fresh Play Games server auth code for a session on the
+        // account already linked to that identity. Never creates an account and
+        // never merges wallets; an unlinked (or revoked) identity is simply not found,
+        // and the client should fall back to /guest.
+        group.MapPost("/platform-signin", async (PlatformSignInRequest request, UpdraftDbContext db,
+            IGooglePlayGamesIdentityVerifier verifier, Microsoft.Extensions.Options.IOptions<GooglePlayGamesOptions> options,
+            AuthTokenService tokens, CancellationToken cancellationToken) =>
+        {
+            if (!options.Value.IsConfigured)
+                return Results.Json(new { error = "google_play_games_not_configured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+            if (string.IsNullOrWhiteSpace(request.ServerAuthCode) || request.ServerAuthCode.Length > 4096)
+                return Results.BadRequest(new { error = "server_auth_code_required" });
+
+            string? platformId = await verifier.VerifyPlayerIdAsync(request.ServerAuthCode, cancellationToken);
+            if (platformId is null)
+                return Results.Json(new { error = "google_identity_verification_failed" }, statusCode: StatusCodes.Status401Unauthorized);
+
+            var account = await db.PlayerAccounts.SingleOrDefaultAsync(a => a.LinkedPlatformIdentity == platformId, cancellationToken);
+            if (account is null) return Results.NotFound(new { error = "no_linked_account" });
+
+            var session = await tokens.IssueAsync(account.Id, db, cancellationToken);
+            return Results.Ok(session);
+        }).RequireRateLimiting("auth");
+
         // Linking, refreshing, and revoking all act on an existing session
         // (spec section 23: "ownership from validated session only") — unlike
         // /guest, which is the entry point before any session exists. A
@@ -100,6 +125,7 @@ public static class AuthEndpoints
     }
 
     public record LinkGooglePlayRequest(string ServerAuthCode);
+    public record PlatformSignInRequest(string ServerAuthCode);
     public record RefreshSessionRequest(string RefreshToken);
     public record ServerTokenRequest(string ServerId);
 }

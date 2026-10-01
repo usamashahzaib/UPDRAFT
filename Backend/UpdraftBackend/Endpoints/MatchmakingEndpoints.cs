@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using UpdraftBackend.Data;
 using UpdraftBackend.Domain;
 using UpdraftBackend.Services;
@@ -66,33 +67,60 @@ public static class MatchmakingEndpoints
 
         group.MapPost("/cancel", async (HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
         {
+            // Serialize cancellation against the allocator's claim so a match cannot be
+            // claimed in the gap between checking for a lease and withdrawing its tickets.
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
             var playerId = PlayerId(ctx);
             var ticket = await db.MatchmakingTickets
-                .Where(t => t.PlayerId == playerId && t.Status == "searching")
-                .SingleOrDefaultAsync(cancellationToken);
-            if (ticket is null) return Results.Ok(new { cancelled = true });
+                .Where(t => t.PlayerId == playerId && (t.Status == "searching" || t.Status == "matched"))
+                .OrderByDescending(t => t.EnqueuedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (ticket is null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return Results.Ok(new { cancelled = true });
+            }
+
+            // Once a dedicated server claims a reservation it may already be constructing
+            // the session. Keep the client in the join flow instead of orphaning that lease.
+            if (ticket.Status == "matched" && ticket.MatchId is { } matchId &&
+                await db.MatchAllocations.AnyAsync(a => a.MatchId == matchId && a.CompletedAt == null, cancellationToken))
+                return Results.Conflict(new { error = "reservation_starting" });
 
             var partyTickets = ticket.PartyId is null
-                ? [ticket]
-                : await db.MatchmakingTickets.Where(t => t.PartyId == ticket.PartyId && t.Status == "searching").ToListAsync(cancellationToken);
+                ? new List<MatchmakingTicket> { ticket }
+                : await db.MatchmakingTickets.Where(t => t.PartyId == ticket.PartyId &&
+                    (t.Status == "searching" || t.Status == "matched") && t.MatchId == ticket.MatchId).ToListAsync(cancellationToken);
             var now = DateTimeOffset.UtcNow;
             foreach (var t in partyTickets) { t.Status = "cancelled"; t.UpdatedAt = now; }
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             return Results.Ok(new { cancelled = true });
         });
 
-        group.MapGet("/status", async (HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
+        group.MapGet("/status", async (HttpContext ctx, UpdraftDbContext db, AllocatorOptions allocator, CancellationToken cancellationToken) =>
         {
             var playerId = PlayerId(ctx);
             var ticket = await db.MatchmakingTickets
                 .Where(t => t.PlayerId == playerId)
                 .OrderByDescending(t => t.EnqueuedAt)
                 .FirstOrDefaultAsync(cancellationToken);
-            if (ticket is null) return Results.Ok(new { state = "idle", elapsedSeconds = 0 });
+            if (ticket is null) return Results.Ok(new { state = "idle", elapsedSeconds = 0, region = allocator.FusionRegion });
 
             var state = ticket.Status switch { "matched" => "matched", "cancelled" => "idle", _ => "searching" };
+            // QA-014: party members follow the leader by polling this endpoint, so a "matched"
+            // ticket from a match that already ended (or never got a server) must read as idle.
+            if (state == "matched")
+            {
+                bool finished = ticket.MatchId is null || await db.MatchAllocations
+                    .AnyAsync(a => a.MatchId == ticket.MatchId && a.CompletedAt != null, cancellationToken);
+                bool stale = DateTimeOffset.UtcNow - ticket.UpdatedAt > TimeSpan.FromMinutes(10) &&
+                    !await db.MatchAllocations.AnyAsync(a => a.MatchId == ticket.MatchId && a.CompletedAt == null, cancellationToken);
+                if (finished || stale) return Results.Ok(new { state = "idle", elapsedSeconds = 0, region = allocator.FusionRegion });
+            }
             var elapsed = ticket.Status == "searching" ? (int)(DateTimeOffset.UtcNow - ticket.EnqueuedAt).TotalSeconds : 0;
-            return Results.Ok(new { state, elapsedSeconds = elapsed, matchId = ticket.MatchId });
+            // QA-029: the search screen shows which region the player is queued in.
+            return Results.Ok(new { state, elapsedSeconds = elapsed, matchId = ticket.MatchId, region = allocator.FusionRegion });
         });
 
         group.MapGet("/ticket", async (HttpContext ctx, UpdraftDbContext db, MatchTicketService tickets,

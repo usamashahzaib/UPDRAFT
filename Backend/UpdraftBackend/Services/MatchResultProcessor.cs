@@ -27,7 +27,8 @@ public sealed class ProgressionOptions
     public int LevelForXp(int xp) => Math.Min(MaxLevel, 1 + xp / XpPerLevel);
 }
 
-public sealed record ParticipantResult(Guid PlayerId, bool Won, bool Eligible, bool HadBotSubstitution, string? Team = null);
+/// <param name="Slot">QA-025: the server-assigned in-match slot shown to other players (optional for older servers).</param>
+public sealed record ParticipantResult(Guid PlayerId, bool Won, bool Eligible, bool HadBotSubstitution, string? Team = null, int? Slot = null);
 
 public sealed record SubmitResultRequest(bool Draw, List<ParticipantResult> Participants, bool ServerFailed = false, bool HasBots = false);
 
@@ -58,11 +59,14 @@ public sealed class MatchResultProcessor(ProgressionOptions options)
         foreach (var p in fresh)
         {
             bool eligible = p.Eligible && !request.ServerFailed;
-            db.MatchParticipations.Add(new MatchParticipation
+            var participation = new MatchParticipation
             {
                 MatchId = matchId, PlayerId = p.PlayerId, Won = p.Won && !request.Draw, Draw = request.Draw,
                 Eligible = eligible, HadBotSubstitution = p.HadBotSubstitution, CompletedAt = now,
-            });
+                Alias = accounts.TryGetValue(p.PlayerId, out var named) ? named.Alias : null,
+                Slot = p.Slot is >= 0 and < 64 ? p.Slot : null,
+            };
+            db.MatchParticipations.Add(participation);
 
             if (!accounts.TryGetValue(p.PlayerId, out var account)) continue;
 
@@ -101,6 +105,9 @@ public sealed class MatchResultProcessor(ProgressionOptions options)
             if (priorEligible + 1 == options.UnlockAfterEligibleMatches) unlocked.Add(options.MatchCountUnlock);
             foreach (var cosmetic in unlocked) await GrantAsync(db, p.PlayerId, cosmetic, "unlock", cancellationToken);
 
+            participation.XpGained = xp;
+            participation.CreditsGained = credits;
+            participation.UnlockedCsv = unlocked.Count > 0 ? string.Join(',', unlocked) : null;
             summaries.Add(new PlayerResultSummary(p.PlayerId, xp, credits, newLevel, delta, unlocked));
         }
 

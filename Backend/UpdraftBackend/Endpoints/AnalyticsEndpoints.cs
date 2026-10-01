@@ -6,12 +6,21 @@ namespace UpdraftBackend.Endpoints;
 
 public static class AnalyticsEndpoints
 {
+    // QA-027: every name the Unity client emits via Telemetry.Track(...) (client-owned
+    // facts). Offline match facts (TrackOfflineMatchFact, source=offline_sim) are kept
+    // on-device by the client and remain server-owned names here.
     static readonly HashSet<string> ClientEvents =
     [
-        "first_open", "tutorial_started", "tutorial_step", "tutorial_completed",
+        "first_open", "startup_budget", "client_error",
+        "tutorial_started", "tutorial_step", "tutorial_completed",
         "queue_started", "queue_cancelled", "weapon_selected", "results_play_again_clicked",
-        "purchase_started", "client_error",
+        "purchase_started",
+        "matchmaking_started", "match_joining", "online_match_joined", "online_match_completed",
+        "online_failed", "match_disconnect", "match_reconnected",
+        "study_cohort_set", "study_incentivized_set", "study_participant_started",
     ];
+
+    public static IReadOnlyCollection<string> AllowedClientEvents => ClientEvents;
 
     static readonly HashSet<string> ServerEvents =
     [
@@ -35,7 +44,8 @@ public static class AnalyticsEndpoints
             {
                 var request = new AnalyticsEventRequest(e.EventName ?? "", e.SchemaVersion, e.BuildVersion ?? "", e.BalanceVersion ?? "",
                     e.Region ?? "", e.DeviceTier ?? "", Math.Clamp(e.PartySize, 1, 3), e.HasBots, e.Cohort ?? "",
-                    Guid.TryParse(e.MatchId, out var m) ? m : null, null, e.Payload);
+                    Guid.TryParse(e.MatchId, out var m) ? m : null, null, e.Payload,
+                    e.BotSubstituted, e.BotCount, e.IncentivizedTester);
                 var result = Validate(request, ClientEvents);
                 if (result is not null) { rejected++; continue; }
                 db.AnalyticsEvents.Add(ToEntity(request, "client", playerId, e.PseudonymousId, TryParseTimestamp(e.Timestamp)));
@@ -55,6 +65,7 @@ public static class AnalyticsEndpoints
     {
         if (!allowedEvents.Contains(request.EventName)) return "unsupported_event";
         if (request.SchemaVersion < 1 || request.PartySize is < 1 or > 3 ||
+            request.BotCount is < 0 or > Services.MatchmakingOptions.MatchSize ||
             string.IsNullOrWhiteSpace(request.BuildVersion) || string.IsNullOrWhiteSpace(request.BalanceVersion) ||
             string.IsNullOrWhiteSpace(request.Region) || string.IsNullOrWhiteSpace(request.DeviceTier))
             return "invalid_event_dimensions";
@@ -93,6 +104,9 @@ public static class AnalyticsEndpoints
                 DeviceTier = request.DeviceTier,
                 PartySize = request.PartySize,
                 HasBots = request.HasBots,
+                BotSubstituted = request.BotSubstituted,
+                BotCount = request.BotCount,
+                IncentivizedTester = request.IncentivizedTester,
                 Cohort = request.Cohort,
                 Timestamp = DateTimeOffset.UtcNow,
                 PayloadJson = payload,
@@ -108,7 +122,8 @@ public static class AnalyticsEndpoints
     public sealed record ClientQueuedEvent(
         string? EventName, int SchemaVersion, string? Source, string? BuildVersion, string? BalanceVersion,
         string? PseudonymousId, string? MatchId, string? Region, string? DeviceTier, int PartySize, bool HasBots,
-        string? Cohort, string? Timestamp, JsonElement Payload);
+        string? Cohort, string? Timestamp, JsonElement Payload,
+        bool BotSubstituted = false, int BotCount = 0, bool IncentivizedTester = false);
 
     static DateTimeOffset? TryParseTimestamp(string? timestamp)
     {
@@ -123,5 +138,6 @@ public static class AnalyticsEndpoints
     public sealed record AnalyticsEventRequest(
         string EventName, int SchemaVersion, string BuildVersion, string BalanceVersion,
         string Region, string DeviceTier, int PartySize, bool HasBots, string Cohort,
-        Guid? MatchId, Guid? PlayerId, JsonElement Payload);
+        Guid? MatchId, Guid? PlayerId, JsonElement Payload,
+        bool BotSubstituted = false, int BotCount = 0, bool IncentivizedTester = false);
 }

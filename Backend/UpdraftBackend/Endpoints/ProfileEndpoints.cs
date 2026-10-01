@@ -14,7 +14,9 @@ public static class ProfileEndpoints
         {
             var playerId = RequireOwnerId(ctx);
             var account = await db.PlayerAccounts.FindAsync(playerId);
-            return account is null ? Results.NotFound() : Results.Ok(account);
+            return account is null ? Results.NotFound() : Results.Ok(new ProfileResponse(
+                account.Id, account.Alias, account.ProfileXp, account.Level,
+                account.EquippedCosmeticId, account.LinkedPlatformIdentity, account.IsGuest));
         });
 
         group.MapGet("/wallet", async (HttpContext ctx, UpdraftDbContext db) =>
@@ -28,7 +30,7 @@ public static class ProfileEndpoints
         {
             var playerId = RequireOwnerId(ctx);
             var items = await db.InventoryItems.Where(i => i.PlayerId == playerId).ToListAsync();
-            return Results.Ok(items);
+            return Results.Ok(new { items });
         });
 
         group.MapPost("/equip/{cosmeticId}", async (string cosmeticId, HttpContext ctx, UpdraftDbContext db) =>
@@ -55,4 +57,7 @@ public static class ProfileEndpoints
             ?? throw new UnauthorizedAccessException("No validated session player_id claim.");
         return Guid.Parse(claim);
     }
+
+    public sealed record ProfileResponse(Guid Id, string Alias, int ProfileXp, int Level,
+        string? EquippedCosmeticId, string? LinkedPlatformIdentity, bool IsGuest);
 }

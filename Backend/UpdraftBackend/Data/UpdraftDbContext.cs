@@ -52,6 +52,16 @@ public class UpdraftDbContext : DbContext
         modelBuilder.Entity<PlayerSession>()
             .HasIndex(s => new { s.PlayerId, s.ExpiresAt });
 
+        modelBuilder.Entity<PlayerAccount>()
+            .HasIndex(a => a.ContactEmailHash);
+
+        modelBuilder.Entity<AccountDeletionRequest>()
+            .HasIndex(r => r.VerificationTokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<AccountDeletionRequest>()
+            .HasIndex(r => new { r.ContactEmail, r.Status });
+
         modelBuilder.Entity<Party>()
             .HasIndex(p => p.Code)
             .IsUnique();

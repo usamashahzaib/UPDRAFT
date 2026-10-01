@@ -143,6 +143,37 @@ public class AnalyticsEndpointsTests : IClassFixture<UpdraftWebApplicationFactor
     }
 
     [Fact]
+    public async Task RetentionJob_DropsAbandonedDeletionRequests_ButKeepsLiveOnes()
+    {
+        Guid abandoned = Guid.NewGuid(), live = Guid.NewGuid();
+        using (var seedScope = _factory.Services.CreateScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.AccountDeletionRequests.Add(new AccountDeletionRequest
+            {
+                Id = abandoned, ContactName = "Old", ContactEmail = "old@example.test",
+                Status = AccountDeletionService.PendingVerification, VerificationTokenHash = "x1",
+                VerificationExpiresAt = DateTimeOffset.UtcNow.AddDays(-8),
+            });
+            db.AccountDeletionRequests.Add(new AccountDeletionRequest
+            {
+                Id = live, ContactName = "New", ContactEmail = "new@example.test",
+                Status = AccountDeletionService.PendingVerification, VerificationTokenHash = "x2",
+                VerificationExpiresAt = DateTimeOffset.UtcNow.AddHours(12),
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var service = new AnalyticsRetentionService(_factory.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AnalyticsRetentionService>.Instance);
+        await service.RunOnce(CancellationToken.None);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        Assert.Null(await verifyDb.AccountDeletionRequests.FindAsync(abandoned));
+        Assert.NotNull(await verifyDb.AccountDeletionRequests.FindAsync(live));
+    }
+
+    [Fact]
     public async Task PresenceRollup_FoldsLateArrivingOfflineEvents_AfterWatermark()
     {
         var service = new AnalyticsRetentionService(_factory.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AnalyticsRetentionService>.Instance);

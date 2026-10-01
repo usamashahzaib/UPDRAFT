@@ -100,6 +100,7 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
         // Assert
         Assert.NotNull(result);
         Assert.Equal("searching", result.State);
+        Assert.False(string.IsNullOrEmpty(result.Region), "QA-029: the search screen shows the queue region");
     }
 
     [Fact]
@@ -148,6 +149,33 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
         queued.EnsureSuccessStatusCode();
         var nonLeaderQueue = await member.PostAsJsonAsync("/api/matchmaking/enqueue", new { });
         Assert.Equal(HttpStatusCode.Forbidden, nonLeaderQueue.StatusCode);
+
+        // QA-014: the member never enqueues, yet sees the leader's queue on their own status —
+        // this is what the member client polls to follow the leader into the match.
+        var memberStatus = await (await member.GetAsync("/api/matchmaking/status")).Content.ReadFromJsonAsync<StatusResponse>();
+        Assert.Equal("searching", memberStatus!.State);
+    }
+
+    [Fact]
+    public async Task Status_MatchedTicketForFinishedMatch_ReadsIdle()
+    {
+        var playerId = Guid.NewGuid();
+        var matchId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId });
+            db.MatchmakingTickets.Add(new MatchmakingTicket
+            {
+                Id = Guid.NewGuid(), PlayerId = playerId, Status = "matched", MatchId = matchId,
+                EnqueuedAt = DateTimeOffset.UtcNow.AddMinutes(-5), UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-4),
+            });
+            db.MatchAllocations.Add(new MatchAllocation { MatchId = matchId, ServerId = "s1", CompletedAt = DateTimeOffset.UtcNow });
+            await db.SaveChangesAsync();
+        }
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        var result = await (await client.GetAsync("/api/matchmaking/status")).Content.ReadFromJsonAsync<StatusResponse>();
+        Assert.Equal("idle", result!.State);
     }
 
     [Fact]
@@ -167,6 +195,59 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
         var status = await client.GetAsync("/api/matchmaking/status");
         var result = await status.Content.ReadFromJsonAsync<StatusResponse>();
         Assert.Equal("idle", result!.State);
+    }
+
+    [Fact]
+    public async Task Cancel_MatchedReservationWithoutAllocation_CancelsTicket()
+    {
+        var playerId = Guid.NewGuid();
+        var matchId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            db.MatchmakingTickets.Add(new MatchmakingTicket
+            {
+                Id = Guid.NewGuid(), PlayerId = playerId, Status = "matched", MatchId = matchId,
+                EnqueuedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        var cancel = await client.PostAsJsonAsync("/api/matchmaking/cancel", new { });
+        cancel.EnsureSuccessStatusCode();
+        var status = await (await client.GetAsync("/api/matchmaking/status")).Content.ReadFromJsonAsync<StatusResponse>();
+        Assert.Equal("idle", status!.State);
+    }
+
+    [Fact]
+    public async Task Cancel_MatchedReservationWithActiveAllocation_ReturnsConflictAndPreservesReservation()
+    {
+        var playerId = Guid.NewGuid();
+        var matchId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            db.MatchmakingTickets.Add(new MatchmakingTicket
+            {
+                Id = Guid.NewGuid(), PlayerId = playerId, Status = "matched", MatchId = matchId,
+                EnqueuedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+            });
+            db.MatchAllocations.Add(new MatchAllocation { MatchId = matchId, ServerId = "qa-server" });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        var cancel = await client.PostAsJsonAsync("/api/matchmaking/cancel", new { });
+        Assert.Equal(HttpStatusCode.Conflict, cancel.StatusCode);
+        Assert.Contains("reservation_starting", await cancel.Content.ReadAsStringAsync());
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<UpdraftDbContext>();
+        var ticket = await verifyDb.MatchmakingTickets.SingleAsync(t => t.PlayerId == playerId);
+        Assert.Equal("matched", ticket.Status);
+        Assert.True(await verifyDb.MatchAllocations.AnyAsync(a => a.MatchId == matchId && a.CompletedAt == null));
     }
 
     [Fact]
@@ -209,7 +290,8 @@ public class MatchmakingEndpointsTests : IClassFixture<UpdraftWebApplicationFact
 
     private record EnqueueResponse(bool Queued, string PlayerId);
     private record CancelResponse(bool Cancelled);
-    private record StatusResponse(string State, int ElapsedSeconds);
+    private record StatusResponse(string State, int ElapsedSeconds, string? Region = null);
     private record TicketResponse(string? Ticket, string Note);
-    private record PartyResponse(string Code, string LeaderId, List<string> MemberIds, List<string> ReadyIds);
+    private record PartyResponse(string Code, string LeaderId, List<string> MemberIds, List<string> ReadyIds, List<PartyMemberResponse> Members);
+    private record PartyMemberResponse(string PlayerId, string Alias, bool IsReady);
 }

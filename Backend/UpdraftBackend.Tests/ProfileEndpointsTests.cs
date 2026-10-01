@@ -49,8 +49,8 @@ public class ProfileEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
         Assert.Equal(playerId, account.Id);
         Assert.Equal(500, account.ProfileXp);
         Assert.Equal(2, account.Level);
-        Assert.Equal(1200, account.HiddenMatchmakingRating);
         Assert.True(account.IsGuest);
+        Assert.DoesNotContain("hiddenMatchmakingRating", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -89,13 +89,13 @@ public class ProfileEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
         // Act
         var response = await client.GetAsync("/api/profile/inventory");
         response.EnsureSuccessStatusCode();
-        var items = await response.Content.ReadFromJsonAsync<List<InventoryItemResponse>>();
+        var inventory = await response.Content.ReadFromJsonAsync<InventoryResponse>();
 
         // Assert
-        Assert.NotNull(items);
-        Assert.Equal(2, items.Count);
-        Assert.Contains(items, i => i.CosmeticId == "signal_body" && i.AcquiredVia == "starter");
-        Assert.Contains(items, i => i.CosmeticId == "foundry_badge" && i.AcquiredVia == "unlock");
+        Assert.NotNull(inventory);
+        Assert.Equal(2, inventory.Items.Count);
+        Assert.Contains(inventory.Items, i => i.CosmeticId == "signal_body" && i.AcquiredVia == "starter");
+        Assert.Contains(inventory.Items, i => i.CosmeticId == "foundry_badge" && i.AcquiredVia == "unlock");
     }
 
     [Fact]
@@ -168,7 +168,8 @@ public class ProfileEndpointsTests : IClassFixture<UpdraftWebApplicationFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, equipResponse.StatusCode);
     }
 
-    private record PlayerAccountResponse(Guid Id, int ProfileXp, int Level, int HiddenMatchmakingRating, bool IsGuest, DateTimeOffset CreatedAt, string? LinkedPlatformIdentity);
+    private record PlayerAccountResponse(Guid Id, string Alias, int ProfileXp, int Level, string? EquippedCosmeticId, string? LinkedPlatformIdentity, bool IsGuest);
     private record InventoryItemResponse(string CosmeticId, DateTimeOffset AcquiredAt, string AcquiredVia);
+    private record InventoryResponse(List<InventoryItemResponse> Items);
     private record EquipResponse(string Equipped);
 }

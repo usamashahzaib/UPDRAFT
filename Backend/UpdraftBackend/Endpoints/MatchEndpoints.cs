@@ -23,6 +23,24 @@ public static class MatchEndpoints
             return Results.Ok(new { matchId, reconnectAllowed = !finished });
         });
 
+        // QA-017: authoritative reward receipt for the caller's own participation.
+        // recorded=false (still 200) until the server's result lands, so the client
+        // can poll and show "reward pending" instead of guessing.
+        group.MapGet("/{matchId}/receipt", async (Guid matchId, HttpContext ctx, UpdraftDbContext db, CancellationToken cancellationToken) =>
+        {
+            if (!Guid.TryParse(ctx.User.FindFirst("player_id")?.Value, out var playerId)) return Results.Forbid();
+            var row = await db.MatchParticipations.AsNoTracking()
+                .SingleOrDefaultAsync(m => m.MatchId == matchId && m.PlayerId == playerId, cancellationToken);
+            int level = await db.PlayerAccounts.Where(a => a.Id == playerId).Select(a => (int?)a.Level).SingleOrDefaultAsync(cancellationToken) ?? 1;
+            return Results.Ok(new MatchReceipt(
+                Recorded: row is not null,
+                Eligible: row?.Eligible ?? false,
+                XpGained: row?.XpGained ?? 0,
+                CreditsGained: row?.CreditsGained ?? 0,
+                Level: level,
+                Unlocked: string.IsNullOrEmpty(row?.UnlockedCsv) ? [] : row.UnlockedCsv.Split(',', StringSplitOptions.RemoveEmptyEntries)));
+        });
+
         // Dedicated server admits a client only after the backend confirms its join ticket.
         group.MapPost("/validate-ticket", async (ValidateTicketRequest request, MatchTicketService tickets, UpdraftDbContext db,
             CancellationToken cancellationToken) =>
@@ -86,14 +104,22 @@ public static class MatchEndpoints
                     continue;
                 }
                 var ids = match.Select(t => t.PlayerId).ToList();
-                var aliases = await db.PlayerAccounts.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Alias, cancellationToken);
+                // QA-024: each player's equipped cosmetic travels with the claim so the match server
+                // can show every player's chosen identity to everyone (presentation only).
+                var accounts = await db.PlayerAccounts.Where(p => ids.Contains(p.Id))
+                    .ToDictionaryAsync(p => p.Id, p => new { p.Alias, p.EquippedCosmeticId }, cancellationToken);
                 return Results.Ok(new
                 {
                     matchId = match.Key,
                     session = match.Key.ToString("N"),
                     region = allocator.FusionRegion,
                     hasBots = match.Any(t => t.HasBots),
-                    players = match.Select(t => new { playerId = t.PlayerId, team = t.Team, alias = aliases.GetValueOrDefault(t.PlayerId) }),
+                    players = match.Select(t => new
+                    {
+                        playerId = t.PlayerId, team = t.Team,
+                        alias = accounts.GetValueOrDefault(t.PlayerId)?.Alias,
+                        cosmetic = accounts.GetValueOrDefault(t.PlayerId)?.EquippedCosmeticId,
+                    }),
                 });
             }
             return Results.NoContent();
@@ -120,4 +146,7 @@ public static class MatchEndpoints
     public static readonly TimeSpan AllocationTimeout = TimeSpan.FromMinutes(15);
 
     public sealed record ValidateTicketRequest(Guid MatchId, string Ticket);
+
+    /// <summary>Serialized camelCase: {recorded, eligible, xpGained, creditsGained, level, unlocked}.</summary>
+    public sealed record MatchReceipt(bool Recorded, bool Eligible, int XpGained, int CreditsGained, int Level, string[] Unlocked);
 }

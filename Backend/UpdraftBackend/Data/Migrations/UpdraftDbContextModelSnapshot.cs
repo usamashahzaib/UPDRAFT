@@ -28,6 +28,9 @@ namespace UpdraftBackend.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ContactEmail")
                         .HasColumnType("text");
 
@@ -44,7 +47,18 @@ namespace UpdraftBackend.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("VerificationExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VerificationTokenHash")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("VerificationTokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("ContactEmail", "Status");
 
                     b.ToTable("AccountDeletionRequests");
                 });
@@ -104,12 +118,12 @@ namespace UpdraftBackend.Data.Migrations
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("PseudonymousId")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("FirstSeenAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -133,9 +147,18 @@ namespace UpdraftBackend.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("BotCount")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("BotSubstituted")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("BuildVersion")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ClientTimestamp")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Cohort")
                         .IsRequired()
@@ -150,6 +173,9 @@ namespace UpdraftBackend.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<bool>("HasBots")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IncentivizedTester")
                         .HasColumnType("boolean");
 
                     b.Property<Guid?>("MatchId")
@@ -169,9 +195,6 @@ namespace UpdraftBackend.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTimeOffset?>("ClientTimestamp")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Region")
                         .IsRequired()
                         .HasColumnType("text");
@@ -188,9 +211,9 @@ namespace UpdraftBackend.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Timestamp");
-
                     b.HasIndex("PseudonymousId");
+
+                    b.HasIndex("Timestamp");
 
                     b.HasIndex("PseudonymousId", "Timestamp");
 
@@ -291,8 +314,14 @@ namespace UpdraftBackend.Data.Migrations
                     b.Property<Guid>("PlayerId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Alias")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreditsGained")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("Draw")
                         .HasColumnType("boolean");
@@ -303,8 +332,17 @@ namespace UpdraftBackend.Data.Migrations
                     b.Property<bool>("HadBotSubstitution")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("Slot")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UnlockedCsv")
+                        .HasColumnType("text");
+
                     b.Property<bool>("Won")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("XpGained")
+                        .HasColumnType("integer");
 
                     b.HasKey("MatchId", "PlayerId");
 
@@ -416,6 +454,9 @@ namespace UpdraftBackend.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ContactEmailHash")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -439,6 +480,8 @@ namespace UpdraftBackend.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ContactEmailHash");
+
                     b.HasIndex("LinkedPlatformIdentity")
                         .IsUnique();
 
@@ -461,8 +504,14 @@ namespace UpdraftBackend.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ReportedAlias")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("ReportedPlayerId")
                         .HasColumnType("uuid");
+
+                    b.Property<int?>("ReportedSlot")
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ReportingPlayerId")
                         .HasColumnType("uuid");

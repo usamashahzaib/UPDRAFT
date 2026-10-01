@@ -66,7 +66,7 @@ public static class PartyEndpoints
             {
                 db.Parties.Remove(party);
                 await db.SaveChangesAsync(cancellationToken);
-                return Results.Ok(new PartyResponse(code.ToUpperInvariant(), playerId.ToString(), [], []));
+                return Results.Ok(new PartyResponse(code.ToUpperInvariant(), playerId.ToString(), [], [], []));
             }
 
             if (party.LeaderId == playerId)
@@ -109,11 +109,14 @@ public static class PartyEndpoints
     {
         var members = (await db.PartyMembers.Where(m => m.PartyId == party.Id).ToListAsync(cancellationToken))
             .OrderBy(m => m.JoinedAt).ToList();
+        var ids = members.Select(m => m.PlayerId).ToList();
+        var aliases = await db.PlayerAccounts.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Alias, cancellationToken);
         return new PartyResponse(
             party.Code,
             party.LeaderId.ToString(),
             members.Select(m => m.PlayerId.ToString()).ToList(),
-            members.Where(m => m.IsReady).Select(m => m.PlayerId.ToString()).ToList());
+            members.Where(m => m.IsReady).Select(m => m.PlayerId.ToString()).ToList(),
+            members.Select(m => new PartyMemberResponse(m.PlayerId.ToString(), aliases.GetValueOrDefault(m.PlayerId, "Player"), m.IsReady)).ToList());
     }
 
     static async Task<string> GenerateUniqueInviteCode(UpdraftDbContext db, CancellationToken cancellationToken)
@@ -128,5 +131,6 @@ public static class PartyEndpoints
         throw new InvalidOperationException("Could not allocate a unique party code.");
     }
 
-    public sealed record PartyResponse(string Code, string LeaderId, List<string> MemberIds, List<string> ReadyIds);
+    public sealed record PartyMemberResponse(string PlayerId, string Alias, bool IsReady);
+    public sealed record PartyResponse(string Code, string LeaderId, List<string> MemberIds, List<string> ReadyIds, List<PartyMemberResponse> Members);
 }

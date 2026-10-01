@@ -51,6 +51,18 @@ builder.Services.AddSingleton(allocatorOptions);
 builder.Services.AddSingleton<MatchTicketService>();
 builder.Services.Configure<FeatureFlags>(builder.Configuration.GetSection("Features"));
 
+// QA-028: outgoing email. Default is a zero-cost local outbox directory; setting
+// Email:Smtp:Host switches to real SMTP delivery without code changes.
+var emailOptions = new EmailOptions();
+builder.Configuration.GetSection("Email").Bind(emailOptions);
+builder.Services.AddSingleton(emailOptions);
+if (emailOptions.SmtpConfigured) builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+else builder.Services.AddSingleton<IEmailSender, OutboxEmailSender>();
+var supportOptions = new SupportOptions();
+builder.Configuration.GetSection("Support").Bind(supportOptions);
+builder.Services.AddSingleton(supportOptions);
+builder.Services.AddSingleton<AccountDeletionService>();
+
 if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHostedService<AnalyticsRetentionService>();
@@ -72,6 +84,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     };
 });
 builder.Services.AddAuthorization();
+// Per-IP limit for unauthenticated auth/support entry points (sign-in, web deletion).
+int authPermitLimit = Math.Max(1, builder.Configuration.GetValue("RateLimits:AuthPermitPerMinute", 20));
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -85,7 +99,7 @@ builder.Services.AddRateLimiter(options =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = 20,
+            PermitLimit = authPermitLimit,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
         }));

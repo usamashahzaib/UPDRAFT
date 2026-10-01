@@ -64,6 +64,13 @@ public sealed class AnalyticsRetentionService(IServiceScopeFactory scopeFactory,
         db.AnalyticsDailyAggregates.RemoveRange(expiredAggregates);
         var expiredPresence = await db.AnalyticsDailyPresence.Where(p => p.ExpiresAt <= now).ToListAsync(cancellationToken);
         db.AnalyticsDailyPresence.RemoveRange(expiredPresence);
+        // Web deletion requests nobody verified hold a plaintext name/email and did nothing;
+        // drop them a week after their link expired (completed requests are already scrubbed).
+        var abandonedCutoff = now.AddDays(-7);
+        var abandonedDeletionRequests = await db.AccountDeletionRequests
+            .Where(r => r.Status == AccountDeletionService.PendingVerification && r.VerificationExpiresAt < abandonedCutoff)
+            .ToListAsync(cancellationToken);
+        db.AccountDeletionRequests.RemoveRange(abandonedDeletionRequests);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
