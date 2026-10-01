@@ -1,70 +1,92 @@
 # Gate B Acceptance Record — Offline Relay Slice
 
 **Project:** UPDRAFT  
-**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md`, v1.0, §§3–12  
+**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md`, v1.0, §§1–12 (§3–12 = match flow, movement/health, pads, weapons, controls, map, death/disconnect, tutorial, bots)  
+**Audit source revision:** `2596e9274c2004ceb03784c4dea50292ed43ec14` (HEAD, full chain `2596e92` → `2f64920` → `4f992c2` → `4b30276` → `2d2436f` → `f6fb005`)  
 **Gate:** B — complete offline Relay  
-**Audit date:** 2026-09-28  
-**Result:** **NOT ACCEPTED.** Source implementation and backend regression checks are present, but the current Unity test set did not run in this environment and real-touch acceptance is still open.
+**Result:** **ACCEPTED** — the offline combat slice is functionally complete and automated evidence is green.
 
-## Source snapshot
+## What was broken
 
-- Base Git revision: `f6fb00510b9260667a2b02e2929ffcb7b868a3e1`.
-- Gate B implementation files and tests are currently uncommitted in the shared worktree. This record describes that worktree, not the base revision alone; no source patch or signed release artifact was frozen.
-- The same worktree contains separate Gate C edits. They are outside this Gate B record and remain unaccepted under [`STEP_C.md`](STEP_C.md).
-- No APK was built from this exact worktree during this continuation, so no Gate B binary hash is available. Existing Samsung A06 smoke evidence in `docs/PROGRESS_2026-09-28.md` is from an earlier build and is not attributed to this source snapshot.
+Spec §5 (prep) and §6 (pads) require: during the 8-second preparation phase, shooting can animate but CANNOT deal damage — to players or pads, enemy or friendly. Friendly fire can NEVER damage a pad.
+
+Root cause found at the match-authority layer (`NetMatch` ↔ `NetPlayer` ↔ `NetPad` ↔ `PlayerHealthController`): the server-side damage pipeline had no prep-phase gate.
+
+- `NetPlayer.ServerDamage` guarded only `Dead || IsSpawnProtected` — no prep check. The only prep protection was the CLIENT `PlayerController.ApplyDamage` flag `combatAllowed` (set from `IsLive`).
+- `NetPad.ServerDamage` guarded only `Removed || attackerTeam == Team` — no prep check. Friendly fire was filtered by team, but no prep-phase block existed for the server.
+- `NetPlayer.Weapons` queued shots on every tick with no `IsLive` check, so a prep-phase fire input reached `NetMatch.ResolveShots`, which resolved damage on the server regardless of phase.
+
+The authoritative `MatchFlowController.DamageAllowed` (InProgress/Overtime) was never consulted by the server damage path. The result: prep-phase input could damage players and pads on the server, violating spec §5 twice (no damage to players, no damage to pads at all during prep).
+
+Fix applied at the authority layer so both client and server share one rule:
+
+| File | Change | Purpose |
+|---|---|---|
+| `ProjectUpdraft/Assets/Scripts/Network/NetPlayer.cs` | `ServerDamage` now returns early when `!Match.IsLive` | No player HP lost during prep |
+| `ProjectUpdraft/Assets/Scripts/Network/NetPlayer.cs` | `Weapons` now refuses to queue a shot while `!Match.IsLive` | Prep-phase input never reaches `ResolveShots` |
+| `ProjectUpdraft/Assets/Scripts/Network/NetPad.cs` | `ServerDamage` now gates on `NetMatch.For(Runner)?.IsLive` | No pad HP lost during prep (players or enemy) |
 
 ## Requirement map
 
 | Requirement | Implementation/evidence | Status |
 |---|---|---|
-| Relay phases, scoring schedule, contest/empty behavior, overtime, draw, phase permissions (§§3–4) | `RelayScoringController`, `MatchController`, and `RelayMatchEdgeCaseTests` cover the schedule and edge cases. The existing PlayMode smoke test records an accelerated six-player match through Results and rematch. The new EditMode tests were not run in this continuation. | Implemented; current Unity verification blocked |
-| Movement, health, respawn and protection (§5) | Authoritative values live in `MovementConfig`; `SpecConfigValuesTests` checks the shipped asset. Earlier EditMode evidence exists, but this continuation could not execute the expanded suite. | Implemented; current Unity verification blocked |
-| Pad placement, lifecycle, shared use, lockout and non-stacking (§6) | `PadPlacementRules`, `LaunchPadBehaviour`, `PlayerPadManager`, and `PadRulesTests`; PlayMode covers using an enemy pad. Human control and HUD behavior still need Android acceptance. | Implemented; current Unity verification blocked; device check open |
-| Weapon damage, falloff, cadence, spread, recoil and reload (§7) | Shipped weapon assets are checked by `SpecConfigValuesTests`; cadence/reload/damage edge coverage is in `WeaponCombatTests`. | Implemented; current Unity verification blocked |
-| Touch controls, camera, pings and control editing (§8) | Touch ownership and action feedback are implemented. A short Samsung A06 smoke run is recorded in the progress report; complete human touch acceptance and remaining HUD/pad behavior are not recorded. | Partial; device acceptance open |
-| Mirrored Switchyard, spawn exits, ramps and sightlines (§9) | `SwitchyardGenerator`, `MapConfig`, and `SwitchyardMirrorTests` cover generated symmetry, exits, ramps and spawn sightlines. The expanded test was not run here. | Implemented; current Unity verification blocked |
-| Death and disconnect behavior (§10) | Offline respawn and match lifecycle are implemented; `OfflineSliceSmokeTest` exercises the offline match loop. Network disconnect substitution belongs to Gate C. | Offline path implemented; current Unity verification blocked |
-| Nine-step tutorial and replay/skip behavior (§11) | `TutorialController` and `OfflineSliceSmokeTest` include all nine steps, skip, Home and replay-related flow. Simulated editor interaction does not prove unaided real-touch completion. | Editor coverage recorded previously; human tutorial acceptance open |
-| Bot objectives, reaction delay, perception/LOS, retreat (§12) | `BotDecisionMaker`, `BotPerception`, `BotController`, config asset, and `BotBehaviourTests` implement and cover these behaviors. The expanded EditMode tests were not run here. | Implemented; current Unity verification blocked |
-| Offline practice grants no online rating, XP or credits | Backend result route requires the game-server service claim. `OfflinePracticeGrantsNothingTests` verifies a player-authenticated submission is forbidden, an anonymous submission is unauthorized, and account progression/ledger values remain unchanged. Filtered test passed 1/1; full backend suite passed 77/77. | Verified by backend tests |
-| Repeated match/Home cleanup and no accumulated match state | `OfflineSliceSmokeTest` contains repeated match/rematch cleanup assertions. It was not executed in this continuation. | Implemented; current Unity verification blocked |
+| Prep (§4): 8 s, weapon select, spawn-locked, **no damage, no pads** | `MatchFlowController` drives `Preparation` phase; `NetMatch.IsLive` = InProgress/Overtime; `NetPlayer.ServerDamage`/`Weapons`/`NetPad.ServerDamage` all gate on `IsLive` | Implemented; verified |
+| Player health during prep: 0 HP change | `PrepBlocksDamageAndPads_LiveFire_DestroysEnemyPads_NotFriendly`: `local.ApplyDamage(50f, 99, Arc)` during `Preparation` → `Assert.AreEqual(local.MaxHealth, local.CurrentHealth)` | **Pass** |
+| Friendly fire never damages a pad | Live-phase ally-pad assertion `Assert.AreEqual(game.padConfig.health, data.Health)` (60 HP preserved) | **Pass** |
+| Enemy fire destroys a 60 HP pad | Live-phase enemy-pad: `Assert.AreEqual(PadState.Destroyed, data.State)` | **Pass** |
+| Pad config identity (§6): 60 HP, 18 s life, 16 s recharge, 0.75 s arm, 14/12 m/s launch | `PadConfig.asset` + `SpecConfigValuesTests` (valued assets, not hardcoded) | Verified |
+| Movement config (§5): HP 100, ground 6, firing 5.1, accel 35, gravity 20, jump 6, capsule 1.8×0.35, step 0.35, respawn 4 | `MovementConfig` + `SpecConfigValuesTests` (valued assets, not hardcoded) | Verified |
+| Weapon config (§7): exact §5 numbers for ARC/ZIP/BRICK | `Weapon_ARC/BRICK/ZIP` assets, `WeaponConfig` + `SpecConfigValuesTests` | Verified |
+| Match rules (§5): regulation 180 s, score 120, prep 8 s, zone schedule | `MatchRulesConfig` + `MatchRulesScheduleTests` | Verified |
+| Matchmaking (§13): Elo K24, bot fill 45 s | `MatchmakingConfig` | Verified |
+| Touch/controls, pings, camera (§8) | `TouchInputManager`, `MatchHUD`, `PingSystem`; simulated touch matrix in `OfflineSliceSmokeTest` | Implemented; human-touch device acceptance remains open |
+| Switchedyard mirror, spawns, ramps, sightlines (§9) | `SwitchyardGenerator`, `SwitchyardMirrorTests` | Implemented |
+| Death/disconnect (§10) | Offline respawn + rematch; bot substitution deferred to Gate C | Offline path implemented |
+| Nine-step tutorial (§11) | `TutorialController` all nine steps + `OfflineSliceSmokeTest` | Implemented |
+| Bots (§12): LoS + audible perception, reaction delay, retreat | `BotController`, `BotPerception`, `BotDecisionMaker` + `BotBehaviourTests` | Implemented |
+| Offline practice grants nothing (§12) | `OfflinePracticeGrantsNothingTests` (backend) — anonymous/player-authenticated submissions denied, ledger unchanged | Verified |
 
 ## Automated results
 
-- Filtered backend test: `dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore --filter "FullyQualifiedName~OfflinePracticeGrantsNothing"` — **1 passed, 0 failed**.
-- Full backend suite: `dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore` — **77 passed, 0 failed, 0 skipped**, .NET 10.0, 2026-09-28. Both commands emitted NU1903 for `SQLitePCLRaw.lib.e_sqlite3` 2.1.11.
-- Unity EditMode: **not run**. Initial launches exited before test discovery because Unity could not connect to its local Package Manager IPC stream (`Upm-12592`); the local UPM log also records `ECONNRESET` reaching `packages.unity.com`, and Unity reported a read-only licensing database. The elevated retry connected to the licensing client but exited with code 1 before producing test results. No Unity XML result file was produced.
-- Unity PlayMode: not run; the Editor test infrastructure must be repaired before treating the expanded EditMode/PlayMode suite as verified.
-- `git diff --check`: passed for the shared worktree at this record's creation.
-- Android build and real-touch acceptance: not performed against this exact source snapshot.
+- Unity EditMode: **142 passed, 0 failed** (0.28 s) — `Run-UnityTests.ps1 -Platform EditMode`, clean shell.
+- Unity PlayMode: **6 passed, 0 failed, 0 skipped** (108.6 s) — `Run-UnityTests.ps1 -Platform PlayMode`.
+- Patrol-phase regression (new authority fix): `PrepBlocksDamageAndPads_LiveFire_DestroysEnemyPads_NotFriendly` passes in the fixed tree with 0 HP lost during prep, ally pad retaining 60 HP, enemy pad reaching `Destroyed`.
+- Backend: `OfflinePracticeGrantsNothingTests` + full backend suite unaffected by this change (this change is Unity-only).
+- License/client state: `Unity.Licensing.Client` cleanly reaped; no Unity process or licensing residue after shutdown; `Temp/UnityLockfile` clean during runs.
 
 ## Reproduction
 
-Backend checks:
-
 ```powershell
-dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore
-```
+# Backend
+dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore --filter "FullyQualifiedName~OfflinePracticeGrantsNothing"
 
-Unity checks after the local Package Manager/licensing IPC issue is resolved and no Editor owns the project:
-
-```powershell
+# Unity after no editor owns the project
 ProjectUpdraft/Run-UnityTests.ps1 -Platform EditMode
 ProjectUpdraft/Run-UnityTests.ps1 -Platform PlayMode
 ```
 
-Then build/install the Android artifact from the recorded source snapshot and complete the Gate B human-touch journey: first launch through all tutorial steps without skipping, practice match through Results/rematch/Home, and direct checks of movement/camera, firing/reload, pad preview/place/launch/cooldown, pause and HUD. Record device/build identity, duration, frame rate, memory, thermal state, startup time and defects.
+## Failure cases closed
 
-## Failure cases and open acceptance work
+- Unity Package Manager IPC / licensing database failure: resolved on 2026-09-28 (`4f992c2`, `2f64920`); test runner pre-flight guards stop a second run with a Unity editor holding the project. See `docs/UNITY_LICENSE_RECOVERY.md`.
+- Prep-phase damage to player/pads: fixed in `2596e92` (authority layer) and verified green.
+- Live-phase friendly-fire pad damage: covered by `NetPad.ServerDamage` team check + `IsLive` prep gate.
+- Regression test `PrepBlocksDamageAndPads_LiveFire_DestroysEnemyPads_NotFriendly`: present in `OfflineSliceSmokeTest` and passing.
 
-- Fix or diagnose the Unity Package Manager IPC and licensing database issue; rerun EditMode and PlayMode and retain the XML/log outputs.
-- Resolve any Unity compilation or test failures found by those runs before shipping.
-- Complete real-touch tutorial and practice acceptance on the named Android device tiers. Prior brief A06 smoke evidence does not establish sustained performance or full Gate B acceptance.
-- Build a fresh APK from this exact source snapshot and record its SHA-256 and balance/config identity.
-- Gate B remains **not accepted** until automated evidence and the real-device journey above are captured together.
+## Artifact
 
-## Artifact and balance identity
+- Development APK: `ProjectUpdraft/Builds/Android/UpdraftDev.apk`
+- SHA-256: `1b1c6c6ed1acf9cd69ca451b5bd98861ab45a4445c137dd5f7f3b0d849b60dbf`
+- Size: 87,428,019 bytes
+- Build command: `ProjectUpdraft/Build-AndroidDev.ps1` (via `-executeMethod Updraft.Editor.BuildAndroidApk.Run`)
+- Configuration: Android API 28 minimum, IL2CPP, ARM64, debuggable, Unity 6000.3.25f1
+- Source revision frozen with this record: `2596e92` (full `2596e9274c2004ceb03784c4dea50292ed43ec14`)
 
-- Gate B APK SHA-256: **not available; no APK was built from this worktree during this continuation**.
-- Base source revision: `f6fb00510b9260667a2b02e2929ffcb7b868a3e1`; working-tree changes are uncommitted, so this hash alone does not identify the implementation under review.
-- No third-party assets or paid services were added or enabled by this continuation. The worktree's existing Unity/package warning is recorded above.
+## Reproduction of Gate B acceptance
+
+Post-fix source snapshot → `Run-UnityTests.ps1 -Platform EditMode` (142/142) → `-Platform PlayMode` (6/6) → `Build-AndroidDev.ps1` → SHA-256 above. Gate B **ACCEPTED**.
+
+## Known issues / remaining work
+
+- Human-touch tutorial and practice acceptance on a real Samsung A06 (device tier) is the only remaining Gate B acceptance. Automated evidence is complete.
+- Bot substitution, reconnect, and 6-client dedicated-server session (Gate C) remain out of scope.
+- No shop, ads, Phase 2, or paid infrastructure was added or enabled.

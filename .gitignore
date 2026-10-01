@@ -45,3 +45,9 @@ ProjectUpdraft/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset.meta
 ProjectUpdraft/TestResults/
 ProjectUpdraft/*.log
 ProjectUpdraft/.utmp/
+
+# Secrets - never commit
+Oracle keys/
+deploy/.env
+*.pem
+*.key

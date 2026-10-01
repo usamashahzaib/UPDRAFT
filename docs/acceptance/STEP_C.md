@@ -21,7 +21,7 @@
 | Fusion 2 Server mode integrated into actual match gameplay; Simple KCC; shared gameplay config/rules | Existing `NetSession`, `NetPlayer`, `NetMatch`, and `NetPad` connect the live match path to Fusion Server mode, Simple KCC, the shared movement simulator, named rules/config assets, and server-authoritative scoring/damage. Source audit only in this pass. | Implemented; runtime unverified |
 | 30 ticks/s and ≤150 ms validated rewind | `NetworkProjectConfig.fusion` now sets 30 client ticks with server tick divisor 1 (30 ticks/s) and 150 ms hitbox buffer. These are configuration values, not a measured live-server result. | Implemented; runtime unverified |
 | Prediction/reconciliation, remote interpolation, lag compensation | Fusion input authority and replicated network properties are used by the live player and presentation path; shots use Fusion lag compensation. No six-client capture or reconciliation measurements were produced. | Implemented; runtime unverified |
-| Dedicated Linux headless build and actual match run | Project has Fusion Linux headless symbols. Reproduction command is listed below; no Linux player artifact exists from this pass. | Blocked |
+| Dedicated Linux headless build and actual match run | 2026-09-29: `BuildLinuxServer.cs` cross-built a Development Linux x64 Server-subtarget player from Windows (hash below). The binary has not been launched on a Linux host and no match has run on it. | Build produced; run blocked |
 | Allocator cap and authenticated backend calls | Existing server-token flow, allocator cap (`Allocator:MaxConcurrentMatches`, default 4), ticket validation and result endpoints were audited. The live service was not configured or exercised. | Implemented; runtime unverified |
 | Ticket binds account, match, and team; duplicate ticket/account joins rejected | Server admission now checks ticket match and reserved team, rejects a second live connection for the same account, and consumes each accepted ticket once. Unity compilation and network behavior were not exercised. | Implemented; unverified |
 | Six slots, load timeout, empty-slot cancellation | Existing match startup waits for the reserved human count and six avatars, then cancels at configured load timeout. No load-timeout client scenario was run. | Implemented; unverified |
@@ -37,7 +37,7 @@
 
 - **Backend:** `dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore` — **76 passed, 0 failed, 0 skipped**, .NET 10.0, duration 2 s, 2026-09-28. This includes the new stale-allocation cancellation regression test and the existing duplicate-result idempotency test.
 - **Unity EditMode/PlayMode:** not run by this pass. A Unity Editor was active at both process checks; no second Unity process was started. A generated `InitTestScene*.unity` appeared in the worktree during the audit and is left untouched.
-- **Linux headless build:** not run; no artifact hash is available.
+- **Linux headless build (2026-09-29):** `ProjectUpdraft/Build-LinuxServer.ps1` — **Succeeded**, 174,005,009 bytes total, 1 min 41 s, log `ProjectUpdraft/TestResults/LinuxServerBuild.log` (ignored). Two fixes were needed first: `BuildPlayerOptions.subtarget` takes an `int` cast, and `TouchInputManager.Vibrate` now guards `Handheld` behind `UNITY_ANDROID || UNITY_IOS` because `Handheld` does not exist in standalone players.
 - **Six-client/network tests:** not run; no automated result file or real-device evidence is available.
 - **Static whitespace check:** `git diff --check` passed for the inspected working tree at the time it was run.
 - Existing warnings: `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 reports NU1903; current backend tests also emit nullable warnings in `AuthEndpointsTests.cs` and `PartyEndpointsTests.cs`.
@@ -60,7 +60,9 @@ ProjectUpdraft/Run-UnityTests.ps1 -Platform PlayMode
 Build the Linux Dedicated Server player with Unity 6.3.25f1 and Linux Dedicated Server Build Support installed (run only when no Editor owns the project):
 
 ```powershell
-& 'C:\Program Files\Unity\Hub\Editor\6000.3.25f1\Editor\Unity.exe' -batchmode -nographics -projectPath 'E:\Usama\Game\ProjectUpdraft' -buildTarget Linux64 -standaloneBuildSubtarget Server -buildLinux64Player 'E:\Usama\Game\ProjectUpdraft\Builds\LinuxHeadless\UpdraftServer.x86_64' -logFile 'E:\Usama\Game\ProjectUpdraft\Builds\LinuxHeadless\build.log'
+ProjectUpdraft/Build-LinuxServer.ps1
+# output: ProjectUpdraft/Builds/Linux/UpdraftServer.x86_64 (+ UnityPlayer.so, UpdraftServer_Data/)
+Get-FileHash ProjectUpdraft/Builds/Linux/UpdraftServer.x86_64 -Algorithm SHA256
 ```
 
 Run the built player only against an approved backend and configured Photon application. Supply `UPDRAFT_SERVER_KEY` and `UPDRAFT_BACKEND_URL` through the deployment environment; never put the key in player arguments or source. The `-devSession ... --insecure-dev` path is local-only and cannot satisfy Gate C.
@@ -75,7 +77,7 @@ Run the built player only against an approved backend and configured Photon appl
 
 ## Artifact and balance identity
 
-- No Gate C binary was produced; build SHA-256: **not available**.
+- Linux server launcher `UpdraftServer.x86_64` (Development, Server subtarget, 2026-09-29) SHA-256: `C4361B92A96F764C885510343418F0A584DFD2592FB4F097ECB6E493D2419101`. `UnityPlayer.so` SHA-256: `F20FA0E5584C2BA7EA821390B26D371571A519C695776AECCD70F8A3C607DAF2`. The launcher is a 4,808-byte stub, so every run record must carry both hashes from the build it actually deployed.
 - Relevant source SHA-256 at record time: `NetSession.cs` `AC56E3A5BAC0DE27F077CFEE3655A7A71A87DB644C2F9E96CC1CC316A0211150`; `OnlinePlay.cs` `5CCCEC38CA613B68854B667C5F79FD93F78106FEF3801DC86B781AD4A05E968D`; `BackendClient.cs` `3EAD2D63B6FD459CAB2D25F303F92F1A0CE3E6AECEB3647A0155C5E9AB09798A`; `MatchEndpoints.cs` `BC6310BD6FA7F04B0AEB9B4D4C5CD3AA7C93063ABA07DCBA9F7C624F90B298C9`; `MatchTicketTests.cs` `C1F0C2AC02544DF9D3BC0C59A563673327278818DAFDFE423AABEA51352303DA`; `NetworkProjectConfig.fusion` `B034D0EAA798C2A3197B21E061B56864AC0B61ADBCBAEDACA3D4BAC618BA07AC`.
 - No balance version was fabricated. Runtime uses the shared `MovementConfig`, `PadConfig`, `MapConfig`, `MatchRulesConfig`, and `WeaponDefinition` resources; this pass does not freeze those assets or claim a signed balance snapshot.
 - No licenses or third-party dependencies changed in this pass.
