@@ -1,7 +1,7 @@
 # Gate B Acceptance Record — Offline Relay Slice
 
-**Project:** UPDRAFT  
-**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md`, v1.0, §§1–12 (§3–12 = match flow, movement/health, pads, weapons, controls, map, death/disconnect, tutorial, bots)  
+**Project:** HOTDROP  
+**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md`, v1.0, §§1–12 (§3–12 = match flow, movement/health, pads, weapons, controls, map, death/disconnect, tutorial, bots)  
 **Audit source revision:** `2596e9274c2004ceb03784c4dea50292ed43ec14` (HEAD, full chain `2596e92` → `2f64920` → `4f992c2` → `4b30276` → `2d2436f` → `f6fb005`)  
 **Gate:** B — complete offline Relay  
 **Result:** **ACCEPTED** — the offline combat slice is functionally complete and automated evidence is green.

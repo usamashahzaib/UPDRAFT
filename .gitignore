@@ -1,27 +1,27 @@
 # Unity generated
-ProjectUpdraft/Library/
-ProjectUpdraft/Temp/
-ProjectUpdraft/Obj/
-ProjectUpdraft/Build/
-ProjectUpdraft/Builds/
-ProjectUpdraft/Logs/
-ProjectUpdraft/UserSettings/
-ProjectUpdraft/MemoryCaptures/
-ProjectUpdraft/*.csproj
-ProjectUpdraft/*.sln
-ProjectUpdraft/.vs/
+ProjectHotdrop/Library/
+ProjectHotdrop/Temp/
+ProjectHotdrop/Obj/
+ProjectHotdrop/Build/
+ProjectHotdrop/Builds/
+ProjectHotdrop/Logs/
+ProjectHotdrop/UserSettings/
+ProjectHotdrop/MemoryCaptures/
+ProjectHotdrop/*.csproj
+ProjectHotdrop/*.sln
+ProjectHotdrop/.vs/
 
 # Ad-hoc batchmode compile/test scratch output (always regenerable)
-ProjectUpdraft/unity_*.log
-ProjectUpdraft/*.xml
-ProjectUpdraft/PerformanceTestRunInfo.json
+ProjectHotdrop/unity_*.log
+ProjectHotdrop/*.xml
+ProjectHotdrop/PerformanceTestRunInfo.json
 
 # com.unity.test-framework.performance writes these into Resources by
 # default, which would otherwise ship inside every player build.
-ProjectUpdraft/Assets/Resources/PerformanceTestRunInfo.json
-ProjectUpdraft/Assets/Resources/PerformanceTestRunInfo.json.meta
-ProjectUpdraft/Assets/Resources/PerformanceTestRunSettings.json
-ProjectUpdraft/Assets/Resources/PerformanceTestRunSettings.json.meta
+ProjectHotdrop/Assets/Resources/PerformanceTestRunInfo.json
+ProjectHotdrop/Assets/Resources/PerformanceTestRunInfo.json.meta
+ProjectHotdrop/Assets/Resources/PerformanceTestRunSettings.json
+ProjectHotdrop/Assets/Resources/PerformanceTestRunSettings.json.meta
 
 # Backend
 Backend/**/bin/
@@ -36,15 +36,15 @@ Thumbs.db
 .vscode/
 
 # Photon App ID lives only in this generated settings asset; keep it out of
-# source control (spec section 20). Supply it via UPDRAFT_FUSION_APP_ID or the
+# source control (spec section 20). Supply it via HOTDROP_FUSION_APP_ID or the
 # local asset; see docs/NETWORK.md.
-ProjectUpdraft/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset
-ProjectUpdraft/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset.meta
+ProjectHotdrop/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset
+ProjectHotdrop/Assets/Photon/Fusion/Resources/PhotonAppSettings.asset.meta
 
 # Local test/build outputs
-ProjectUpdraft/TestResults/
-ProjectUpdraft/*.log
-ProjectUpdraft/.utmp/
+ProjectHotdrop/TestResults/
+ProjectHotdrop/*.log
+ProjectHotdrop/.utmp/
 
 # Secrets - never commit
 Oracle keys/

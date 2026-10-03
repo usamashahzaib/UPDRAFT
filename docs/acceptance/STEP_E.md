@@ -1,8 +1,9 @@
 # Gate E Acceptance Record — Complete Player Product
 
-**Project:** UPDRAFT  
-**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md`, v1.0, §§4, 10, 13–18, 20–24, 28, 31–33  
+**Project:** HOTDROP  
+**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md`, v1.0, §§4, 10, 13–18, 20–24, 28, 31–33  
 **Audit date:** 2026-09-28  
+**Scope amendment:** Amendment v2.1 (2026-10-01) — two body rigs (Male/Female) with a one-time first-launch rig choice and an Appearance rig switch — adds work items to this gate (spec §§15, 17); see "Amendment v2.1 work items" below. The acceptance result is unchanged: **NOT ACCEPTED**.  
 **Result:** **NOT ACCEPTED.** Source and backend checks cover several services, but the in-game journey, Google Play Games client flow, measured region, queued practice, and end-to-end failure/reinstall acceptance are incomplete. No Gate E pass is claimed.
 
 ## Source snapshot and ownership
@@ -20,7 +21,7 @@
 |---|---|---|
 | Guest entry, short access token, rotating refresh token, session-derived ownership | `/api/auth/guest`, `/refresh`, authenticated API ownership claims, refresh-token rotation/reuse rejection; backend auth tests. Unity `BackendClient` persists the refresh token in app-private preferences and refreshes after access-token expiry. | Implemented; backend tests verified. Android reinstall recovery is not verified and guest-only preferences do not establish recovery after uninstall. |
 | Google Play Games link, refresh, revoke | This pass replaces the 501 placeholder with a server-side one-use auth-code exchange and `players/me` identity verification. The server rejects caller-supplied IDs, refuses links when credentials are missing, prevents linking an identity already owned by another account, and has an authenticated unlink route. A unique identity index and migration prevent concurrent duplicate ownership. | Backend source implemented; missing server OAuth client ID/secret and Android Play Games SDK/client auth-code acquisition block integration and real identity verification. |
-| Profile, XP, credits, inventory, appearance, equip | Profile/wallet/inventory/equip endpoints exist. Progression values are now explicit in backend `Progression` settings and source-defined Unity config. The result processor and duplicate-result progression tests cover exact XP/credit cases. | Backend service implemented; no real Home/Profile/Appearance UI or client inventory/equip journey. |
+| Profile, XP, credits, inventory, appearance, equip | Profile/wallet/inventory/equip endpoints exist. Progression values are now explicit in backend `Progression` settings and source-defined Unity config. The result processor and duplicate-result progression tests cover exact XP/credit cases. | Backend service implemented; no real Home/Profile/Appearance UI or client inventory/equip journey. Amendment v2.1: the Appearance rig switch (Male/Female) and both-rig cosmetic variants do not exist; the account carries a single equipped cosmetic with no rig dimension. |
 | Cosmetics do not change power; offline practice cannot mint value | Cosmetic-only inventory representation; result submission is restricted to game-server service auth; offline-practice rejection regression exists. | Source/backend-tested; offline save editing and client runtime journey not tested in this gate. |
 | Party, 8-character code, leader and readiness | Backend create/join/leave/current/readiness exists. Enqueue now requires a party leader and every member ready; new regression covers not-ready rejection, ready enqueue, and non-leader rejection. | Backend-tested; no in-game party screen, party polling, dropped-member recovery, or user journey. |
 | Measured single-region selection and search widening | Search window is configured at 150, expands by 50 every 10 seconds after 20 seconds to 350, and worker polls every 2 seconds. Bot fill threshold is 45 seconds. App settings currently say Fusion region `eu`. | Search behavior implemented in backend; `eu` is not supported by a concentrated-market RTT measurement, so region choice is blocked and must not be treated as accepted. |
@@ -30,8 +31,19 @@
 | Transactional ledger and exact rewards; duplicate/out-of-order result safety | Unique ledger and participation keys, server-only result endpoint, idempotent duplicate result tests, server-failure ineligible/no-reward case. | Backend-tested locally (see automated results); concurrent duplicate delivery, database outage/retry and production PostgreSQL behavior are not verified. |
 | Retry/recovery for auth, party, queue, server, capacity and outages | Unity online flow has visible retry/cancel and reconnect states; backend APIs map some errors. | Partial. No complete app screens, party retry, queued-practice recovery, capacity/outage injection, or proof that no user is stranded. |
 | Support, reporting, in-app and web account deletion | Authenticated report, deletion request, authenticated data deletion, and public HTML deletion form/routes exist; tests verify request, public page, and account-data removal while retaining purchase records. | Backend-tested; missing in-game report/deletion screens. Public web form creates `pending_verification`; identity verification and processing of that unauthenticated request are not implemented, so end-to-end web deletion is incomplete. |
-| All required screens and explicit failures | Existing Home, HUD, tutorial, pause/settings, online queue overlay, and results presentation exist. | Failed as a product gate: Startup/recovery, Party, Profile, Appearance, Account, Support/Report, and deletion are not all reachable as real in-game screens; purchase/reward screens are correctly out of scope for this step. |
+| All required screens and explicit failures | Existing Home, HUD, tutorial, pause/settings, online queue overlay, and results presentation exist. | Failed as a product gate: Startup/recovery, Party, Profile, Appearance, Account, Support/Report, and deletion are not all reachable as real in-game screens; the Amendment v2.1 first-launch body rig choice and the Appearance rig switch are not implemented; purchase/reward screens are correctly out of scope for this step. |
 | Reinstall recovery + deletion end-to-end | No real linked Android identity was available; no reinstall or production deletion run was performed. | Blocked on Play Games app/client setup and real test accounts; no pass evidence. |
+
+## Amendment v2.1 work items (2026-10-01)
+
+Spec §15/§17 (Amendment v2.1) add the following to this gate. Items 1–3 remain unimplemented as of 2026-10-01; item 4's parity guards landed the same day over a data-only rig identity (no UI, art or network change), and the account still carries one `EquippedCosmeticId` with no rig dimension.
+
+1. **First launch:** offer a one-time body rig choice — Male/Female — before the tutorial (Startup flow).
+2. **Appearance:** add a body rig switch, available any time, alongside the existing inventory preview/equip.
+3. **Cosmetic variants:** equipped cosmetics must present in both-rig variants (same silhouette quality, same readability, same price); the catalog/inventory model needs a rig dimension.
+4. **Parity:** rig choice must not alter capsule size (1.8 m × 0.35 m), hitboxes, or animation results; cover this with tests. **Guard added 2026-10-01:** `Assets/Scripts/Player/BodyRig.cs` defines the two rig ids and one shared capsule/hitbox/animation profile; `Assets/Scripts/Tests/BodyRigParityTests.cs` proves both rigs resolve to that same profile, that the generated NetPlayer/PlayerPrefab assets use it, and that scripted movement traces are identical per rig. Unity EditMode **199/199 passed** including the five new tests, PlayMode **8/8 passed** (`Run-UnityTests.ps1`, 2026-10-01).
+
+Art production for either rig stays gated to Gate G (spec §15); the approved graybox remains the intended presentation until then.
 
 ## Automated results
 

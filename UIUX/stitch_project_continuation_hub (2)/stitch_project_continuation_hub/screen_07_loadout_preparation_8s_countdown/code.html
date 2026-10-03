@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>UPDRAFT — Screen 07 Loadout &amp; Preparation</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300..700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        background: "#101827",
+        surface: "#101827",
+        "panel-bg": "#1B2940",
+        "panel-border": "#49627B",
+        "surface-elevated": "#263A59",
+        "text-primary": "#F4F7FB",
+        "text-secondary": "#BBC6D8",
+        "text-muted": "#7F8CA3",
+        "action-cyan": "#30D5E8",
+        "cyan-deep": "#138EA3",
+        "danger-coral": "#FF6376",
+        "reward-gold": "#FFD166"
+      },
+      fontFamily: {
+        headline: ["Space Grotesk", "sans-serif"],
+        body: ["Hanken Grotesk", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"]
+      }
+    }
+  }
+};
+</script>
+<style>
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+body {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+  background-color: #101827;
+}
+.hud-clip-tab {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+</style>
+</head>
+<body class="w-screen h-screen bg-[#101827] text-[#F4F7FB] font-body flex flex-col justify-between relative overflow-hidden">
+<!-- Real In-World Switchyard Spawn Background -->
+<div class="absolute inset-0 pointer-events-none z-0">
+  <img alt="Switchyard Combat Platform" class="w-full h-full object-cover filter brightness-[0.65] contrast-[1.1]" src="https://lh3.googleusercontent.com/aida/AEtjO1XKVW9e2vVk7KvrUCafO88D2xLd44MfnYM7ROcptVY9cdrdx5XVLS4pvnh9gX3cfliJ0HG_HiGQ7aLnVvtFOSzBV6uYUCaVgFKd61gnJ2qFJect2ftP2sIlGNE2n9CCbioKl2YVKi3tw74y42TvGHQskAZxcWm6ugx_eeH-3CBuMBR6vHvk5NSrXzabIsXV2PVodW-lvbCgeprK4y7CnOmMTRakG9qAQYcCZWpY3gHmrMPQYKBR3j9MqQ"/>
+  <div class="absolute inset-0 bg-gradient-to-t from-[#101827] via-[#101827]/70 to-[#101827]/85"></div>
+  <!-- Spawn Lockdown Notice Overlay -->
+  <div class="absolute top-24 inset-x-0 flex justify-center pointer-events-none">
+    <div class="px-4 py-1.5 rounded-full bg-[#1B2940]/90 border border-[#49627B] flex items-center gap-2 backdrop-blur-md">
+      <span class="w-2 h-2 rounded-full bg-[#FFD166] animate-pulse"></span>
+      <span class="text-xs font-headline uppercase tracking-wider text-[#BBC6D8]">SPAWN DOORS LOCKED • DAMAGE DISABLED • PADS SAFE</span>
+    </div>
+  </div>
+</div>
+
+<!-- Header with 8-Second Preparation Countdown -->
+<header class="relative z-10 w-full px-8 pt-4 pb-3 flex items-center justify-between border-b border-[#49627B]/40 bg-[#101827]/85 backdrop-blur-md">
+  <!-- Map & Objective -->
+  <div class="flex items-center gap-4">
+    <div class="flex flex-col">
+      <span class="font-headline font-bold text-xs uppercase tracking-wider text-[#30D5E8]">RELAY // SWITCHYARD</span>
+      <h1 class="font-headline font-black text-lg tracking-tight text-[#F4F7FB] uppercase flex items-center gap-2">
+        OPENING OBJECTIVE: <span class="text-[#FFD166]">CENTER RELAY</span>
+      </h1>
+    </div>
+    <div class="h-6 w-px bg-[#49627B]/50"></div>
+    <span class="text-xs text-[#BBC6D8] font-body">Equip weapon for this life. Changeable on respawn.</span>
+  </div>
+
+  <!-- Countdown Center Stage -->
+  <div class="flex items-center gap-3 px-5 py-1.5 rounded-xl bg-[#1B2940] border-2 border-[#FFD166] shadow-[0_0_15px_rgba(255,209,102,0.2)]">
+    <span class="text-xs font-headline font-bold uppercase tracking-wider text-[#FFD166]">MATCH STARTS IN</span>
+    <span class="font-mono text-2xl font-black text-[#FFD166]">05s</span>
+  </div>
+
+  <!-- Teammate Status Cards -->
+  <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1B2940] border border-[#49627B] text-xs">
+      <span class="w-2 h-2 rounded-full bg-[#30D5E8]"></span>
+      <span class="font-headline font-bold text-[#F4F7FB]">Kestrel_99</span>
+      <span class="font-mono text-[#7F8CA3] text-[10px]">ZIP SMG</span>
+    </div>
+    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1B2940] border border-[#49627B] text-xs">
+      <span class="w-2 h-2 rounded-full bg-[#30D5E8]"></span>
+      <span class="font-headline font-bold text-[#F4F7FB]">Vector_Apex</span>
+      <span class="font-mono text-[#7F8CA3] text-[10px]">BRICK</span>
+    </div>
+  </div>
+</header>
+
+<!-- Main Weapon Selection: 3 Unlocked Weapons Side by Side -->
+<main class="relative z-10 flex-1 px-8 py-4 flex flex-col justify-center">
+  <div class="grid grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
+    
+    <!-- 1. ARC Rifle (Selected) -->
+    <div class="relative rounded-xl bg-[#1B2940]/95 border-2 border-[#30D5E8] p-5 shadow-[0_0_24px_rgba(48,213,232,0.2)] flex flex-col justify-between hud-clip-tab">
+      <div class="flex items-center justify-between border-b border-[#49627B]/40 pb-3">
+        <span class="px-2.5 py-0.5 rounded bg-[#30D5E8]/20 border border-[#30D5E8]/50 text-[#30D5E8] font-headline text-xs font-bold uppercase tracking-wider">
+          SELECTED
+        </span>
+        <span class="text-xs font-mono text-[#30D5E8] font-bold">24 ROUNDS</span>
+      </div>
+
+      <!-- Weapon Graphic & Name -->
+      <div class="my-4 flex flex-col items-center">
+        <!-- SVG ARC Rifle Silhouette -->
+        <svg class="w-48 h-20 text-[#30D5E8] my-2" viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 45 L50 45 L65 35 L150 35 L170 42 L185 42 L185 48 L160 48 L145 60 L135 60 L140 48 L90 48 L80 62 L65 62 L70 48 L20 48 Z" fill="#30D5E8" fill-opacity="0.2" stroke="#30D5E8" stroke-width="2"/>
+          <line x1="85" y1="35" x2="85" y2="48" stroke="#30D5E8" stroke-width="1.5"/>
+          <circle cx="160" cy="45" r="3" fill="#30D5E8"/>
+        </svg>
+        <h2 class="font-headline font-black text-xl text-[#F4F7FB] tracking-tight uppercase mt-1">ARC RIFLE</h2>
+        <span class="text-xs font-headline text-[#30D5E8] font-semibold uppercase tracking-wider">Balanced • Mid Range</span>
+      </div>
+
+      <!-- Specs & Range Diagram -->
+      <div class="space-y-2 border-t border-[#49627B]/40 pt-3">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-[#7F8CA3]">Fire Behavior</span>
+          <span class="text-[#F4F7FB] font-mono">Precision Auto</span>
+        </div>
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-[#7F8CA3]">Optimal Distance</span>
+          <span class="text-[#30D5E8] font-mono font-bold">15m – 35m</span>
+        </div>
+        <!-- Distance Bar -->
+        <div class="w-full h-1.5 bg-[#101827] rounded-full overflow-hidden flex">
+          <div class="w-1/4 bg-[#101827]"></div>
+          <div class="w-1/2 bg-[#30D5E8] rounded-full"></div>
+          <div class="w-1/4 bg-[#101827]"></div>
+        </div>
+        <p class="text-[11px] text-[#BBC6D8] pt-1">
+          <strong class="text-[#F4F7FB]">Learning Tip:</strong> Tap or burst at 30+ meters for tight grouping on elevated targets.
+        </p>
+      </div>
+
+      <button class="mt-4 w-full h-11 rounded-lg bg-[#30D5E8] text-[#101827] font-headline font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-md">
+        <span class="material-symbols-outlined text-base">check</span>
+        <span>CONFIRMED EQUIPPED</span>
+      </button>
+    </div>
+
+    <!-- 2. ZIP SMG -->
+    <div class="relative rounded-xl bg-[#1B2940]/80 hover:bg-[#1B2940] border border-[#49627B] p-5 flex flex-col justify-between transition-colors hud-clip-tab">
+      <div class="flex items-center justify-between border-b border-[#49627B]/40 pb-3">
+        <span class="text-xs font-headline text-[#7F8CA3] font-bold uppercase tracking-wider">UNLOCKED</span>
+        <span class="text-xs font-mono text-[#BBC6D8] font-bold">30 ROUNDS</span>
+      </div>
+
+      <!-- Weapon Graphic & Name -->
+      <div class="my-4 flex flex-col items-center">
+        <!-- SVG ZIP SMG Silhouette -->
+        <svg class="w-40 h-20 text-[#BBC6D8] my-2" viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M40 45 L70 45 L80 38 L140 38 L150 45 L160 45 L160 50 L135 50 L125 65 L110 65 L115 50 L85 50 L75 62 L60 62 L65 50 L40 50 Z" fill="#BBC6D8" fill-opacity="0.15" stroke="#BBC6D8" stroke-width="2"/>
+        </svg>
+        <h2 class="font-headline font-black text-xl text-[#F4F7FB] tracking-tight uppercase mt-1">ZIP SMG</h2>
+        <span class="text-xs font-headline text-[#BBC6D8] font-semibold uppercase tracking-wider">Fast • Close Range</span>
+      </div>
+
+      <!-- Specs & Range Diagram -->
+      <div class="space-y-2 border-t border-[#49627B]/40 pt-3">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-[#7F8CA3]">Fire Behavior</span>
+          <span class="text-[#F4F7FB] font-mono">Rapid Fire</span>
+        </div>
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-[#7F8CA3]">Optimal Distance</span>
+          <span class="text-[#BBC6D8] font-mono font-bold">5m – 15m</span>
+        </div>
+        <!-- Distance Bar -->
+        <div class="w-full h-1.5 bg-[#101827] rounded-full overflow-hidden flex">
+          <div class="w-1/2 bg-[#30D5E8]/60 rounded-full"></div>
+          <div class="w-1/2 bg-[#101827]"></div>
+        </div>
+        <p class="text-[11px] text-[#BBC6D8] pt-1">
+          <strong class="text-[#F4F7FB]">Learning Tip:</strong> High hip-fire accuracy while sliding or launching between cover pads.
+        </p>
+      </div>
+
+      <button class="mt-4 w-full h-11 rounded-lg bg-[#1B2940] hover:bg-[#263A59] border border-[#49627B] text-[#F4F7FB] font-headline font-bold text-xs uppercase tracking-wider flex items-center justify-center transition-colors">
+        EQUIP ZIP SMG
+      </button>
+    </div>
+
+    <!-- 3. BRICK Scattergun -->
+    <div class="relative rounded-xl bg-[#1B2940]/80 hover:bg-[#1B2940] border border-[#49627B] p-5 flex flex-col justify-between transition-colors hud-clip-tab">
+      <div class="flex items-center justify-between border-b border-[#49627B]/40 pb-3">
+        <span class="text-xs font-headline text-[#7F8CA3] font-bold uppercase tracking-wider">UNLOCKED</span>
+        <span class="text-xs font-mono text-[#BBC6D8] font-bold">6 SHELLS</span>
+      </div>
+
+      <!-- Weapon Graphic & Name -->
+      <div class="my-4 flex flex-col items-center">
+        <!-- SVG BRICK Scattergun Silhouette -->
+        <svg class="w-40 h-20 text-[#BBC6D8] my-2" viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 45 L65 45 L75 36 L155 36 L155 52 L135 52 L120 62 L105 62 L112 52 L80 52 L70 60 L55 60 L60 52 L30 52 Z" fill="#BBC6D8" fill-opacity="0.15" stroke="#BBC6D8" stroke-width="2"/>
+        </svg>
+        <h2 class="font-headline font-black text-xl text-[#F4F7FB] tracking-tight uppercase mt-1">BRICK SCATTERGUN</h2>
+        <span class="text-xs font-headline text-[#BBC6D8] font-semibold uppercase tracking-wider">Heavy • Very Close</span>
+      </div>
+
+      <!-- Specs & Range Diagram -->
+      <div class="space-y-2 border-t border-[#49627B]/40 pt-3">
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-[#7F8CA3]">Fire Behavior</span>
+          <span class="text-[#F4F7FB] font-mono">8-Pellet Spread</span>
+        </div>
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-[#7F8CA3]">Optimal Distance</span>
+          <span class="text-[#BBC6D8] font-mono font-bold">2m – 10m</span>
+        </div>
+        <!-- Distance Bar -->
+        <div class="w-full h-1.5 bg-[#101827] rounded-full overflow-hidden flex">
+          <div class="w-1/3 bg-[#30D5E8]/60 rounded-full"></div>
+          <div class="w-2/3 bg-[#101827]"></div>
+        </div>
+        <p class="text-[11px] text-[#BBC6D8] pt-1">
+          <strong class="text-[#F4F7FB]">Learning Tip:</strong> Devastating when ambushing opponents contesting rotating Relay nodes.
+        </p>
+      </div>
+
+      <button class="mt-4 w-full h-11 rounded-lg bg-[#1B2940] hover:bg-[#263A59] border border-[#49627B] text-[#F4F7FB] font-headline font-bold text-xs uppercase tracking-wider flex items-center justify-center transition-colors">
+        EQUIP BRICK
+      </button>
+    </div>
+
+  </div>
+</main>
+
+<!-- Bottom Confirm Action Bar -->
+<footer class="relative z-10 w-full px-8 py-3 bg-[#101827]/90 border-t border-[#49627B]/40 backdrop-blur-md flex items-center justify-between">
+  <div class="flex items-center gap-2 text-xs text-[#BBC6D8]">
+    <span class="material-symbols-outlined text-sm text-[#30D5E8]">verified</span>
+    <span>All 3 weapons fully unlocked from day one • Cosmetics never change weapon power or spread.</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <button class="h-12 px-8 rounded-xl bg-[#30D5E8] hover:bg-[#138EA3] text-[#101827] font-headline font-black text-xs uppercase tracking-wider transition-colors active:scale-95 shadow-lg">
+      CONFIRM LOADOUT (AUTO IN 05s)
+    </button>
+  </div>
+</footer>
+</body>
+</html>

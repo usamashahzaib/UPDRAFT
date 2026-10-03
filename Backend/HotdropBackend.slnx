@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HotdropBackend.Tests/HotdropBackend.Tests.csproj" />
+  <Project Path="HotdropBackend/HotdropBackend.csproj" />
+</Solution>

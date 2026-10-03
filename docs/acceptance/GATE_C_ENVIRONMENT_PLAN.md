@@ -27,8 +27,8 @@ the `.x86_64` is a stub launcher next to `UnityPlayer.so` and `UpdraftServer_Dat
 **Run on the Linux host** (backend mode — the acceptance path):
 ```bash
 chmod +x UpdraftServer.x86_64
-export UPDRAFT_SERVER_KEY="<service key from GameServer:ApiKey>"   # env only, never argv
-export UPDRAFT_BACKEND_URL="http://<backend-host>:8080"
+export HOTDROP_SERVER_KEY="<service key from GameServer:ApiKey>"   # env only, never argv
+export HOTDROP_BACKEND_URL="http://<backend-host>:8080"
 ./UpdraftServer.x86_64 -updraftServer -serverId gatec-01 -logFile gatec-01.log
 ```
 Server claims composed matches via `/api/servers/claim`, hosts, submits results, repeats

@@ -1,7 +1,7 @@
 # Gate C Acceptance Record — Network Slice
 
-**Project:** UPDRAFT  
-**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md`, v1.0, §§4, 10, 20–23, 26, 28–29, 31–33  
+**Project:** HOTDROP  
+**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md`, v1.0, §§4, 10, 20–23, 26, 28–29, 31–33  
 **Gate:** C — dedicated server, six clients, scoring, reconnect  
 **Audit date:** 2026-09-28  
 **Result:** **NOT ACCEPTED — implementation evidence is partial; real multiplayer acceptance is blocked.** No Gate C pass is claimed.
@@ -65,7 +65,7 @@ ProjectUpdraft/Build-LinuxServer.ps1
 Get-FileHash ProjectUpdraft/Builds/Linux/UpdraftServer.x86_64 -Algorithm SHA256
 ```
 
-Run the built player only against an approved backend and configured Photon application. Supply `UPDRAFT_SERVER_KEY` and `UPDRAFT_BACKEND_URL` through the deployment environment; never put the key in player arguments or source. The `-devSession ... --insecure-dev` path is local-only and cannot satisfy Gate C.
+Run the built player only against an approved backend and configured Photon application. Supply `HOTDROP_SERVER_KEY` and `HOTDROP_BACKEND_URL` through the deployment environment; never put the key in player arguments or source. The `-devSession ... --insecure-dev` path is local-only and cannot satisfy Gate C.
 
 ## Failure cases and known issues
 

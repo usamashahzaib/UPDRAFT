@@ -1,8 +1,8 @@
-# Project UPDRAFT Privacy Policy (Draft)
+# Project HOTDROP Privacy Policy (Draft)
 
 **Effective date:** [PLACEHOLDER: EFFECTIVE DATE]
 
-This Privacy Policy explains how [PLACEHOLDER: COMPANY NAME] ("we," "us," or "our") collects, uses, shares, and retains information when you play **Project UPDRAFT** (the "Game") on Android or use related services.
+This Privacy Policy explains how [PLACEHOLDER: COMPANY NAME] ("we," "us," or "our") collects, uses, shares, and retains information when you play **Project HOTDROP** (the "Game") on Android or use related services.
 
 This document is a draft and should be reviewed by qualified counsel before publication.
 
@@ -12,7 +12,7 @@ This document is a draft and should be reviewed by qualified counsel before publ
 
 You may play as a guest or optionally sign in through Google Play Games. We collect or generate:
 
-- a pseudonymous Project UPDRAFT player identifier;
+- a pseudonymous Project HOTDROP player identifier;
 - guest-session and account-linking information needed to maintain your profile and progress; and
 - if you choose Google Play Games sign-in, the account identifier and basic profile information Google makes available to the Game, such as your player name or avatar.
 
@@ -84,7 +84,7 @@ Backups and logs may take a limited additional period to cycle out. We may retai
 
 ## 5. Account deletion and your rights
 
-You may request deletion from the Game's account settings or through the Project UPDRAFT account-deletion webpage: [PLACEHOLDER: PUBLIC ACCOUNT-DELETION PAGE URL]. You may also contact [PLACEHOLDER: SUPPORT EMAIL]. We may need to verify that you control the account before completing a request.
+You may request deletion from the Game's account settings or through the Project HOTDROP account-deletion webpage: [PLACEHOLDER: PUBLIC ACCOUNT-DELETION PAGE URL]. You may also contact [PLACEHOLDER: SUPPORT EMAIL]. We may need to verify that you control the account before completing a request.
 
 After a verified deletion request, we will delete the account and personal data associated with it, except information that we must or are permitted to retain for legal, accounting, security, fraud-prevention, dispute-resolution, or enforcement purposes. Aggregated or de-identified information that can no longer reasonably identify you may remain.
 
@@ -92,7 +92,7 @@ Depending on where you live, you may also have rights to access, correct, delete
 
 ## 6. Children and age eligibility
 
-Project UPDRAFT is intended for players aged **16 or older**. We do not knowingly collect personal information from anyone under 16. If you believe a person under 16 has provided personal information, contact [PLACEHOLDER: SUPPORT EMAIL] so that we can investigate and delete it as appropriate.
+Project HOTDROP is intended for players aged **16 or older**. We do not knowingly collect personal information from anyone under 16. If you believe a person under 16 has provided personal information, contact [PLACEHOLDER: SUPPORT EMAIL] so that we can investigate and delete it as appropriate.
 
 ## 7. Security
 

@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&family=JetBrains+Mono:wght@100..900&family=Space+Grotesk:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"on-secondary":"#67001b","secondary-fixed":"#ffdadb","tertiary":"#ffda88","secondary-container":"#930d2d","tertiary-fixed-dim":"#edc157","on-primary-fixed-variant":"#004f57","on-primary":"#00363c","on-surface-variant":"#bbc9cb","tertiary-fixed":"#ffdf9b","tertiary-container":"#e8bc54","outline":"#859396","surface-tint":"#38d9ec","on-secondary-container":"#ff9da4","on-tertiary-fixed-variant":"#5b4300","error":"#ffb4ab","secondary-fixed-dim":"#ffb2b7","surface-container-high":"#222a3a","surface-dim":"#0b1322","on-surface":"#dbe2f8","surface-bright":"#31394a","surface":"#0b1322","surface-container-low":"#141c2b","on-secondary-fixed":"#40000d","secondary":"#ffb2b7","inverse-primary":"#006973","on-secondary-fixed-variant":"#8f092b","background":"#0b1322","error-container":"#93000a","surface-container-highest":"#2d3545","surface-container-lowest":"#060e1d","on-tertiary-container":"#654c00","primary-fixed-dim":"#38d9ec","on-primary-fixed":"#001f23","on-background":"#dbe2f8","on-tertiary-fixed":"#251a00","surface-container":"#18202f","on-primary-container":"#005862","on-error-container":"#ffdad6","inverse-on-surface":"#293041","primary-fixed":"#93f1ff","on-tertiary":"#3f2e00","on-error":"#690005","surface-variant":"#2d3545","inverse-surface":"#dbe2f8","primary":"#7cefff","outline-variant":"#3c494b","primary-container":"#30d5e8"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-sm":"0.5rem","space-xs":"0.25rem","space-xl":"2rem","space-md":"0.75rem","margin":"1.5rem","space-lg":"1.25rem","gutter":"1rem"},"fontFamily":{"label-data-md":["JetBrains Mono"],"title-lg":["Hanken Grotesk"],"headline-xl":["Space Grotesk"],"headline-lg-mobile":["Space Grotesk"],"title-md":["Hanken Grotesk"],"headline-xl-mobile":["Space Grotesk"],"body-lg":["Hanken Grotesk"],"label-data-lg":["JetBrains Mono"],"body-sm":["Hanken Grotesk"],"label-data-sm":["JetBrains Mono"],"headline-lg":["Space Grotesk"],"label-caps":["Space Grotesk"],"headline-md":["Space Grotesk"],"body-md":["Hanken Grotesk"]},"fontSize":{"label-data-md":["14px",{"lineHeight":"18px","letterSpacing":"0.03em","fontWeight":"600"}],"title-lg":["18px",{"lineHeight":"24px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"headline-lg-mobile":["22px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"700"}],"title-md":["16px",{"lineHeight":"22px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-xl-mobile":["30px",{"lineHeight":"36px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"22px","letterSpacing":"0em","fontWeight":"400"}],"label-data-lg":["18px",{"lineHeight":"22px","letterSpacing":"0.02em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"400"}],"label-data-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.05em","fontWeight":"500"}],"headline-lg":["28px",{"lineHeight":"34px","letterSpacing":"-0.01em","fontWeight":"700"}],"label-caps":["12px",{"lineHeight":"14px","letterSpacing":"0.08em","fontWeight":"700"}],"headline-md":["20px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 w-full z-50 bg-surface-container-low/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-gutter flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md"><a class="w-10 h-10 rounded bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface transition-colors" data-path="main-hub" href="#"><span class="material-symbols-outlined text-[20px]">arrow_back</span></a><div class="flex items-center gap-space-sm"><div class="flex flex-col"><span class="font-headline-md text-headline-md tracking-wider text-primary">HOTDROP</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">AVIONICS v3.2</span></div></div><div class="hidden sm:flex items-center px-space-sm py-space-xs rounded bg-surface-container-high text-on-surface font-label-data-sm text-label-data-sm tracking-wider"><span class="w-2 h-2 rounded-full bg-primary mr-2 animate-pulse"></span>[SYS // 24MS // US-EAST]</div></div><nav class="hidden lg:flex items-center gap-space-xs px-space-xs py-space-xs bg-surface-container rounded" data-active-classes="bg-primary-container text-on-primary-container font-bold rounded"><a aria-current="page" class="px-space-md py-space-xs transition-colors bg-primary-container text-on-primary-container font-bold rounded" data-path="main-hub" href="#">OPERATIONS</a><a class="px-space-md py-space-xs font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" data-path="tactical-armory" href="#">ARMORY</a><a class="px-space-md py-space-xs font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" data-path="telemetry-stats" href="#">TELEMETRY</a><a class="px-space-md py-space-xs font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" data-path="mission-pass" href="#">PASS</a></nav><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded"><span class="material-symbols-outlined text-tertiary text-[18px]">toll</span><span class="font-label-data-md text-label-data-md text-tertiary">12,450</span></div><div class="hidden md:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded"><span class="material-symbols-outlined text-primary text-[18px]">diamond</span><span class="font-label-data-md text-label-data-md text-primary">480</span></div><div class="hidden md:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded"><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">OP:</span><span class="font-label-data-sm text-label-data-sm text-primary uppercase">VANGUARD-01</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface"><div class="flex flex-col w-full">
+<!-- TOP TELEMETRY STRIP / EXECUTIVE FLIGHT BANNER -->
+<section class="w-full bg-surface-container-lowest px-gutter py-space-md shadow-md">
+<div class="max-w-[2400px] mx-auto flex flex-col xl:flex-row items-start xl:items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded bg-surface-container-high flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">schema</span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-[2px] bg-primary/20 text-primary font-label-data-sm text-label-data-sm rounded">ENG-AUDIT-L4</span>
+<span class="text-on-surface-variant font-label-data-sm text-label-data-sm">TARGET CANVAS: 2400x1080 (20:9 MOBILE LANDSCAPE)</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight mt-0.5">
+            HOTDROP — COMPLETE PRODUCT USER JOURNEY & INTEGRITY AUDIT MATRIX
+          </h1>
+</div>
+</div>
+<!-- QUICK INTEGRITY BADGES -->
+<div class="flex flex-wrap items-center gap-space-xs font-label-data-sm text-label-data-sm">
+<div class="flex items-center gap-1.5 px-space-sm py-1.5 bg-surface-container-high rounded text-primary">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span>18 SCREENS MAPPED</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1.5 bg-surface-container-high rounded text-tertiary">
+<span class="material-symbols-outlined text-[16px]">touch_app</span>
+<span>48DP TARGETS PASSED</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1.5 bg-surface-container-high rounded text-on-surface">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+<span>UNITY 2023 LTS COMPLIANT</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1.5 bg-surface-container-high rounded text-secondary">
+<span class="material-symbols-outlined text-[16px]">shield</span>
+<span>0% P2W / ZERO GACHA</span>
+</div>
+</div>
+</div>
+</section>
+<!-- CONTROL / QUICK JUMP SUBHEADER -->
+<section class="w-full bg-surface-container px-gutter py-space-sm shadow-sm sticky top-16 z-40">
+<div class="max-w-[2400px] mx-auto flex items-center justify-between gap-space-md overflow-x-auto">
+<div class="flex items-center gap-space-xs text-on-surface-variant font-label-data-sm text-label-data-sm shrink-0">
+<span class="material-symbols-outlined text-[16px]">route</span>
+<span class="text-on-surface uppercase tracking-wider">NAVIGATE CANVASES:</span>
+</div>
+<div class="flex items-center gap-space-xs shrink-0">
+<a class="px-space-sm py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-data-sm text-label-data-sm transition-colors" href="#flow-1">01. FIRST-RUN ONBOARDING</a>
+<a class="px-space-sm py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-data-sm text-label-data-sm transition-colors" href="#flow-2">02. ONLINE MATCH LOOP</a>
+<a class="px-space-sm py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-data-sm text-label-data-sm transition-colors" href="#flow-3">03. OFFLINE EXPEDITION</a>
+<a class="px-space-sm py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-data-sm text-label-data-sm transition-colors" href="#flow-4">04. PROGRESSION & LOCKER</a>
+<a class="px-space-sm py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-label-data-sm text-label-data-sm transition-colors" href="#flow-5">05. RECOVERY & ETHICS</a>
+<a class="px-space-sm py-1 rounded bg-primary text-on-primary font-label-data-sm text-label-data-sm font-bold shadow-sm transition-all hover:bg-primary-container" href="#audit-table">SYSTEM CHECKLIST</a>
+</div>
+</div>
+</section>
+<!-- MAIN MATRIX BODY -->
+<div class="w-full px-gutter py-space-xl flex flex-col gap-space-xl max-w-[2400px] mx-auto">
+<!-- FLOW 01: FIRST RUN ONBOARDING FLOW -->
+<section class="flex flex-col gap-space-md" id="flow-1">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-xs bg-surface-container-low p-space-md rounded shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-headline-md text-headline-md">01</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">PIPELINE 01 // FIRST-TIME USER EXPERIENCE</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Startup, Calibration & Guided 9-Step Drill</h2>
+</div>
+</div>
+<div class="flex items-center gap-space-md text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>FAIL-SAFE OFFLINE FALLBACK: ACTIVE</span>
+<span class="text-tertiary">LATENCY BOUNDARY: <1.2s FIRST DRAW</span>
+</div>
+</div>
+<!-- VISUAL CONNECTOR TRAJECTORY ROW -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- Screen 01 Card -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md hover:bg-surface-container-high transition-all">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-01]</span>
+<span class="text-on-surface-variant font-label-data-sm text-label-data-sm">BOOT / AUTH</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Startup & Avionics Link</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded overflow-hidden flex flex-col justify-between p-space-sm">
+<div class="flex justify-between items-start">
+<span class="text-primary font-label-data-sm text-label-data-sm">SYS_DIAG: 0x88F</span>
+<span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+</div>
+<!-- Mock avionics telemetry wave -->
+<svg class="w-full h-12 text-primary" fill="none" viewbox="0 0 200 40">
+<path d="M0 20 L40 20 L50 5 L60 35 L70 20 L120 20 L130 10 L140 28 L150 20 L200 20" stroke="currentColor" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<div class="flex justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>GOOGLE PLAY FAST-LINK</span>
+<span class="text-primary">ONLINE [24ms]</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Silently verifies authentication without interstitial roadblocks. Auto-generates local guest credential fallback when network sockets are dead.
+          </p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SCREEN 02</span>
+</div>
+</div>
+<!-- Screen 02 Card -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md hover:bg-surface-container-high transition-all">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-02]</span>
+<span class="text-on-surface-variant font-label-data-sm text-label-data-sm">IDENTITY SETUP</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Flight Frame & Callsign</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded overflow-hidden p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center">
+<span class="font-label-caps text-label-caps text-tertiary">CHASSIS SPEC: S-01</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">3 PRESETS</span>
+</div>
+<div class="flex justify-center items-center gap-space-sm">
+<div class="w-12 h-16 bg-surface-container-high rounded flex flex-col items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined text-[24px]">airplanemode_active</span>
+<span class="font-label-data-sm text-label-data-sm mt-1">APEX</span>
+</div>
+<div class="w-14 h-20 bg-primary-container text-on-primary-container rounded flex flex-col items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-[28px]">flight_takeoff</span>
+<span class="font-label-data-sm text-label-data-sm mt-1 font-bold">VANG</span>
+</div>
+<div class="w-12 h-16 bg-surface-container-high rounded flex flex-col items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined text-[24px]">radar</span>
+<span class="font-label-data-sm text-label-data-sm mt-1">ECHO</span>
+</div>
+</div>
+<div class="bg-surface-container-high px-space-xs py-0.5 rounded text-center font-label-data-sm text-label-data-sm text-on-surface">
+              CALLSIGN: <span class="text-primary font-bold">VANGUARD-01</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Zero stat divergence. Choice dictates only visual chassis silhouette and telemetry HUD sound-profile. Non-intrusive name generator.
+          </p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SCREEN 04</span>
+</div>
+</div>
+<!-- Screen 04 Card -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md hover:bg-surface-container-high transition-all">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-04]</span>
+<span class="text-secondary font-label-data-sm text-label-data-sm">TRAINING RUN</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">9-Step Tactical Drill</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded overflow-hidden p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>STEP 04 / 09</span>
+<span class="text-primary">RADIAL BOOST ENGAGED</span>
+</div>
+<!-- Interactive Arc representation -->
+<div class="flex items-center justify-around">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary font-label-data-sm text-label-data-sm">
+                48dp
+              </div>
+<div class="w-16 h-1 bg-surface-container-highest relative">
+<div class="w-3/4 h-full bg-primary"></div>
+</div>
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-label-data-sm text-label-data-sm">
+                FIRE
+              </div>
+</div>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant flex justify-between">
+<span>BOT DRONE SIM</span>
+<span class="text-tertiary">CAN SKIP ANYTIME [X]</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Presents launch-pad gliding, aerial micro-corrections, zone anchoring, and team ping dial with guaranteed 60fps simulation.
+          </p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SCREEN 03</span>
+</div>
+</div>
+<!-- Screen 03 Card (Hub Junction) -->
+<div class="bg-surface-container-high rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-primary text-on-primary font-label-data-sm text-label-data-sm">[SCR-03]</span>
+<span class="text-primary font-label-data-sm text-label-data-sm">CANVAS CORE</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Central Avionics Lobby</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded overflow-hidden p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span class="text-on-surface">3D FLIGHT DECK</span>
+<span class="text-primary font-bold">READY</span>
+</div>
+<div class="flex items-center justify-center gap-space-xs">
+<div class="px-space-sm py-1 bg-surface-container rounded text-on-surface font-label-data-sm text-label-data-sm text-center">
+                OFFLINE<br/><span class="text-primary font-bold">SOLO</span>
+</div>
+<div class="px-space-md py-2 bg-primary-container text-on-primary-container font-headline-md text-headline-md rounded shadow">
+                DEPLOY 3v3
+              </div>
+<div class="px-space-sm py-1 bg-surface-container rounded text-on-surface font-label-data-sm text-label-data-sm text-center">
+                SQUAD<br/><span class="text-tertiary font-bold">ROOM</span>
+</div>
+</div>
+<div class="text-center font-label-data-sm text-label-data-sm text-on-surface-variant">
+              GLOBAL STATE CONVERGENCE POINT
+            </div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Primary dispatcher. Anchors online queue, party room setup, solo expedition circuits, and the operative appearance locker.
+          </p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>READY STATE</span>
+<span class="text-primary font-bold">UNLOCKED</span>
+</div>
+</div>
+</div>
+</section>
+<!-- FLOW 02: CORE ONLINE MATCHMAKING & RELAY LOOP -->
+<section class="flex flex-col gap-space-md" id="flow-2">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-xs bg-surface-container-low p-space-md rounded shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-headline-md text-headline-md">02</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">PIPELINE 02 // COMPETITIVE MULTIPLAYER ENGINE</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Queue, Trajectory Switchyard, Live Combat & Settlement</h2>
+</div>
+</div>
+<div class="flex items-center gap-space-md text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>SERVER TICK: 60Hz SNAPSHOT</span>
+<span class="text-primary">PEER RECOVERY BUFFER: 120ms</span>
+</div>
+</div>
+<!-- WIDE HORIZONTAL WORKFLOW CARDS -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-space-md">
+<!-- SCR 05 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-05]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SQUAD PREP</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">Party Room (3v3)</h4>
+<div class="h-28 bg-surface-container-lowest rounded p-space-xs flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>SQUAD CODE: #8841</span>
+<span class="text-primary">3 / 3</span>
+</div>
+<div class="flex justify-around items-center">
+<span class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-label-data-sm text-label-data-sm">OP1</span>
+<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-primary font-label-data-sm text-label-data-sm">OP2</span>
+<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-primary font-label-data-sm text-label-data-sm">OP3</span>
+</div>
+<div class="text-center font-label-data-sm text-label-data-sm text-on-surface-variant">DIRECT SYNC ACTIVE</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Allows direct 6-character room codes or friend pings. Seamless drop-in/drop-out.</p>
+<div class="mt-auto pt-space-xs font-label-data-sm text-label-data-sm text-primary">TRAJECTORY -> SCR-06</div>
+</div>
+<!-- SCR 06 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-06]</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">SEARCHING</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">Switchyard Match</h4>
+<div class="h-28 bg-surface-container-lowest rounded p-space-xs flex flex-col justify-between">
+<div class="flex justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>ARENA: SKY-DOCK 4</span>
+<span class="text-tertiary">00:14s</span>
+</div>
+<div class="w-full flex items-center justify-center">
+<span class="material-symbols-outlined text-[32px] text-primary animate-spin">cyclone</span>
+</div>
+<div class="text-center font-label-data-sm text-label-data-sm text-on-surface-variant">REGIONAL NODE: US-EAST-04</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Visual flight trajectory map nodes search matching latency brackets (<45ms).</p>
+<div class="mt-auto pt-space-xs font-label-data-sm text-label-data-sm text-primary">TRAJECTORY -> SCR-07</div>
+</div>
+<!-- SCR 07 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-07]</span>
+<span class="font-label-data-sm text-label-data-sm text-secondary">COUNTDOWN</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">Loadout & Prep (8s)</h4>
+<div class="h-28 bg-surface-container-lowest rounded p-space-xs flex flex-col justify-between">
+<div class="flex justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>TACTICAL GEAR</span>
+<span class="text-secondary font-bold font-headline-md text-headline-md">08s</span>
+</div>
+<div class="flex gap-1 justify-center">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-primary text-[12px]">JET</div>
+<div class="w-8 h-8 rounded bg-primary-container text-on-primary-container flex items-center justify-center text-[12px] font-bold">EMP</div>
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-primary text-[12px]">SHLD</div>
+</div>
+<div class="text-center font-label-data-sm text-label-data-sm text-on-surface-variant">TACTICAL LOCK INCOMING</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Instant loadout selection. Quick-swap active secondary perks before drop.</p>
+<div class="mt-auto pt-space-xs font-label-data-sm text-label-data-sm text-primary">TRAJECTORY -> SCR-08/09</div>
+</div>
+<!-- SCR 08 & 09 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-08/09]</span>
+<span class="font-label-data-sm text-label-data-sm text-primary">LIVE COMBAT</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">HUD & Launch Pad</h4>
+<div class="h-28 bg-surface-container-lowest rounded p-space-xs flex flex-col justify-between">
+<!-- Split Tug of War Bar -->
+<div class="w-full flex items-center h-2 rounded overflow-hidden">
+<div class="h-full bg-primary w-2/5"></div>
+<div class="h-full bg-tertiary w-1/5"></div>
+<div class="h-full bg-secondary w-2/5"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="w-7 h-7 rounded-full bg-surface-container-high text-primary flex items-center justify-center text-[10px]">JOY</span>
+<span class="material-symbols-outlined text-tertiary text-[20px]">filter_center_focus</span>
+<span class="w-7 h-7 rounded-full bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold">BOOST</span>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>HP 100/100</span>
+<span class="text-primary">JET 85%</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Full dual-thumb 35% radius arc ergonomics. Line-of-sight flight paths and drop zones.</p>
+<div class="mt-auto pt-space-xs font-label-data-sm text-label-data-sm text-primary">TRAJECTORY -> SCR-10/11</div>
+</div>
+<!-- SCR 10 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-10]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">PAUSE OVERLAY</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">Match Menu</h4>
+<div class="h-28 bg-surface-container-lowest rounded p-space-xs flex flex-col justify-between">
+<div class="flex justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>LIVE SETTINGS</span>
+<span class="text-primary">RESUME ></span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="h-3 bg-surface-container-high rounded flex items-center px-1 text-[9px] text-on-surface-variant">GYRO AIM: ON</div>
+<div class="h-3 bg-surface-container-high rounded flex items-center px-1 text-[9px] text-on-surface-variant">SAFE ZONE: 48dp</div>
+</div>
+<div class="text-on-surface-variant font-label-data-sm text-label-data-sm">NON-DISRUPTIVE AUDIO MUTE</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Live sensitivity tuning and reporting access without obscuring team status.</p>
+<div class="mt-auto pt-space-xs font-label-data-sm text-label-data-sm text-primary">TRAJECTORY -> SCR-11</div>
+</div>
+<!-- SCR 11 & 12 -->
+<div class="bg-surface-container rounded p-space-sm flex flex-col gap-space-xs shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-11/12]</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">VICTORY / EXP</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">Results & Contracts</h4>
+<div class="h-28 bg-surface-container-lowest rounded p-space-xs flex flex-col justify-between">
+<div class="flex justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span class="text-primary font-bold">MATCH WON</span>
+<span class="text-tertiary">+350 EXP</span>
+</div>
+<div class="w-full bg-surface-container-high rounded h-3 overflow-hidden">
+<div class="bg-tertiary h-full w-4/5"></div>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>CONTRACTS: 2/3</span>
+<span class="text-primary font-bold">CLAIM [v]</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Clear verified contribution scoreboard. Zero shaming K/D ratios. Play Again loop.</p>
+<div class="mt-auto pt-space-xs font-label-data-sm text-label-data-sm text-primary">TRAJECTORY -> REPLAY / HUB</div>
+</div>
+</div>
+</section>
+<!-- FLOW 03: OFFLINE EXPEDITION & LOCAL PRACTICE FLOW -->
+<section class="flex flex-col gap-space-md" id="flow-3">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-xs bg-surface-container-low p-space-md rounded shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-headline-md text-headline-md">03</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">PIPELINE 03 // AIR TRAVEL & LOCAL OFFLINE EXPEDITION</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Zero-Network Standalone Flight Challenges (12 Circuits)</h2>
+</div>
+</div>
+<div class="flex items-center gap-space-md text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>AIRPLANE MODE COMPATIBLE</span>
+<span class="text-tertiary">LOCAL SQLITE LOG ENGINE</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-14]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">CHAPTER SELECT</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Offline Travel Challenges</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span class="text-tertiary font-bold">CHAPTER 01</span>
+<span>RIDGEWAY CANYON</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<div class="flex-1 p-2 bg-surface-container rounded text-center">
+<span class="material-symbols-outlined text-primary text-[20px]">military_tech</span>
+<div class="font-label-data-sm text-label-data-sm mt-0.5">CIRCUIT 01-04</div>
+</div>
+<div class="flex-1 p-2 bg-surface-container rounded text-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">lock_open</span>
+<div class="font-label-data-sm text-label-data-sm mt-0.5">CIRCUIT 05-08</div>
+</div>
+<div class="flex-1 p-2 bg-surface-container rounded text-center opacity-60">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">lock</span>
+<div class="font-label-data-sm text-label-data-sm mt-0.5">CIRCUIT 09-12</div>
+</div>
+</div>
+<div class="text-on-surface-variant font-label-data-sm text-label-data-sm">PRE-INSTALLED ASSETS ONLY</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Pre-cached obstacle geometry with local time-trials and bot defense simulations.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SOLO INSPECTION</span>
+</div>
+</div>
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[LOCAL-INSPECT]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">ROUTE ANALYSIS</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Glide Vector Inspection</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>WIND SPEED: 14 KTS</span>
+<span class="text-primary">ELEV: +140M</span>
+</div>
+<!-- Circular Reticle Schematic -->
+<div class="flex items-center justify-center">
+<div class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center relative">
+<span class="material-symbols-outlined text-primary text-[28px]">explore</span>
+<div class="absolute -top-1 w-2 h-2 bg-primary rounded-full"></div>
+<div class="absolute -bottom-1 w-2 h-2 bg-secondary rounded-full"></div>
+</div>
+</div>
+<div class="text-center font-label-data-sm text-label-data-sm text-on-surface-variant">3 RING WAYPOINTS DETECTED</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Allows flight trajectory preview and tactical booster configuration before ignition.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">BOT RELAY MATCH</span>
+</div>
+</div>
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[BOT-RELAY]</span>
+<span class="font-label-data-sm text-label-data-sm text-primary">SIMULATION</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Offline Bot Practice</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span class="text-primary">AI TARGET DUMMIES: 3</span>
+<span class="text-tertiary">DIFFICULTY: VETERAN</span>
+</div>
+<div class="flex items-center justify-around">
+<div class="flex flex-col items-center">
+<span class="text-primary font-label-data-lg text-label-data-lg">60</span>
+<span class="text-on-surface-variant text-[10px]">FPS CONSTANT</span>
+</div>
+<div class="w-px h-8 bg-surface-container-high"></div>
+<div class="flex flex-col items-center">
+<span class="text-tertiary font-label-data-lg text-label-data-lg">0ms</span>
+<span class="text-on-surface-variant text-[10px]">LOCAL LATENCY</span>
+</div>
+</div>
+<div class="text-center font-label-data-sm text-label-data-sm text-on-surface-variant">NO TELEMETRY OUTBOUND</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">On-device rule execution. Identical ballistic arc and collision physics as live matches.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">LOCAL MEDAL STAMP</span>
+</div>
+</div>
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-tertiary font-label-data-sm text-label-data-sm">[SCR-LOCAL-REC]</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">STAMP SAVED</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Local Record Medal</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span class="text-tertiary font-bold">GOLD FLIGHT PIN</span>
+<span class="text-primary">01:14.28</span>
+</div>
+<div class="flex items-center justify-center gap-space-xs">
+<span class="material-symbols-outlined text-tertiary text-[36px]" style="font-variation-settings: 'FILL' 1;">stars</span>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface">MEDAL STAMPED</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">RECORDED TO LOCAL DISK</span>
+</div>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span class="text-primary">RETRY CIRCUIT</span>
+<span>HUB RETURN ></span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Stored on client device. Nonce encrypted for seamless offline progression reconciliation.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>RETRY OR RETURN</span>
+<span class="text-on-surface-variant">SCREEN 03</span>
+</div>
+</div>
+</div>
+</section>
+<!-- FLOW 04: PERMANENT PROGRESSION & CUSTOMIZATION FLOW -->
+<section class="flex flex-col gap-space-md" id="flow-4">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-xs bg-surface-container-low p-space-md rounded shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-headline-md text-headline-md">04</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">PIPELINE 04 // IDENTITY, PROGRESSION & MASTERY</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Locker Stage, Improvement Ledger, Flight-Log & Contract Seals</h2>
+</div>
+</div>
+<div class="flex items-center gap-space-md text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>COSMETICS: ZERO COMBAT POWER</span>
+<span class="text-tertiary">DUPLICATE CONVERSION: 100% REFUND</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- SCR 15 -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-15]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">3D STAGE</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Appearance Locker</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded overflow-hidden p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span class="text-primary font-bold">SUIT: STRATOS-9</span>
+<span class="text-tertiary">ANODIZED CYAN</span>
+</div>
+<div class="flex justify-center items-center gap-space-xs">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">styler</span>
+</div>
+<div class="w-8 h-8 rounded bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">palette</span>
+</div>
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">flight</span>
+</div>
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">texture</span>
+</div>
+</div>
+<div class="text-center font-label-data-sm text-label-data-sm text-on-surface-variant">REAL-TIME PBR SHADER PREVIEW</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">360-degree operative preview stage with athletic aerospace materials and decals.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SCREEN 16</span>
+</div>
+</div>
+<!-- SCR 16 -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-16]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">ANALYTICS</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Operative Profile</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>IMPROVEMENT LEDGER</span>
+<span class="text-primary font-bold">TOP 4% GLIDE ACCURACY</span>
+</div>
+<!-- Sparkline visualization -->
+<svg class="w-full h-12 text-primary" fill="none" viewbox="0 0 200 40">
+<path d="M0 35 L30 30 L60 32 L90 20 L120 22 L150 12 L180 8 L200 6" stroke="currentColor" stroke-linecap="round" stroke-width="2.5"></path>
+<circle cx="200" cy="6" fill="currentColor" r="3"></circle>
+</svg>
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>ZONE EFFICIENCY: 82%</span>
+<span class="text-tertiary">LAST 20 MATCHES</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Constructive analytics tracking boost recovery times and objective control efficiency.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SCREEN 13</span>
+</div>
+</div>
+<!-- SCR 13 -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-13]</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">BADGES</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Flight-Log Mastery</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>TACTICAL HONORS</span>
+<span class="text-tertiary">TIER 14 / 20</span>
+</div>
+<div class="grid grid-cols-3 gap-space-xs">
+<div class="bg-surface-container p-1 rounded text-center">
+<span class="material-symbols-outlined text-primary text-[18px]">anchor</span>
+<div class="text-[9px] text-on-surface">ZONE LEAD</div>
+</div>
+<div class="bg-surface-container p-1 rounded text-center">
+<span class="material-symbols-outlined text-tertiary text-[18px]">bolt</span>
+<div class="text-[9px] text-on-surface">VELOCITY</div>
+</div>
+<div class="bg-surface-container p-1 rounded text-center">
+<span class="material-symbols-outlined text-secondary text-[18px]">health_and_safety</span>
+<div class="text-[9px] text-on-surface">WINGMAN</div>
+</div>
+</div>
+<div class="w-full bg-surface-container-high rounded h-1.5 overflow-hidden">
+<div class="bg-primary h-full w-2/3"></div>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Non-expiring milestone ledger rewarding aerial precision and team support maneuvers.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SCREEN 12</span>
+</div>
+</div>
+<!-- SCR 12 (EXCHANGE) -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-12]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SEAL EXCHANGE</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Contracts & Flight Seals</h3>
+<div class="relative w-full h-36 bg-surface-container-lowest rounded p-space-sm flex flex-col justify-between">
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>AVAILABLE SEALS: 12</span>
+<span class="text-primary font-bold">SEASON VERIFIED</span>
+</div>
+<div class="flex items-center gap-space-xs bg-surface-container p-space-xs rounded">
+<span class="material-symbols-outlined text-tertiary text-[24px]">verified</span>
+<div class="flex flex-col">
+<span class="font-label-data-sm text-label-data-sm text-on-surface">CHASSIS ACCENT // SOLAR CORAL</span>
+<span class="text-[10px] text-on-surface-variant">DIRECT CLAIM (4 SEALS)</span>
+</div>
+</div>
+<div class="text-on-surface-variant font-label-data-sm text-label-data-sm">EXCHANGABLE FOR 100% OF CATALOG</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Transparent earned progression. Every seasonal seal unlocks explicit deterministic cosmetic rewards.</p>
+<div class="mt-auto flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-primary">
+<span>TRAJECTORY --/--></span>
+<span class="text-on-surface-variant">SCREEN 03 / LOCKER</span>
+</div>
+</div>
+</div>
+</section>
+<!-- FLOW 05: SECURITY, RECOVERY & INTEGRITY AUDIT -->
+<section class="flex flex-col gap-space-md" id="flow-5">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-xs bg-surface-container-low p-space-md rounded shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-headline-md text-headline-md">05</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">PIPELINE 05 // SECURITY, ETHICAL RECOVERY & MONETIZATION</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Account Recovery, Non-Exploitative Bundles & Participant Safety</h2>
+</div>
+</div>
+<div class="flex items-center gap-space-md text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>GDPR / CCPA ONE-TOUCH PURGE</span>
+<span class="text-secondary">ZERO DARK PATTERNS</span>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
+<!-- SCR 17 -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-17]</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SAFETY ENGINE</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Account Recovery, Reporting & Safety Control</h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-sm bg-surface-container-lowest p-space-md rounded">
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-caps text-label-caps text-primary">01. IDENTITY LINK</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Google Play Games + Sign in with Apple zero-friction cross-sync with cloud save conflict prompt.</p>
+<div class="mt-2 flex items-center gap-1 text-primary font-label-data-sm text-label-data-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>SYNC ACTIVE</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-caps text-label-caps text-tertiary">02. SAFE PARTICIPANT</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Instant one-tap match mute, toxic voice suppression, and direct griefing report dispatch.</p>
+<div class="mt-2 flex items-center gap-1 text-tertiary font-label-data-sm text-label-data-sm">
+<span class="material-symbols-outlined text-[16px]">record_voice_over</span>
+<span>AUTO-FILTER (HIGH)</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-caps text-label-caps text-secondary">03. 2-STEP PURGE</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Self-service immediate account wipe with 14-day grace restoration token and zero retention.</p>
+<div class="mt-2 flex items-center gap-1 text-secondary font-label-data-sm text-label-data-sm">
+<span class="material-symbols-outlined text-[16px]">delete_forever</span>
+<span>SECURE DELETE</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-data-sm text-label-data-sm pt-space-xs">
+<span>DEVICE BIOMETRIC RE-AUTH REQUIRED FOR DATA ERASURE</span>
+<span class="text-primary">ENCRYPTED // AES-256</span>
+</div>
+</div>
+<!-- SCR 18 -->
+<div class="bg-surface-container rounded p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-data-sm text-label-data-sm">[SCR-18]</span>
+<span class="font-label-data-sm text-label-data-sm text-secondary">AUDIT CONCEPT</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Ethical Cosmetic Armory (Isolated Review)</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-sm bg-surface-container-lowest p-space-md rounded">
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-primary">BUNDLE: NIGHTFALL DRIFT</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">480 DIAMONDS</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Contains: 1x Wing Pattern, 1x Jet Trail VFX, 1x Callsign Plaque. 0% competitive stat influence.</p>
+<div class="mt-2 flex items-center gap-space-xs">
+<span class="px-2 py-0.5 bg-surface-container-high rounded text-[11px] text-on-surface">NO LOOTBOXES</span>
+<span class="px-2 py-0.5 bg-surface-container-high rounded text-[11px] text-on-surface">DETERMINISTIC</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-caps text-label-caps text-secondary">TRANSPARENT RECONCILIATION</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">If any bundle item is already owned via Flight Log, diamond cost dynamically drops to reflect only unowned items.</p>
+<div class="mt-2 text-primary font-label-data-sm text-label-data-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">price_check</span>
+<span>DYNAMIC BUNDLE PRICING: PASS</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-data-sm text-label-data-sm pt-space-xs">
+<span>NO COUNTDOWN TIMERS / NO FOMO FLASH SALES</span>
+<span class="text-tertiary font-bold">100% COSMETIC POLICY</span>
+</div>
+</div>
+</div>
+</section>
+<!-- COMPREHENSIVE AUDIT CHECKLIST TABLE -->
+<section class="flex flex-col gap-space-md" id="audit-table">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-xs bg-surface-container-low p-space-md rounded shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-headline-md text-headline-md">06</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">AUDIT VERIFICATION // QUALITY & TECHNICAL GATES</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">System Architecture & Accessibility Verification Matrix</h2>
+</div>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="px-space-sm py-1 bg-surface-container rounded text-primary font-label-data-sm text-label-data-sm font-bold">
+            STATUS: 100% COMPLIANT
+          </span>
+</div>
+</div>
+<!-- AUDIT DATA TABLE -->
+<div class="w-full bg-surface-container rounded shadow-md overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm border-collapse">
+<thead>
+<tr class="bg-surface-container-highest text-on-surface font-label-caps text-label-caps border-none">
+<th class="py-space-sm px-space-md">AUDIT REQUIREMENT</th>
+<th class="py-space-sm px-space-md">STANDARD / THRESHOLD</th>
+<th class="py-space-sm px-space-md">VERIFIED SCREENS (1 - 18)</th>
+<th class="py-space-sm px-space-md">MEASURED IMPLEMENTATION DETAIL</th>
+<th class="py-space-sm px-space-md">VERIFICATION</th>
+</tr>
+</thead>
+<tbody class="divide-none">
+<tr class="hover:bg-surface-container-high transition-colors bg-surface-container">
+<td class="py-space-sm px-space-md font-bold text-on-surface flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[18px]">touch_app</span>
+                48dp Touch Targets
+              </td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-on-surface-variant">Min 48x48dp bounding box</td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-primary">All 18 Screens</td>
+<td class="py-space-sm px-space-md text-on-surface-variant">
+                Thumb clusters positioned within bottom 35% viewport radii. Virtual buttons hit-test padded via transparent raycast targets.
+              </td>
+<td class="py-space-sm px-space-md">
+<span class="px-space-xs py-0.5 rounded bg-primary/20 text-primary font-label-data-sm text-label-data-sm font-bold">PASSED</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors bg-surface-container-low">
+<td class="py-space-sm px-space-md font-bold text-on-surface flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[18px]">aspect_ratio</span>
+                Aspect Ratio Clamping
+              </td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-on-surface-variant">16:9 up to 21.5:9 Safe Bounds</td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-primary">All 18 Screens</td>
+<td class="py-space-sm px-space-md text-on-surface-variant">
+                Dynamic 48dp lateral hardware bezel cutout margin enforced on left/right edges for camera punch-holes and folding creases.
+              </td>
+<td class="py-space-sm px-space-md">
+<span class="px-space-xs py-0.5 rounded bg-primary/20 text-primary font-label-data-sm text-label-data-sm font-bold">PASSED</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors bg-surface-container">
+<td class="py-space-sm px-space-md font-bold text-on-surface flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-tertiary text-[18px]">contrast</span>
+                WCAG Contrast Standards
+              </td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-on-surface-variant">AA/AAA Level (> 4.5:1 text, > 7:1 large)</td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-primary">All 18 Screens</td>
+<td class="py-space-sm px-space-md text-on-surface-variant">
+                Calculated ratio of #dbe2f8 on #0b1322 is 13.8:1. Action cyan #7cefff on #0b1322 is 14.5:1. Meets AAA across critical data text.
+              </td>
+<td class="py-space-sm px-space-md">
+<span class="px-space-xs py-0.5 rounded bg-tertiary/20 text-tertiary font-label-data-sm text-label-data-sm font-bold">AAA VERIFIED</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors bg-surface-container-low">
+<td class="py-space-sm px-space-md font-bold text-on-surface flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[18px]">color_lens</span>
+                Color-Independent Encoding
+              </td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-on-surface-variant">Dual-Channel Glyph + Hue Verification</td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-primary">Scr 08, 09, 11, 14</td>
+<td class="py-space-sm px-space-md text-on-surface-variant">
+                Cyan is paired with continuous rings and circle icons; Coral paired with split-chevrons; Gold paired with 5-point stars.
+              </td>
+<td class="py-space-sm px-space-md">
+<span class="px-space-xs py-0.5 rounded bg-primary/20 text-primary font-label-data-sm text-label-data-sm font-bold">PASSED</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors bg-surface-container">
+<td class="py-space-sm px-space-md font-bold text-on-surface flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[18px]">psychology</span>
+                Zero P2W & Anti-Shaming
+              </td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-on-surface-variant">Pure Skill Fairness & Ethics</td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-primary">Scr 07, 11, 16, 18</td>
+<td class="py-space-sm px-space-md text-on-surface-variant">
+                Zero weapon stat upgrades. Zero loot boxes. Results highlight objective time, zone capture, and recovery rather than public death tallies.
+              </td>
+<td class="py-space-sm px-space-md">
+<span class="px-space-xs py-0.5 rounded bg-primary/20 text-primary font-label-data-sm text-label-data-sm font-bold">CERTIFIED</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors bg-surface-container-low">
+<td class="py-space-sm px-space-md font-bold text-on-surface flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[18px]">code</span>
+                Unity LTS 2023 Feasibility
+              </td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-on-surface-variant">TextMeshPro Dynamic Atlas + 9-Slice</td>
+<td class="py-space-sm px-space-md font-label-data-sm text-label-data-sm text-primary">All 18 Screens</td>
+<td class="py-space-sm px-space-md text-on-surface-variant">
+                Fonts (JetBrains Mono & Space Grotesk) convert cleanly to SDF font assets with under 3 draw-calls per active UI cluster.
+              </td>
+<td class="py-space-sm px-space-md">
+<span class="px-space-xs py-0.5 rounded bg-primary/20 text-primary font-label-data-sm text-label-data-sm font-bold">READY</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- INTERACTIVE AUDIT SIMULATOR PANEL (VANILLA JS MICRO-INTERACTION) -->
+<section class="bg-surface-container-low rounded p-space-md shadow-md flex flex-col gap-space-sm">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-xs">
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-wider uppercase">SIMULATE REAL-TIME DEVICE CONSTRAINTS</span>
+<h3 class="font-title-lg text-title-lg text-on-surface">Aspect Ratio & Hardware Safe-Zone Live Probe</h3>
+</div>
+<div class="flex items-center gap-space-xs font-label-data-sm text-label-data-sm">
+<button class="px-space-sm py-1 bg-primary text-on-primary rounded font-bold transition-all" id="btn-aspect-20-9">20:9 (2400x1080)</button>
+<button class="px-space-sm py-1 bg-surface-container-high text-on-surface hover:bg-surface-container-highest rounded transition-all" id="btn-aspect-16-9">16:9 (1920x1080)</button>
+<button class="px-space-sm py-1 bg-surface-container-high text-on-surface hover:bg-surface-container-highest rounded transition-all" id="btn-aspect-fold">FOLD (21.5:9)</button>
+</div>
+</div>
+<!-- SIMULATION VIEWPORT -->
+<div class="w-full bg-surface-container-lowest rounded p-space-md flex flex-col justify-between transition-all duration-300 relative overflow-hidden" id="sim-viewport" style="min-height: 240px;">
+<!-- Notch Indicators -->
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-16 bg-surface-container-high rounded-r-xl flex items-center justify-center text-[10px] text-on-surface-variant font-label-data-sm" id="left-notch">
+          NOTCH
+        </div>
+<div class="flex justify-between items-center z-10 pl-8">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary-container text-on-primary-container font-label-data-sm text-label-data-sm rounded font-bold">SIM ACTIVE</span>
+<span class="font-label-data-sm text-label-data-sm text-primary" id="aspect-label">TARGET: 20:9 ULTRAWIDE MOBILE LANDSCAPE</span>
+</div>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">
+            SAFE LATERAL CLAMP: <span class="text-tertiary" id="clamp-label">48dp ACTIVE</span>
+</div>
+</div>
+<!-- Touch Ergonomics Visualizer -->
+<div class="grid grid-cols-3 gap-space-md items-end z-10 pl-8 pr-4">
+<!-- Left Ergonomic Cluster -->
+<div class="p-space-sm bg-surface-container/80 rounded flex flex-col gap-1 items-start">
+<span class="font-label-caps text-label-caps text-primary">LEFT THUMB ARC (35%)</span>
+<div class="flex gap-2">
+<div class="w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center font-label-data-sm text-label-data-sm">
+                48dp
+              </div>
+<div class="w-12 h-12 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center font-label-data-sm text-label-data-sm">
+                PING
+              </div>
+</div>
+<span class="text-[10px] text-on-surface-variant">CLEAR OF CUTOUT RADIUS</span>
+</div>
+<!-- Mid Passive HUD -->
+<div class="p-space-sm bg-surface-container-low/60 rounded text-center flex flex-col items-center">
+<span class="font-label-caps text-label-caps text-tertiary">PASSIVE LINE-OF-SIGHT HUD</span>
+<div class="w-3/4 h-2 bg-surface-container-high rounded-full my-2 relative overflow-hidden">
+<div class="w-1/2 h-full bg-tertiary"></div>
+</div>
+<span class="text-[10px] text-on-surface-variant">UNOBSTRUCTED FLIGHT VECTOR</span>
+</div>
+<!-- Right Ergonomic Cluster -->
+<div class="p-space-sm bg-surface-container/80 rounded flex flex-col gap-1 items-end">
+<span class="font-label-caps text-label-caps text-secondary">RIGHT THUMB ARC (35%)</span>
+<div class="flex gap-2">
+<div class="w-12 h-12 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center font-label-data-sm text-label-data-sm">
+                SHIFT
+              </div>
+<div class="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-label-data-sm text-label-data-sm font-bold">
+                FIRE
+              </div>
+</div>
+<span class="text-[10px] text-on-surface-variant">HARD TARGET BOUNDING PASSED</span>
+</div>
+</div>
+<div class="flex justify-between items-center z-10 pl-8 text-[11px] text-on-surface-variant font-label-data-sm">
+<span>ZERO HARDWARE INTERFERENCE</span>
+<span class="text-primary">UNITY LTS 2023 SDF RENDER OK</span>
+</div>
+</div>
+</section>
+<!-- SIGN-OFF FOOTER BLOCK -->
+<section class="bg-surface-container-lowest p-space-md rounded flex flex-col md:flex-row items-center justify-between gap-space-md shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[28px]">verified_user</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary">HOTDROP SYSTEM INTEGRITY VERIFICATION COMPLETE</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Full 18-screen connected architecture signed off for competitive deployment. All telemetry and accessibility gates passed.
+          </p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>HASH: <span class="text-primary">0x9F4B2...A10</span></span>
+<span>VERSION: <span class="text-on-surface font-bold">PROD-RC-3.2</span></span>
+</div>
+</section>
+</div>
+<script>
+    // Micro-interaction probe script for dynamic aspect ratio testing
+    (function initAuditSimulator() {
+      const btn209 = document.getElementById('btn-aspect-20-9');
+      const btn169 = document.getElementById('btn-aspect-16-9');
+      const btnFold = document.getElementById('btn-aspect-fold');
+      const viewport = document.getElementById('sim-viewport');
+      const aspectLabel = document.getElementById('aspect-label');
+      const clampLabel = document.getElementById('clamp-label');
+      const leftNotch = document.getElementById('left-notch');
+
+      function resetButtons() {
+        [btn209, btn169, btnFold].forEach(b => {
+          b.className = 'px-space-sm py-1 bg-surface-container-high text-on-surface hover:bg-surface-container-highest rounded transition-all';
+        });
+      }
+
+      if (btn209 && btn169 && btnFold) {
+        btn209.addEventListener('click', () => {
+          resetButtons();
+          btn209.className = 'px-space-sm py-1 bg-primary text-on-primary rounded font-bold transition-all';
+          viewport.style.maxWidth = '100%';
+          aspectLabel.innerText = 'TARGET: 20:9 ULTRAWIDE MOBILE LANDSCAPE (2400x1080)';
+          clampLabel.innerText = '48dp ACTIVE';
+          leftNotch.style.display = 'flex';
+        });
+
+        btn169.addEventListener('click', () => {
+          resetButtons();
+          btn169.className = 'px-space-sm py-1 bg-primary text-on-primary rounded font-bold transition-all';
+          viewport.style.maxWidth = '80%';
+          viewport.style.margin = '0 auto';
+          aspectLabel.innerText = 'TARGET: 16:9 STANDARD TV/TABLET (1920x1080)';
+          clampLabel.innerText = '24dp MINIMUM SAFE';
+          leftNotch.style.display = 'none';
+        });
+
+        btnFold.addEventListener('click', () => {
+          resetButtons();
+          btnFold.className = 'px-space-sm py-1 bg-primary text-on-primary rounded font-bold transition-all';
+          viewport.style.maxWidth = '92%';
+          viewport.style.margin = '0 auto';
+          aspectLabel.innerText = 'TARGET: 21.5:9 EXTENDED FOLD DEVICE';
+          clampLabel.innerText = '64dp HARDWARE CREASE CLAMP';
+          leftNotch.style.display = 'flex';
+        });
+      }
+    })();
+  </script>
+</div></main><footer class="w-full bg-surface-container-lowest py-space-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="w-full px-gutter flex flex-col md:flex-row items-center justify-between gap-space-md"><div class="flex items-center gap-space-md"><span class="font-headline-md text-headline-md text-primary">HOTDROP</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">3V3 ULTRA-WIDE TACTICAL ARENA</span></div><div class="flex items-center gap-space-lg font-label-data-sm text-label-data-sm text-on-surface-variant"><span class="text-on-surface-variant">SECURE PROTOCOL ENGAGED</span><span class="text-primary">NODE: US-EAST-04</span><span>LATENCY: 24MS</span></div></div></footer></body></html>

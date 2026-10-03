@@ -1,10 +1,10 @@
 **
 
 !Backend/
-!Backend/UpdraftBackend/
-!Backend/UpdraftBackend/**
-Backend/UpdraftBackend/bin/
-Backend/UpdraftBackend/obj/
+!Backend/HotdropBackend/
+!Backend/HotdropBackend/**
+Backend/HotdropBackend/bin/
+Backend/HotdropBackend/obj/
 
 !docs/
 !docs/legal/

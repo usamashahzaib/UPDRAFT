@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"secondary-fixed-dim":"#ffb2b7","tertiary":"#ffda88","on-tertiary-container":"#654c00","outline-variant":"#3c494b","tertiary-fixed":"#ffdf9b","secondary":"#ffb2b7","on-background":"#dbe2f8","surface-bright":"#31394a","on-primary-fixed-variant":"#004f57","primary-fixed":"#93f1ff","inverse-on-surface":"#293041","surface":"#0b1322","surface-container-low":"#141c2b","error":"#ffb4ab","on-secondary-fixed-variant":"#8f092b","on-tertiary-fixed-variant":"#5b4300","inverse-surface":"#dbe2f8","secondary-container":"#930d2d","surface-container-high":"#222a3a","primary-container":"#30d5e8","surface-dim":"#0b1322","tertiary-fixed-dim":"#edc157","on-surface":"#dbe2f8","tertiary-container":"#e8bc54","on-secondary":"#67001b","secondary-fixed":"#ffdadb","on-error-container":"#ffdad6","on-secondary-container":"#ff9da4","on-secondary-fixed":"#40000d","inverse-primary":"#006973","on-primary":"#00363c","surface-tint":"#38d9ec","surface-variant":"#2d3545","on-surface-variant":"#bbc9cb","surface-container":"#18202f","on-primary-container":"#005862","primary":"#7cefff","surface-container-lowest":"#060e1d","on-tertiary-fixed":"#251a00","on-error":"#690005","background":"#0b1322","outline":"#859396","on-tertiary":"#3f2e00","primary-fixed-dim":"#38d9ec","surface-container-highest":"#2d3545","error-container":"#93000a","on-primary-fixed":"#001f23"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-lg":"1.25rem","space-md":"0.75rem","gutter":"1rem","space-xs":"0.25rem","space-sm":"0.5rem","margin":"1.5rem","space-xl":"2rem"},fontFamily:{"headline-xl-mobile":["Space Grotesk"],"title-md":["Hanken Grotesk"],"headline-md":["Space Grotesk"],"headline-lg":["Space Grotesk"],"body-md":["Hanken Grotesk"],"label-data-md":["JetBrains Mono"],"body-lg":["Hanken Grotesk"],"label-data-sm":["JetBrains Mono"],"title-lg":["Hanken Grotesk"],"label-data-lg":["JetBrains Mono"],"headline-lg-mobile":["Space Grotesk"],"headline-xl":["Space Grotesk"],"body-sm":["Hanken Grotesk"],"label-caps":["Space Grotesk"]},fontSize:{"headline-xl-mobile":["30px",{"lineHeight":"36px","letterSpacing":"-0.02em","fontWeight":"700"}],"title-md":["16px",{"lineHeight":"22px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-md":["20px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"600"}],"headline-lg":["28px",{"lineHeight":"34px","letterSpacing":"-0.01em","fontWeight":"700"}],"body-md":["14px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}],"label-data-md":["14px",{"lineHeight":"18px","letterSpacing":"0.03em","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"22px","letterSpacing":"0em","fontWeight":"400"}],"label-data-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.05em","fontWeight":"500"}],"title-lg":["18px",{"lineHeight":"24px","letterSpacing":"0.01em","fontWeight":"600"}],"label-data-lg":["18px",{"lineHeight":"22px","letterSpacing":"0.02em","fontWeight":"700"}],"headline-lg-mobile":["22px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"400"}],"label-caps":["12px",{"lineHeight":"14px","letterSpacing":"0.08em","fontWeight":"700"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased select-none"><header class="fixed top-0 inset-x-0 z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 w-full px-margin flex items-center justify-between"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded text-primary"><span class="material-symbols-outlined text-[16px]">flight_takeoff</span><span class="font-label-caps text-label-caps tracking-widest text-primary">UPDRAFT // AV-03</span></div><div class="hidden sm:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container rounded"><span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">LATENCY 24MS</span></div></div><nav class="flex items-center gap-space-xs bg-surface-container-low px-space-xs py-space-xs rounded-lg" data-active-classes="bg-surface-container-highest text-primary font-title-md"><a aria-current="page" class="px-space-md py-space-xs rounded transition-all bg-surface-container-highest text-primary font-title-md" data-path="tactical-hud" href="#">Tactical HUD</a><a class="font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container px-space-md py-space-xs rounded transition-all" data-path="match-telemetry" href="#">Telemetry</a><a class="font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container px-space-md py-space-xs rounded transition-all" data-path="operative-dock" href="#">Operatives</a><a class="font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container px-space-md py-space-xs rounded transition-all" data-path="sector-map" href="#">Sector Map</a></nav><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-space-xs rounded"><span class="font-label-data-sm text-label-data-sm text-tertiary">ZONE A // DEFEND</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-14 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- REVIEW STRIP HEADER -->
+<section class="w-full px-margin pt-space-lg pb-space-md bg-surface-container-lowest border-b border-surface-container-highest">
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-space-md">
+<div>
+<div class="flex items-center gap-space-sm mb-space-xs">
+<span class="px-space-xs py-0.5 rounded bg-primary-container text-on-primary-container font-label-data-sm text-label-data-sm uppercase tracking-wider font-semibold">ENGINEERING SPEC v0.9.4</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">// REF: ANDROID LANDSCAPE 2400x1080 (20:9 SAFE)</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">BATCH 3 DESIGN REVIEW: GAMEPLAY HUD, TRAJECTORY FEEDBACK &amp; MATCH SETTINGS</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-4xl mt-1">High-performance 3v3 aerial tactical framework. Spatial validation, zero-latency feedback loops, and touch ergonomics for flight mechanics under native competitive conditions.</p>
+</div>
+<div class="flex items-center gap-space-sm self-start lg:self-auto shrink-0">
+<span class="inline-flex items-center gap-1.5 px-space-sm py-space-xs rounded bg-surface-container-high text-primary font-label-data-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+          PASSIVE HUD CENTER OK
+        </span>
+<span class="px-space-sm py-space-xs rounded bg-surface-container-high text-tertiary font-label-data-sm">
+          MIN TOUCH TARGET 48dp
+        </span>
+</div>
+</div>
+</section>
+<!-- INTERACTIVE JOURNEY MAP / SCREEN FLOW -->
+<section class="w-full px-margin py-space-lg bg-surface-container-low">
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">account_tree</span>
+<span class="font-label-caps text-label-caps uppercase text-on-surface tracking-wider">Screen Architecture Flow // Stage Sequence</span>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-outline">CLICK STAGE FOR STATE TELEMETRY</span>
+</div>
+<!-- Step Track -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-space-sm">
+<!-- Screen 07 -->
+<button class="flow-step text-left p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-all" id="btn-s07" onclick="selectFlowStage('s07')">
+<div class="flex items-center justify-between text-outline text-label-data-sm font-label-data-sm mb-1">
+<span>07 // PRE-DROP</span>
+<span class="material-symbols-outlined text-[14px]">lock_clock</span>
+</div>
+<div class="font-title-lg text-title-lg text-on-surface">Loadout Dock</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">8s prep lockdown, passive selection, operative balance check.</p>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between">
+<span class="font-label-data-sm text-label-data-sm text-primary">T-08s</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">DOCK_INIT</span>
+</div>
+</button>
+<!-- Screen 08 -->
+<button class="flow-step text-left p-space-md rounded-lg bg-surface-container-highest transition-all shadow-md" id="btn-s08" onclick="selectFlowStage('s08')">
+<div class="flex items-center justify-between text-primary text-label-data-sm font-label-data-sm mb-1">
+<span>08 // LIVE HUD</span>
+<span class="material-symbols-outlined text-[14px] text-primary">sensors</span>
+</div>
+<div class="font-title-lg text-title-lg text-primary">Classic HUD</div>
+<p class="font-body-sm text-body-sm text-on-surface mt-1 line-clamp-2">180s live regulation, dual-thumb arcs, real-time capture tug-of-war.</p>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between">
+<span class="font-label-data-sm text-label-data-sm text-primary">T-180s</span>
+<span class="font-label-data-sm text-label-data-sm text-primary font-semibold">ACTIVE</span>
+</div>
+</button>
+<!-- Screen 09 -->
+<button class="flow-step text-left p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-all" id="btn-s09" onclick="selectFlowStage('s09')">
+<div class="flex items-center justify-between text-outline text-label-data-sm font-label-data-sm mb-1">
+<span>09 // TRAJECTORY</span>
+<span class="material-symbols-outlined text-[14px]">near_me</span>
+</div>
+<div class="font-title-lg text-title-lg text-on-surface">Launch Pad Arc</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">Ballistic flight curve projection, terrain clash validation, neutral pad arming.</p>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between">
+<span class="font-label-data-sm text-label-data-sm text-primary">16s CD</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">DEPLOYABLE</span>
+</div>
+</button>
+<!-- Screen 10 -->
+<button class="flow-step text-left p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-all" id="btn-s10" onclick="selectFlowStage('s10')">
+<div class="flex items-center justify-between text-outline text-label-data-sm font-label-data-sm mb-1">
+<span>10 // SETTINGS</span>
+<span class="material-symbols-outlined text-[14px]">tune</span>
+</div>
+<div class="font-title-lg text-title-lg text-on-surface">Match Menu</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">Non-pausing telemetry drawer, dynamic stick calibration, gyro damping.</p>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between">
+<span class="font-label-data-sm text-label-data-sm text-primary">NON-BLOCKING</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">OVERLAY</span>
+</div>
+</button>
+<!-- Screen 11 -->
+<button class="flow-step text-left p-space-md rounded-lg bg-surface-container hover:bg-surface-container-high transition-all" id="btn-s11" onclick="selectFlowStage('s11')">
+<div class="flex items-center justify-between text-outline text-label-data-sm font-label-data-sm mb-1">
+<span>11 // RESULTS</span>
+<span class="material-symbols-outlined text-[14px]">military_tech</span>
+</div>
+<div class="font-title-lg text-title-lg text-on-surface">Post-Debrief</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">Capture duration attribution, flight displacement efficiency, match MMR delta.</p>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between">
+<span class="font-label-data-sm text-label-data-sm text-tertiary">VICTORY/DEFEAT</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">END_STATE</span>
+</div>
+</button>
+</div>
+<!-- Active Stage Interactive Telemetry Callout -->
+<div class="mt-space-sm p-space-md rounded bg-surface-container flex flex-col md:flex-row md:items-center justify-between gap-space-sm" id="flow-telemetry-banner">
+<div class="flex items-center gap-space-md">
+<span class="material-symbols-outlined text-primary text-[24px]">terminal</span>
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-wider uppercase" id="stage-badge">CURRENT INSPECTION: SCREEN 08 // LIVE HUD</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant" id="stage-desc">Focuses on passive central targeting reticle, peripheral friend-or-foe telemetry, and high-frequency tactile button clusters within 35% ergonomic arc boundaries.</p>
+</div>
+</div>
+<div class="flex items-center gap-space-sm font-label-data-sm text-label-data-sm text-outline">
+<span>MEM BUS: 28.4MB</span>
+<span>•</span>
+<span>DRAW CALLS: 44</span>
+<span>•</span>
+<span class="text-primary font-semibold">120 FPS LOCK</span>
+</div>
+</div>
+</section>
+<!-- MAIN TECHNICAL ARCHITECTURE TRIPLE COLUMN -->
+<main class="w-full px-margin py-space-xl">
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-space-lg items-start">
+<!-- ================= CARD 1: SCREEN 08 HUD ANATOMY ================= -->
+<article class="flex flex-col bg-surface-container rounded-xl shadow-xl overflow-hidden">
+<!-- Card Header -->
+<div class="p-space-lg bg-surface-container-high">
+<div class="flex items-center justify-between text-outline font-label-data-sm text-label-data-sm mb-space-xs">
+<span>SPEC: HUD-08-3V3</span>
+<span class="text-primary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+              COMPETITIVE REAL-TIME
+            </span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">SCREEN 08 HUD ANATOMY &amp; LIVE STATES</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Authoritative regulation match loop, capture mechanics, and line-of-sight flight data distribution.</p>
+</div>
+<div class="p-space-lg space-y-space-lg">
+<!-- Authoritative Match Match State Visualizer -->
+<div class="bg-surface-container-low p-space-md rounded-lg space-y-space-md">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface">
+<span>ACTIVE ZONE CAPTURE DYNAMICS</span>
+<span class="text-tertiary">CENTER (ACTIVE)</span>
+</div>
+<!-- Tug of War Progress Component -->
+<div>
+<div class="flex items-center justify-between font-label-data-sm text-label-data-sm mb-1">
+<span class="text-primary font-semibold">TEAM ALPHA (CYAN) // 84 PTS</span>
+<span class="text-secondary font-semibold">TEAM BRAVO (CORAL) // 62 PTS</span>
+</div>
+<div class="w-full h-3 rounded bg-surface-container-highest overflow-hidden flex relative">
+<!-- Cyan Score -->
+<div class="h-full bg-primary transition-all duration-300" style="width: 70%;"></div>
+<!-- Neutral / Contested Marker in middle -->
+<div class="absolute left-[70%] top-0 bottom-0 w-1 bg-tertiary z-10 -ml-0.5"></div>
+<!-- Coral Score -->
+<div class="h-full bg-secondary transition-all duration-300 ml-auto" style="width: 51%;"></div>
+</div>
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-outline mt-1">
+<span>0 PTS</span>
+<span class="text-tertiary">CONTESTED REGION: +0 PTS/SEC</span>
+<span>120 PTS TO WIN</span>
+</div>
+</div>
+<!-- Rotation Cycle Tracker -->
+<div class="space-y-space-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant block">ZONE ROTATION SCHEDULE (180S REGULATION)</span>
+<div class="grid grid-cols-6 gap-1 text-center font-label-data-sm text-label-data-sm">
+<div class="p-1 rounded bg-primary text-on-primary font-bold">1: CTR</div>
+<div class="p-1 rounded bg-surface-container-highest text-on-surface-variant">2: WST</div>
+<div class="p-1 rounded bg-surface-container-highest text-on-surface-variant">3: EST</div>
+<div class="p-1 rounded bg-surface-container-highest text-on-surface-variant">4: CTR</div>
+<div class="p-1 rounded bg-surface-container-highest text-on-surface-variant">5: EST</div>
+<div class="p-1 rounded bg-surface-container-highest text-on-surface-variant">6: WST</div>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-1">Zones migrate every 45 seconds. 10s warning pulse shows next waypoint reticle.</p>
+</div>
+</div>
+<!-- Feature Breakdown Cards -->
+<div class="space-y-space-md">
+<!-- Item 1 -->
+<div class="flex items-start gap-space-md p-space-md rounded-lg bg-surface-container-low">
+<div class="p-space-xs rounded bg-surface-container-high text-primary shrink-0">
+<span class="material-symbols-outlined text-[20px]">timer_3</span>
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-on-surface">Overtime Sudden Death (30s Window)</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Triggered if trailing team is contesting Zone A at T-00:00. Requires an uninterrupted <strong class="text-tertiary font-semibold">3.0s uncontested capture hold</strong> to claim sudden victory or reset clock.</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-start gap-space-md p-space-md rounded-lg bg-surface-container-low">
+<div class="p-space-xs rounded bg-surface-container-high text-secondary shrink-0">
+<span class="material-symbols-outlined text-[20px]">warning</span>
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-on-surface">Contested State Zero-Gain Rule</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">When opposing operatives occupy capture radius simultaneously, points immediately freeze to <strong class="text-secondary font-semibold">0 pts/sec</strong>. Visual UI shifts from team cyan to alternating yellow-hash diagonal striping.</p>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-start gap-space-md p-space-md rounded-lg bg-surface-container-low">
+<div class="p-space-xs rounded bg-surface-container-high text-tertiary shrink-0">
+<span class="material-symbols-outlined text-[20px]">published_with_changes</span>
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-on-surface">4s Respawn Matrix &amp; Quick Swap</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Eliminated pilots enter a 4.0s respawn cadence. Left-hand camera auto-latches to living teammate viewports with an immediate 2-tap primary weapon hot-swap panel.</p>
+</div>
+</div>
+</div>
+<!-- Mini Inline Interactive Widget: Live Reticle Tester -->
+<div class="p-space-md rounded-lg bg-surface-container-lowest">
+<div class="flex items-center justify-between mb-space-sm font-label-caps text-label-caps text-on-surface">
+<span>LIVE RETICLE STABILIZER SIMULATION</span>
+<span class="text-primary font-label-data-sm text-label-data-sm" id="hud-sim-status">CONVERGED // STABLE</span>
+</div>
+<div class="relative h-36 w-full rounded bg-surface flex items-center justify-center overflow-hidden">
+<!-- Radial Grid Rings -->
+<div class="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+<div class="w-28 h-28 rounded-full border border-primary"></div>
+<div class="w-16 h-16 rounded-full border border-primary"></div>
+</div>
+<!-- Crosshair Pitch ladder -->
+<div class="absolute flex flex-col items-center gap-2 opacity-40">
+<div class="w-10 h-0.5 bg-outline"></div>
+<div class="w-6 h-0.5 bg-outline"></div>
+<div class="w-14 h-0.5 bg-outline"></div>
+<div class="w-6 h-0.5 bg-outline"></div>
+<div class="w-10 h-0.5 bg-outline"></div>
+</div>
+<!-- Dynamic Flight Dot -->
+<div class="w-4 h-4 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center transition-all duration-100 shadow-[0_0_12px_rgba(124,239,255,0.6)]" id="flight-dot">
+<div class="w-1 h-1 rounded-full bg-on-primary"></div>
+</div>
+<!-- Altitude Tape HUD element on right -->
+<div class="absolute right-3 top-2 bottom-2 w-8 flex flex-col justify-between font-label-data-sm text-label-data-sm text-outline text-right">
+<span>+120M</span>
+<span class="text-primary font-bold">84M</span>
+<span>+040M</span>
+</div>
+<!-- Airspeed on left -->
+<div class="absolute left-3 top-2 bottom-2 w-8 flex flex-col justify-between font-label-data-sm text-label-data-sm text-outline text-left">
+<span>MACH</span>
+<span class="text-primary font-bold">142KT</span>
+<span>G: 1.2</span>
+</div>
+</div>
+<div class="flex items-center justify-between mt-space-sm">
+<span class="font-body-sm text-body-sm text-outline">Move mouse/touch over canvas to test dynamic lead bias</span>
+<button class="px-space-sm py-space-xs rounded bg-surface-container text-on-surface font-label-data-sm text-label-data-sm hover:bg-surface-container-high transition-colors" onclick="resetReticle()">RESET AXIS</button>
+</div>
+</div>
+</div>
+</article>
+<!-- ================= CARD 2: SCREEN 09 LAUNCH PAD MECHANIC ================= -->
+<article class="flex flex-col bg-surface-container rounded-xl shadow-xl overflow-hidden">
+<!-- Card Header -->
+<div class="p-space-lg bg-surface-container-high">
+<div class="flex items-center justify-between text-outline font-label-data-sm text-label-data-sm mb-space-xs">
+<span>SPEC: TRAJ-09-AIR</span>
+<span class="text-tertiary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+              DEPLOYMENT LOGIC
+            </span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">SCREEN 09 LAUNCH PAD MECHANIC SPECS</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Deployable ballistic jump apparatus with full volumetric clearance checking and neutral traversal rules.</p>
+</div>
+<div class="p-space-lg space-y-space-lg">
+<!-- Parametric Matrix -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-xs">
+<div class="p-space-sm rounded bg-surface-container-low text-center">
+<span class="font-label-caps text-label-caps text-outline block">CHARGES</span>
+<span class="font-label-data-lg text-label-data-lg text-primary font-bold">1 MAX</span>
+</div>
+<div class="p-space-sm rounded bg-surface-container-low text-center">
+<span class="font-label-caps text-label-caps text-outline block">COOLDOWN</span>
+<span class="font-label-data-lg text-label-data-lg text-on-surface font-bold">16.0s</span>
+</div>
+<div class="p-space-sm rounded bg-surface-container-low text-center">
+<span class="font-label-caps text-label-caps text-outline block">ARM DELAY</span>
+<span class="font-label-data-lg text-label-data-lg text-tertiary font-bold">0.75s</span>
+</div>
+<div class="p-space-sm rounded bg-surface-container-low text-center">
+<span class="font-label-caps text-label-caps text-outline block">HEALTH</span>
+<span class="font-label-data-lg text-label-data-lg text-secondary font-bold">60 HP</span>
+</div>
+</div>
+<!-- Trajectory Arc Visual Diagnostics Canvas -->
+<div class="bg-surface-container-low p-space-md rounded-lg space-y-space-md">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface">
+<span>ARC RESOLUTION &amp; CLASH DETECTION</span>
+<span class="text-primary font-label-data-sm text-label-data-sm">RAYCAST // 32 SAMPLES</span>
+</div>
+<!-- SVG Arc Illustration -->
+<div class="relative w-full h-44 rounded bg-surface-container-lowest p-space-sm flex items-center justify-center">
+<svg class="w-full h-full" fill="none" viewbox="0 0 400 140" xmlns="http://www.w3.org/2000/svg">
+<!-- Ground grid -->
+<line class="text-outline-variant" stroke="currentColor" stroke-dasharray="4 4" stroke-width="1" x1="20" x2="380" y1="120" y2="120"></line>
+<!-- Launch Pad Source -->
+<rect class="text-primary" fill="currentColor" height="8" rx="2" width="26" x="35" y="112"></rect>
+<circle class="text-on-primary" cx="48" cy="116" fill="currentColor" r="2"></circle>
+<!-- Valid Cyan Arc (Active path) -->
+<path class="text-primary" d="M 48 112 C 100 10, 220 15, 330 114" id="trajectory-line" stroke="currentColor" stroke-dasharray="6 4" stroke-linecap="round" stroke-width="2.5"></path>
+<!-- Apex Altitude Callout -->
+<line class="text-outline" stroke="currentColor" stroke-dasharray="2 2" stroke-width="0.8" x1="165" x2="165" y1="20" y2="120"></line>
+<circle class="text-tertiary" cx="165" cy="20" fill="currentColor" r="3"></circle>
+<text class="text-tertiary text-[9px] font-label-data-sm" fill="currentColor" x="172" y="24">APEX: +38.5M</text>
+<!-- Target Landing Ring with Directional Ticks -->
+<circle class="text-primary" cx="330" cy="114" r="14" stroke="currentColor" stroke-dasharray="4 2" stroke-width="1.5"></circle>
+<circle class="text-primary" cx="330" cy="114" fill="currentColor" r="4"></circle>
+<line class="text-primary" stroke="currentColor" stroke-width="2" x1="330" x2="330" y1="96" y2="100"></line>
+<line class="text-primary" stroke="currentColor" stroke-width="2" x1="330" x2="330" y1="128" y2="132"></line>
+<line class="text-primary" stroke="currentColor" stroke-width="2" x1="312" x2="316" y1="114" y2="114"></line>
+<line class="text-primary" stroke="currentColor" stroke-width="2" x1="344" x2="348" y1="114" y2="114"></line>
+<!-- Obstacle clash shadow indicator -->
+<rect class="text-surface-variant" fill="currentColor" height="50" rx="3" width="22" x="230" y="70"></rect>
+<text class="text-outline text-[8px] font-label-data-sm" fill="currentColor" x="225" y="64">CLEARANCE OK</text>
+</svg>
+</div>
+<!-- Interactive Toggle: Simulate Collision / Validation Fail -->
+<div class="grid grid-cols-2 gap-space-xs">
+<button class="py-space-xs px-space-sm rounded bg-primary text-on-primary font-label-caps text-label-caps tracking-wider transition-all" id="btn-traj-valid" onclick="setTrajectoryState('valid')">
+                PREVIEW: VALID ARC
+              </button>
+<button class="py-space-xs px-space-sm rounded bg-surface-container-high text-on-surface-variant font-label-caps text-label-caps tracking-wider transition-all" id="btn-traj-invalid" onclick="setTrajectoryState('invalid')">
+                PREVIEW: INVALID BLOCKED
+              </button>
+</div>
+<div class="text-label-data-sm font-label-data-sm p-space-xs rounded bg-surface-container text-primary flex items-center gap-1.5" id="traj-reason-banner">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>PLACEMENT VIABLE: FULL AZIMUTH CLEARANCE DETECTED</span>
+</div>
+</div>
+<!-- Invalid Reason Catalogue -->
+<div class="space-y-space-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant block">VALIDATION FAILURE ENGINE REASONS</span>
+<div class="grid grid-cols-2 gap-space-xs text-label-data-sm font-label-data-sm">
+<div class="p-space-xs rounded bg-surface-container-low text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">close</span>
+<span>TOO STEEP (&gt; 38°)</span>
+</div>
+<div class="p-space-xs rounded bg-surface-container-low text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">close</span>
+<span>NO CLEARANCE</span>
+</div>
+<div class="p-space-xs rounded bg-surface-container-low text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">close</span>
+<span>SPAWN PROXIMITY</span>
+</div>
+<div class="p-space-xs rounded bg-surface-container-low text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">close</span>
+<span>OBJ BOUNDARY</span>
+</div>
+</div>
+</div>
+<!-- Traversal Mechanics & IFF Rules -->
+<div class="p-space-md rounded-lg bg-surface-container-low space-y-space-xs">
+<h3 class="font-title-md text-title-md text-on-surface flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[18px]">group</span>
+              Neutral Traversal &amp; Tactile Launch Guard
+            </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Launch pads are neutral spatial instruments: <strong class="text-on-surface">both Alpha and Bravo teams can leap from any deployed pad</strong> once the 0.75s arm sequence completes.
+            </p>
+<div class="mt-space-sm pt-space-xs grid grid-cols-1 md:grid-cols-2 gap-space-sm font-body-sm text-body-sm">
+<div class="p-space-xs rounded bg-surface-container">
+<span class="text-primary font-semibold block">Friendly Touch Visual:</span>
+<span class="text-on-surface-variant text-label-data-sm font-label-data-sm">Cyan ring + upward chevrons. Jump button transforms to "LAUNCH" within 2m.</span>
+</div>
+<div class="p-space-xs rounded bg-surface-container">
+<span class="text-secondary font-semibold block">Enemy Touch Visual:</span>
+<span class="text-on-surface-variant text-label-data-sm font-label-data-sm">Coral warning chevron. Requires manual tap to avoid accidental trigger.</span>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- ================= CARD 3: SCREEN 10 SETTINGS & ERGONOMICS ================= -->
+<article class="flex flex-col bg-surface-container rounded-xl shadow-xl overflow-hidden">
+<!-- Card Header -->
+<div class="p-space-lg bg-surface-container-high">
+<div class="flex items-center justify-between text-outline font-label-data-sm text-label-data-sm mb-space-xs">
+<span>SPEC: SETT-10-LANDSCAPE</span>
+<span class="text-primary flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+              ERGONOMIC SAFEGUARD
+            </span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">SCREEN 10 SETTINGS &amp; ERGONOMICS</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Non-pausing live multiplayer match drawer with calibrated touch geometry and physical control feedback.</p>
+</div>
+<div class="p-space-lg space-y-space-lg">
+<!-- Critical Rule Banner -->
+<div class="p-space-md rounded-lg bg-surface-container-low flex items-start gap-space-md">
+<span class="material-symbols-outlined text-secondary text-[24px] shrink-0">emergency_home</span>
+<div>
+<h3 class="font-title-md text-title-md text-on-surface">Zero Game-Pause Engine Rule</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Opening the Match Menu in competitive modes slides a semi-opaque modal from right (<strong class="text-primary">420dp width</strong>). The match simulation continues rendering at 120 FPS. Player character remains vulnerable.</p>
+</div>
+</div>
+<!-- Interactive Calibration Slider Demonstrators -->
+<div class="bg-surface-container-low p-space-md rounded-lg space-y-space-md">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface">
+<span>LIVE NUMERICAL SLIDERS (TOUCH REALTIME)</span>
+<span class="text-primary font-label-data-sm text-label-data-sm">INSTANT PERSIST</span>
+</div>
+<!-- Slider 1: Gyro Pitch Sensitivity -->
+<div class="space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm">
+<span class="text-on-surface">GYROSCOPE PITCH SENSITIVITY</span>
+<span class="text-primary font-bold" id="val-gyro">2.45x</span>
+</div>
+<input class="w-full h-2 rounded bg-surface-container-highest appearance-none cursor-pointer accent-primary" max="5.0" min="0.5" oninput="updateSlider('gyro', this.value)" step="0.05" type="range" value="2.45"/>
+<div class="flex justify-between text-[10px] font-label-data-sm text-outline">
+<span>0.50x (DAMPED)</span>
+<span>DEFAULT: 2.20x</span>
+<span>5.00x (HIGH SPEED)</span>
+</div>
+</div>
+<!-- Slider 2: Thumbstick Inner Deadzone -->
+<div class="space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm">
+<span class="text-on-surface">LEFT VIRTUAL STICK INNER DEADZONE</span>
+<span class="text-primary font-bold" id="val-deadzone">12%</span>
+</div>
+<input class="w-full h-2 rounded bg-surface-container-highest appearance-none cursor-pointer accent-primary" max="30" min="2" oninput="updateSlider('deadzone', this.value)" step="1" type="range" value="12"/>
+<div class="flex justify-between text-[10px] font-label-data-sm text-outline">
+<span>2% (DRIFT PRONE)</span>
+<span>ESPORTS SAFE: 12%</span>
+<span>30% (WIDE)</span>
+</div>
+</div>
+<!-- Slider 3: Arc Trajectory Reticle Alpha -->
+<div class="space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm">
+<span class="text-on-surface">FLIGHT PATH GUIDE OPACITY</span>
+<span class="text-primary font-bold" id="val-alpha">85%</span>
+</div>
+<input class="w-full h-2 rounded bg-surface-container-highest appearance-none cursor-pointer accent-primary" max="100" min="20" oninput="updateSlider('alpha', this.value)" step="5" type="range" value="85"/>
+<div class="flex justify-between text-[10px] font-label-data-sm text-outline">
+<span>20% (STEALTH)</span>
+<span>HIGH CONTRAST: 85%</span>
+<span>100% (SOLID)</span>
+</div>
+</div>
+</div>
+<!-- Safe Zone & Inset Guidance -->
+<div class="p-space-md rounded-lg bg-surface-container-low space-y-space-sm">
+<span class="font-label-caps text-label-caps text-on-surface block">LANDSCAPE DISPLAY BOUNDARIES (16:9 TO 20:9)</span>
+<div class="grid grid-cols-3 gap-space-xs text-center font-label-data-sm text-label-data-sm">
+<div class="p-space-xs rounded bg-surface-container">
+<span class="text-outline block text-[10px]">CUTOUT INSET</span>
+<span class="text-primary font-semibold">48dp L/R</span>
+</div>
+<div class="p-space-xs rounded bg-surface-container">
+<span class="text-outline block text-[10px]">MIN TOUCH AREA</span>
+<span class="text-primary font-semibold">48 x 48dp</span>
+</div>
+<div class="p-space-xs rounded bg-surface-container">
+<span class="text-outline block text-[10px]">REDUCE MOTION</span>
+<span class="text-tertiary font-semibold">SHADER FALLBACK</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Camera hole punches and curved bezel corners are mathematically clamped. Buttons placed within the bottom-left and bottom-right 35% radius maintain 64dp hardware separation.</p>
+</div>
+<!-- Accessibility Toggle Switch Row -->
+<div class="flex items-center justify-between p-space-sm rounded bg-surface-container-low">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">palette</span>
+<div>
+<span class="font-title-md text-title-md text-on-surface block">Dual Color + Shape Encoding</span>
+<span class="font-body-sm text-body-sm text-outline">Enforces diamond/circle geometries on all enemy reticles for deuteranopia.</span>
+</div>
+</div>
+<button class="w-12 h-6 rounded-full bg-primary p-0.5 flex items-center justify-end transition-colors cursor-pointer" onclick="toggleSwitch(this)">
+<div class="w-5 h-5 rounded-full bg-surface-container-lowest shadow-sm"></div>
+</button>
+</div>
+</div>
+</article>
+</div>
+</main>
+<!-- BOTTOM FEASIBILITY SPECIFICATION BANNER (UNITY TEXTMESHPRO & SHADER ENGINE) -->
+<section class="w-full px-margin pb-space-xl">
+<div class="rounded-xl bg-surface-container p-space-lg shadow-xl">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md pb-space-md border-b border-surface-container-highest">
+<div>
+<div class="flex items-center gap-space-xs text-primary font-label-caps text-label-caps uppercase tracking-wider mb-1">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+<span>ENGINE IMPLEMENTATION MATRIX // UNITY 2023.2+ LTS HANDOFF</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Strict Unity TextMeshPro &amp; URP Shader Feasibility Guardrails</h3>
+</div>
+<div class="flex items-center gap-space-xs font-label-data-sm text-label-data-sm">
+<span class="px-space-sm py-space-xs rounded bg-surface-container-high text-on-surface">CANVAS RENDERER: SCREEN-SPACE OVERLAY</span>
+<span class="px-space-sm py-space-xs rounded bg-surface-container-high text-primary">SDF FONT ATLAS: 2048x2048</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md mt-space-md">
+<!-- Spec Block 1 -->
+<div class="p-space-md rounded bg-surface-container-low space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-primary block">// 01: TEXTMESHPRO EFFICIENCY</span>
+<h4 class="font-title-md text-title-md text-on-surface">Tabular Digit Atlas Allocation</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">All dynamic timer components (e.g. 180s, capture %, latency ticks) utilize monospaced font variants with fixed glyph kerning to eliminate sub-pixel UI relayout jitter.</p>
+</div>
+<!-- Spec Block 2 -->
+<div class="p-space-md rounded bg-surface-container-low space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-tertiary block">// 02: URP TRAJECTORY SHADER</span>
+<h4 class="font-title-md text-title-md text-on-surface">Procedural Dash Arc via UV Sampling</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Launch pad flight curve rendered via single draw call LineRenderer with dynamic vertex alpha and scrolling dash UV offsets in vertex shader stage.</p>
+</div>
+<!-- Spec Block 3 -->
+<div class="p-space-md rounded bg-surface-container-low space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-secondary block">// 03: ZERO GC ALLOCATION</span>
+<h4 class="font-title-md text-title-md text-on-surface">Pre-allocated Value Buffers</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">HUD string updates bypass string concatenation using <code class="font-label-data-sm text-label-data-sm text-primary">SetCharArray()</code> buffers to guarantee 0 bytes managed heap GC allocations per active frame.</p>
+</div>
+<!-- Spec Block 4 -->
+<div class="p-space-md rounded bg-surface-container-low space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-outline block">// 04: NINE-SLICE CANVAS SCALING</span>
+<h4 class="font-title-md text-title-md text-on-surface">Anchored Safe Padding</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Corner slices locked to 16px radius with non-deforming center stretch. Anchors auto-bind to Screen.safeArea insets via C# runtime anchor updater script.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- INTERACTIVE JAVASCRIPT CONTROLLER -->
+<script>
+    // Stage Selection State
+    const stageData = {
+      's07': {
+        badge: 'SCREEN 07 // LOADOUT DOCK & PRE-FLIGHT',
+        desc: '8-second freeze lockdown before launch. Operative role balancing, primary weapon attachments verification, and initial drop trajectory confirmation.'
+      },
+      's08': {
+        badge: 'SCREEN 08 // LIVE HUD ANATOMY & REGULATION',
+        desc: 'Primary gameplay viewport. 180s regulation timer, dual score tug-of-war, center line-of-sight flight crosshair, and 35% ergonomic touch radius clusters.'
+      },
+      's09': {
+        badge: 'SCREEN 09 // BALLISTIC LAUNCH PAD DYNAMICS',
+        desc: 'Ground deployable spatial mechanic. Real-time collision raycast arc projection, 16s cooldown cycle, 0.75s neutral arming window, and friend/foe landing glyphs.'
+      },
+      's10': {
+        badge: 'SCREEN 10 // MATCH SETTINGS & NON-BLOCKING OVERLAY',
+        desc: 'Live multiplayer drawer that avoids match simulation halts. Gyroscopic sensitivity, thumbstick deadzones, safe area padding, and Reduce Motion toggles.'
+      },
+      's11': {
+        badge: 'SCREEN 11 // POST-MATCH DEBRIEF & DISPLACEMENT STATS',
+        desc: 'Detailed tactical recap. Capture time attribution, total aerial launch displacement, MMR shifts, and operative performance metrics.'
+      }
+    };
+
+    function selectFlowStage(stageKey) {
+      document.querySelectorAll('.flow-step').forEach(btn => {
+        btn.classList.remove('bg-surface-container-highest', 'border', 'border-primary', 'shadow-md');
+        btn.classList.add('bg-surface-container');
+        const title = btn.querySelector('.font-title-lg');
+        if (title) title.classList.remove('text-primary');
+      });
+
+      const activeBtn = document.getElementById('btn-' + stageKey);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-surface-container');
+        activeBtn.classList.add('bg-surface-container-highest', 'shadow-md');
+        const title = activeBtn.querySelector('.font-title-lg');
+        if (title) title.classList.add('text-primary');
+      }
+
+      const data = stageData[stageKey];
+      if (data) {
+        document.getElementById('stage-badge').innerText = data.badge;
+        document.getElementById('stage-desc').innerText = data.desc;
+      }
+    }
+
+    // Trajectory Simulation Controls
+    function setTrajectoryState(state) {
+      const trajLine = document.getElementById('trajectory-line');
+      const banner = document.getElementById('traj-reason-banner');
+      const btnValid = document.getElementById('btn-traj-valid');
+      const btnInvalid = document.getElementById('btn-traj-invalid');
+
+      if (state === 'valid') {
+        trajLine.classList.remove('text-secondary');
+        trajLine.classList.add('text-primary');
+        banner.className = 'text-label-data-sm font-label-data-sm p-space-xs rounded bg-surface-container text-primary flex items-center gap-1.5';
+        banner.innerHTML = '<span class="material-symbols-outlined text-[16px]">check_circle</span><span>PLACEMENT VIABLE: FULL AZIMUTH CLEARANCE DETECTED</span>';
+        
+        btnValid.className = 'py-space-xs px-space-sm rounded bg-primary text-on-primary font-label-caps text-label-caps tracking-wider transition-all';
+        btnInvalid.className = 'py-space-xs px-space-sm rounded bg-surface-container-high text-on-surface-variant font-label-caps text-label-caps tracking-wider transition-all';
+      } else {
+        trajLine.classList.remove('text-primary');
+        trajLine.classList.add('text-secondary');
+        banner.className = 'text-label-data-sm font-label-data-sm p-space-xs rounded bg-secondary-container/40 text-secondary flex items-center gap-1.5';
+        banner.innerHTML = '<span class="material-symbols-outlined text-[16px]">cancel</span><span>INVALID TRAJECTORY: OBSTACLE INTERSECT AT +18.4M</span>';
+        
+        btnInvalid.className = 'py-space-xs px-space-sm rounded bg-secondary text-on-secondary font-label-caps text-label-caps tracking-wider transition-all';
+        btnValid.className = 'py-space-xs px-space-sm rounded bg-surface-container-high text-on-surface-variant font-label-caps text-label-caps tracking-wider transition-all';
+      }
+    }
+
+    // Slider Live Displays
+    function updateSlider(type, val) {
+      if (type === 'gyro') {
+        document.getElementById('val-gyro').innerText = parseFloat(val).toFixed(2) + 'x';
+      } else if (type === 'deadzone') {
+        document.getElementById('val-deadzone').innerText = val + '%';
+      } else if (type === 'alpha') {
+        document.getElementById('val-alpha').innerText = val + '%';
+      }
+    }
+
+    // Interactive Switch
+    function toggleSwitch(btn) {
+      const knob = btn.firstElementChild;
+      if (btn.classList.contains('bg-primary')) {
+        btn.classList.remove('bg-primary', 'justify-end');
+        btn.classList.add('bg-surface-container-highest', 'justify-start');
+      } else {
+        btn.classList.remove('bg-surface-container-highest', 'justify-start');
+        btn.classList.add('bg-primary', 'justify-end');
+      }
+    }
+
+    // Crosshair dynamic mouse follower
+    const reticleBox = document.querySelector('#flight-dot')?.parentElement;
+    const flightDot = document.getElementById('flight-dot');
+    const hudSimStatus = document.getElementById('hud-sim-status');
+
+    if (reticleBox && flightDot) {
+      reticleBox.addEventListener('mousemove', (e) => {
+        const rect = reticleBox.getBoundingClientRect();
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+        
+        // Clamp bounds
+        const clampX = Math.max(-50, Math.min(50, x));
+        const clampY = Math.max(-35, Math.min(35, y));
+        
+        flightDot.style.transform = `translate(${clampX}px, ${clampY}px)`;
+        if (hudSimStatus) {
+          hudSimStatus.innerText = `OFFSET X:${clampX > 0 ? '+' : ''}${Math.round(clampX)} Y:${clampY > 0 ? '+' : ''}${Math.round(clampY)}`;
+          hudSimStatus.classList.remove('text-primary');
+          hudSimStatus.classList.add('text-tertiary');
+        }
+      });
+
+      reticleBox.addEventListener('mouseleave', () => {
+        resetReticle();
+      });
+    }
+
+    function resetReticle() {
+      if (flightDot) {
+        flightDot.style.transform = 'translate(0px, 0px)';
+      }
+      if (hudSimStatus) {
+        hudSimStatus.innerText = 'CONVERGED // STABLE';
+        hudSimStatus.classList.remove('text-tertiary');
+        hudSimStatus.classList.add('text-primary');
+      }
+    }
+  </script>
+</div></main><footer class="w-full bg-surface-container-lowest/90 backdrop-blur-md"><div class="w-full px-margin py-space-md flex flex-wrap items-center justify-between gap-space-md text-on-surface-variant"><div class="flex items-center gap-space-md"><span class="font-label-data-sm text-label-data-sm text-outline">TARGET CANVAS 2400x1080 (20:9 SAFE)</span><span class="font-label-data-sm text-label-data-sm text-outline">// FLIGHT NOTATION ENGINE v3.4</span></div><div class="flex items-center gap-space-lg"><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SYS CLK 120 FPS</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">ENCRYPTION ACTIVE</span></div></div></footer></body></html>

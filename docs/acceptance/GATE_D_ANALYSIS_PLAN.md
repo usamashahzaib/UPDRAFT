@@ -7,7 +7,7 @@ to compute from (checked 2026-09-28: zero `.jsonl`, `.csv`, `.db`, `.sqlite`, `.
 or `.tsv` files in the repo; no `analytics_queue.jsonl`; no backend event exports).
 
 Authoritative sources for every rule below:
-- `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md` §164 (event list + mandatory fields), §166–167 (KPIs, cohort definitions), §25 (pad study measures), §13 (matchmaking/bot-fill), §24 (thresholds).
+- `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md` §164 (event list + mandatory fields), §166–167 (KPIs, cohort definitions), §25 (pad study measures), §13 (matchmaking/bot-fill), §24 (thresholds).
 - `ProjectUpdraft/MASTER_PLAN_V2.md` (phase gates, exclusions).
 - Threshold values mirrored in `ProjectUpdraft/Assets/Scripts/Config/KpiGateConfig.cs` / `Assets/Resources/Config/KpiGateConfig.asset`.
 - Telemetry schema: `ProjectUpdraft/Assets/Scripts/Core/Telemetry.cs` (`schemaVersion` 1, queue file `analytics_queue.jsonl`, `source` ∈ `client` | `offline_sim`).

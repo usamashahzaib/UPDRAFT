@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&family=JetBrains+Mono:wght@100..900&family=Space+Grotesk:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"on-secondary":"#67001b","secondary-fixed":"#ffdadb","tertiary":"#ffda88","secondary-container":"#930d2d","tertiary-fixed-dim":"#edc157","on-primary-fixed-variant":"#004f57","on-primary":"#00363c","on-surface-variant":"#bbc9cb","tertiary-fixed":"#ffdf9b","tertiary-container":"#e8bc54","outline":"#859396","surface-tint":"#38d9ec","on-secondary-container":"#ff9da4","on-tertiary-fixed-variant":"#5b4300","error":"#ffb4ab","secondary-fixed-dim":"#ffb2b7","surface-container-high":"#222a3a","surface-dim":"#0b1322","on-surface":"#dbe2f8","surface-bright":"#31394a","surface":"#0b1322","surface-container-low":"#141c2b","on-secondary-fixed":"#40000d","secondary":"#ffb2b7","inverse-primary":"#006973","on-secondary-fixed-variant":"#8f092b","background":"#0b1322","error-container":"#93000a","surface-container-highest":"#2d3545","surface-container-lowest":"#060e1d","on-tertiary-container":"#654c00","primary-fixed-dim":"#38d9ec","on-primary-fixed":"#001f23","on-background":"#dbe2f8","on-tertiary-fixed":"#251a00","surface-container":"#18202f","on-primary-container":"#005862","on-error-container":"#ffdad6","inverse-on-surface":"#293041","primary-fixed":"#93f1ff","on-tertiary":"#3f2e00","on-error":"#690005","surface-variant":"#2d3545","inverse-surface":"#dbe2f8","primary":"#7cefff","outline-variant":"#3c494b","primary-container":"#30d5e8"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-sm":"0.5rem","space-xs":"0.25rem","space-xl":"2rem","space-md":"0.75rem","margin":"1.5rem","space-lg":"1.25rem","gutter":"1rem"},"fontFamily":{"label-data-md":["JetBrains Mono"],"title-lg":["Hanken Grotesk"],"headline-xl":["Space Grotesk"],"headline-lg-mobile":["Space Grotesk"],"title-md":["Hanken Grotesk"],"headline-xl-mobile":["Space Grotesk"],"body-lg":["Hanken Grotesk"],"label-data-lg":["JetBrains Mono"],"body-sm":["Hanken Grotesk"],"label-data-sm":["JetBrains Mono"],"headline-lg":["Space Grotesk"],"label-caps":["Space Grotesk"],"headline-md":["Space Grotesk"],"body-md":["Hanken Grotesk"]},"fontSize":{"label-data-md":["14px",{"lineHeight":"18px","letterSpacing":"0.03em","fontWeight":"600"}],"title-lg":["18px",{"lineHeight":"24px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"headline-lg-mobile":["22px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"700"}],"title-md":["16px",{"lineHeight":"22px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-xl-mobile":["30px",{"lineHeight":"36px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"22px","letterSpacing":"0em","fontWeight":"400"}],"label-data-lg":["18px",{"lineHeight":"22px","letterSpacing":"0.02em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"400"}],"label-data-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.05em","fontWeight":"500"}],"headline-lg":["28px",{"lineHeight":"34px","letterSpacing":"-0.01em","fontWeight":"700"}],"label-caps":["12px",{"lineHeight":"14px","letterSpacing":"0.08em","fontWeight":"700"}],"headline-md":["20px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 w-full z-50 bg-surface-container-low/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-gutter flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md"><a class="w-10 h-10 rounded bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface transition-colors" data-path="main-hub" href="#"><span class="material-symbols-outlined text-[20px]">arrow_back</span></a><div class="flex items-center gap-space-sm"><div class="flex flex-col"><span class="font-headline-md text-headline-md tracking-wider text-primary">HOTDROP</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">AVIONICS v3.2</span></div></div><div class="hidden sm:flex items-center px-space-sm py-space-xs rounded bg-surface-container-high text-on-surface font-label-data-sm text-label-data-sm tracking-wider"><span class="w-2 h-2 rounded-full bg-primary mr-2 animate-pulse"></span>[SYS // 24MS // US-EAST]</div></div><nav class="hidden lg:flex items-center gap-space-xs px-space-xs py-space-xs bg-surface-container rounded" data-active-classes="bg-primary-container text-on-primary-container font-bold rounded"><a aria-current="page" class="px-space-md py-space-xs transition-colors bg-primary-container text-on-primary-container font-bold rounded" data-path="main-hub" href="#">OPERATIONS</a><a class="px-space-md py-space-xs font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" data-path="tactical-armory" href="#">ARMORY</a><a class="px-space-md py-space-xs font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" data-path="telemetry-stats" href="#">TELEMETRY</a><a class="px-space-md py-space-xs font-label-caps text-label-caps text-on-surface-variant hover:text-on-surface transition-colors" data-path="mission-pass" href="#">PASS</a></nav><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded"><span class="material-symbols-outlined text-tertiary text-[18px]">toll</span><span class="font-label-data-md text-label-data-md text-tertiary">12,450</span></div><div class="hidden md:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded"><span class="material-symbols-outlined text-primary text-[18px]">diamond</span><span class="font-label-data-md text-label-data-md text-primary">480</span></div><div class="hidden md:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded"><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">OP:</span><span class="font-label-data-sm text-label-data-sm text-primary uppercase">VANGUARD-01</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface"><div class="flex flex-col w-full text-on-surface">
+<!-- TOP HERO SPEC BANNER / SYSTEM CALLOUT -->
+<section class="relative w-full py-space-xl px-gutter overflow-hidden bg-surface-container-lowest">
+<div class="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-secondary-container/10 pointer-events-none"></div>
+<div class="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none"></div>
+<div class="relative z-10 flex flex-col xl:flex-row xl:items-end justify-between gap-space-lg">
+<div class="space-y-space-xs max-w-4xl">
+<div class="flex flex-wrap items-center gap-space-sm font-label-data-sm text-label-data-sm">
+<span class="px-space-sm py-space-xs rounded bg-primary-container text-on-primary-container font-bold uppercase tracking-wider">DS-REV-2024.11</span>
+<span class="px-space-sm py-space-xs rounded bg-surface-container-high text-primary tracking-widest">[UNITY 2023 LTS // URP // TEXTMESHPRO NATIVE]</span>
+<span class="text-on-surface-variant flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+            CANVAS BASE: 2400×1080 (20:9 LANDSCAPE SAFE)
+          </span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight uppercase">
+          AEROSPACE UTILITY SPORT <span class="text-primary font-light">//</span> MASTER SPEC CANVAS
+        </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+          Operational telemetry and visual token architecture for HOTDROP 3v3 landscape arena. Calibrated for instant peripheral readability, dual-thumb touch quadrant compliance, and deterministic high-contrast states across OLED mobile hardware.
+        </p>
+</div>
+<div class="flex flex-wrap items-center gap-space-sm bg-surface-container-low p-space-sm rounded-lg shadow-sm">
+<div class="px-space-md py-space-xs rounded bg-surface-container">
+<span class="font-label-caps text-label-caps text-on-surface-variant block uppercase">Render Pipeline</span>
+<span class="font-label-data-md text-label-data-md text-primary">URP v15.0.8</span>
+</div>
+<div class="px-space-md py-space-xs rounded bg-surface-container">
+<span class="font-label-caps text-label-caps text-on-surface-variant block uppercase">Font Engine</span>
+<span class="font-label-data-md text-label-data-md text-tertiary">TMP Dynamic SDF</span>
+</div>
+<div class="px-space-md py-space-xs rounded bg-surface-container">
+<span class="font-label-caps text-label-caps text-on-surface-variant block uppercase">Touch Target Min</span>
+<span class="font-label-data-md text-label-data-md text-on-surface">48×48 DP</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 1: SEMANTIC COLOR TOKENS & COLOR-PLUS-SHAPE ENFORCEMENT -->
+<section class="py-space-xl px-gutter space-y-space-lg">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-xs">
+<div>
+<div class="flex items-center gap-2 font-label-data-sm text-label-data-sm text-primary uppercase tracking-widest">
+<span>01.0 // FOUNDATIONAL SPECTRUM</span>
+<span>——/——></span>
+</div>
+<h2 class="font-headline-lg text-headline-lg tracking-wide uppercase">Semantic Color Tokens & Color-Plus-Shape Rules</h2>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-lg">
+        To prevent misinterpretation during rapid camera pans and high-G maneuvers, all critical friend-or-foe telemetry binds color with a dedicated geometric anchor.
+      </p>
+</div>
+<!-- Color Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<!-- Primary Cyan Token -->
+<div class="bg-surface-container-high rounded-xl p-space-md flex flex-col justify-between shadow-md space-y-space-md">
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-primary px-space-xs py-0.5 rounded bg-primary/10">FRIENDLY // ACTIVE</span>
+<div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-primary">trip_origin</span>
+</div>
+</div>
+<div class="h-20 w-full rounded-lg bg-primary-container flex items-end p-space-sm shadow-inner">
+<span class="font-label-data-lg text-label-data-lg text-on-primary font-bold">#30D5E8</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface pt-space-xs">Primary Cyan + Ring Motif</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Represents friendly flight paths, allied shield status, confirmed locks, and player-held zone nodes.
+          </p>
+</div>
+<div class="pt-space-xs bg-surface-container-lowest p-space-sm rounded space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>WCAG AAA (Surface)</span>
+<span class="text-primary font-bold">9.8:1</span>
+</div>
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>Shape Anchor</span>
+<span class="text-on-surface font-mono">Concentric Ring (○)</span>
+</div>
+</div>
+</div>
+<!-- Danger Coral Token -->
+<div class="bg-surface-container-high rounded-xl p-space-md flex flex-col justify-between shadow-md space-y-space-md">
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-secondary px-space-xs py-0.5 rounded bg-secondary/10">HOSTILE // HAZARD</span>
+<div class="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-secondary">close</span>
+</div>
+</div>
+<div class="h-20 w-full rounded-lg bg-secondary-container flex items-end p-space-sm shadow-inner">
+<span class="font-label-data-lg text-label-data-lg text-on-secondary font-bold">#FF6376</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface pt-space-xs">Danger Coral + Chevron Motif</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Identifies hostile tracking arcs, incoming drop missiles, contested zones, and sub-20% health/fuel alerts.
+          </p>
+</div>
+<div class="pt-space-xs bg-surface-container-lowest p-space-sm rounded space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>WCAG AA (Surface)</span>
+<span class="text-secondary font-bold">5.4:1</span>
+</div>
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>Shape Anchor</span>
+<span class="text-on-surface font-mono">Split Chevron / Cross (✕)</span>
+</div>
+</div>
+</div>
+<!-- Reward Gold Token -->
+<div class="bg-surface-container-high rounded-xl p-space-md flex flex-col justify-between shadow-md space-y-space-md">
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-tertiary px-space-xs py-0.5 rounded bg-tertiary/10">MISSION // MEDAL</span>
+<div class="w-6 h-6 rounded-full bg-tertiary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-tertiary">star</span>
+</div>
+</div>
+<div class="h-20 w-full rounded-lg bg-tertiary-container flex items-end p-space-sm shadow-inner">
+<span class="font-label-data-lg text-label-data-lg text-on-tertiary font-bold">#FFD166</span>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface pt-space-xs">Reward Gold + Star Anchor</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Flags primary contracts, neutral flight seals, bonus capture multipliers, and mastery progression.
+          </p>
+</div>
+<div class="pt-space-xs bg-surface-container-lowest p-space-sm rounded space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>WCAG AAA (Surface)</span>
+<span class="text-tertiary font-bold">11.2:1</span>
+</div>
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>Shape Anchor</span>
+<span class="text-on-surface font-mono">Chamfered Star (★)</span>
+</div>
+</div>
+</div>
+<!-- Anodized Alloy Substrate -->
+<div class="bg-surface-container-high rounded-xl p-space-md flex flex-col justify-between shadow-md space-y-space-md">
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant px-space-xs py-0.5 rounded bg-surface-container-lowest">SURFACES // SUBSTRATE</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">layers</span>
+</div>
+<div class="grid grid-cols-3 gap-1 h-20 rounded-lg overflow-hidden">
+<div class="bg-surface-container-lowest flex items-end p-1 font-label-data-sm text-label-data-sm text-on-surface-variant">#0B1322</div>
+<div class="bg-surface-container flex items-end p-1 font-label-data-sm text-label-data-sm text-on-surface-variant">#18202F</div>
+<div class="bg-surface-container-highest flex items-end p-1 font-label-data-sm text-label-data-sm text-on-surface-variant">#2D3545</div>
+</div>
+<h3 class="font-title-lg text-title-lg text-on-surface pt-space-xs">Structural Tiering</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Panel depth achieved purely through matte alloy luminance graduation. No muddy drop shadows or heavy blur overhead.
+          </p>
+</div>
+<div class="pt-space-xs bg-surface-container-lowest p-space-sm rounded space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>Panel Frame</span>
+<span class="text-on-surface font-mono">Structural 1px #49627B</span>
+</div>
+<div class="flex justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>Text Tokens</span>
+<span class="text-on-surface font-mono">#F4F7FB / #BBC9CB</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: TYPOGRAPHY, TABULAR NUMERICS & TMP METRICS -->
+<section class="py-space-xl px-gutter bg-surface-container-low">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-xs mb-space-lg">
+<div>
+<div class="flex items-center gap-2 font-label-data-sm text-label-data-sm text-primary uppercase tracking-widest">
+<span>02.0 // TEXTMESHPPRO METRICS</span>
+<span>——/——></span>
+</div>
+<h2 class="font-headline-lg text-headline-lg uppercase">Typography & Tabular Telemetry Matrix</h2>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">FONT ATLAS: 4096×4096 DYNAMIC SDF WITH 8-BIT GRADIENT PACK</span>
+</div>
+<!-- Typography Grid Bento -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Space Grotesk Display -->
+<div class="bg-surface-container rounded-xl p-space-lg flex flex-col justify-between shadow-sm">
+<div class="space-y-space-md">
+<div class="flex items-center justify-between pb-space-sm bg-surface-container-high/40 p-space-sm rounded">
+<span class="font-label-caps text-label-caps text-primary uppercase">ROLE: DISPLAY / TITLES</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SPACE GROTESK</span>
+</div>
+<div class="space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">Headline XL (40px/48px)</span>
+<div class="font-headline-xl text-headline-xl tracking-tight uppercase leading-none">HOTDROP V3</div>
+</div>
+<div class="space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">Headline MD (20px/26px)</span>
+<div class="font-headline-md text-headline-md uppercase">ZONE DELTA CAPTURED</div>
+</div>
+<div class="space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">Label Caps (12px/14px + 0.08em tracking)</span>
+<div class="font-label-caps text-label-caps text-primary">MISSION CLUSTER // OVERTIME PROTOCOL</div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm bg-surface-container-lowest p-space-sm rounded font-label-data-sm text-label-data-sm text-on-surface-variant">
+          Strictly used for short athletic verbs, operational calls, operator names, and round transitions.
+        </div>
+</div>
+<!-- Hanken Grotesk Body & UI -->
+<div class="bg-surface-container rounded-xl p-space-lg flex flex-col justify-between shadow-sm">
+<div class="space-y-space-md">
+<div class="flex items-center justify-between pb-space-sm bg-surface-container-high/40 p-space-sm rounded">
+<span class="font-label-caps text-label-caps text-tertiary uppercase">ROLE: SYSTEM & OPERATIVE BIO</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">HANKEN GROTESK</span>
+</div>
+<div class="space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">Title LG (18px/24px)</span>
+<div class="font-title-lg text-title-lg">Vanguard Aerial Maneuver Unit</div>
+</div>
+<div class="space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">Body LG (16px/22px)</span>
+<p class="font-body-lg text-body-lg text-on-surface-variant">
+              Deployable micro-thrusters enable instantaneous horizontal repositioning across rooftops.
+            </p>
+</div>
+<div class="space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">Body SM (12px/16px)</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Notice: Sustained thruster burn beyond 3.2s triggers heat dissipation lockdown cycle.
+            </p>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm bg-surface-container-lowest p-space-sm rounded font-label-data-sm text-label-data-sm text-on-surface-variant">
+          Open geometric counters optimized for extreme rapid comprehension at 45° viewing angles on OLED screens.
+        </div>
+</div>
+<!-- JetBrains Mono Tabular Numerics -->
+<div class="bg-surface-container rounded-xl p-space-lg flex flex-col justify-between shadow-sm">
+<div class="space-y-space-md">
+<div class="flex items-center justify-between pb-space-sm bg-surface-container-high/40 p-space-sm rounded">
+<span class="font-label-caps text-label-caps text-primary uppercase">ROLE: TELEMETRY & CLOCK</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">JETBRAINS MONO</span>
+</div>
+<!-- Tabular Demonstration -->
+<div class="bg-surface-container-lowest p-space-sm rounded-lg space-y-2">
+<div class="flex items-center justify-between font-label-data-lg text-label-data-lg">
+<span class="text-on-surface-variant">ROUND CLOCK</span>
+<span class="text-primary font-bold tracking-widest">02:44.89</span>
+</div>
+<div class="flex items-center justify-between font-label-data-md text-label-data-md">
+<span class="text-on-surface-variant">AMMO LOAD</span>
+<span class="text-tertiary">36 <span class="text-on-surface-variant">/ 180</span></span>
+</div>
+<div class="flex items-center justify-between font-label-data-sm text-label-data-sm">
+<span class="text-on-surface-variant">ALTITUDE // VELOCITY</span>
+<span class="text-on-surface font-semibold">142M // 88KTS</span>
+</div>
+<div class="flex items-center justify-between font-label-data-sm text-label-data-sm">
+<span class="text-on-surface-variant">PACKET JITTER</span>
+<span class="text-primary">1.2MS [ZERO DROP]</span>
+</div>
+</div>
+<div class="space-y-1">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">Character Width Verification</span>
+<div class="font-label-data-sm text-label-data-sm bg-surface-container-high p-space-xs rounded text-center tracking-widest text-on-surface font-mono">
+              0123456789 +-/*:.,()[]#
+            </div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm bg-surface-container-lowest p-space-sm rounded font-label-data-sm text-label-data-sm text-on-surface-variant">
+          Fixed-width alignment prevents layout shift during live sub-second score ticking and cooldown updates.
+        </div>
+</div>
+</div>
+</section>
+<!-- SECTION 3: COMPONENT STATES & UNITY NOMENCLATURE SPEC -->
+<section class="py-space-xl px-gutter space-y-space-lg">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-xs">
+<div>
+<div class="flex items-center gap-2 font-label-data-sm text-label-data-sm text-primary uppercase tracking-widest">
+<span>03.0 // UNITY C# PREFAB SPECIFICATION</span>
+<span>——/——></span>
+</div>
+<h2 class="font-headline-lg text-headline-lg uppercase">Component States & Operational Assemblies</h2>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">PREFAB ANCHOR: HOTDROP/UI/CORE_CONTROLS</span>
+</div>
+<!-- Primary & Secondary Button Matrix -->
+<div class="bg-surface-container rounded-xl p-space-lg space-y-space-md">
+<div class="flex items-center justify-between">
+<h3 class="font-title-lg text-title-lg uppercase tracking-wide">Interactive Button Archetypes</h3>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">[POINTER_DOWN / ON_SUBMIT SPEC]</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-space-md">
+<!-- Button Default -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Button/Primary (Default)</span>
+<button class="w-full h-[52px] rounded-lg bg-primary-container text-on-primary font-headline-md text-headline-md flex items-center justify-center gap-2 hover:opacity-95 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
+            DEPLOY
+          </button>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">State: Idle / Hoverable</div>
+</div>
+<!-- Button Hover/Focused -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<span class="font-label-caps text-label-caps text-primary uppercase">Button/Primary (Focused)</span>
+<button class="w-full h-[52px] rounded-lg bg-primary-container text-on-primary font-headline-md text-headline-md flex items-center justify-center gap-2 shadow-[0_0_16px_rgba(48,213,232,0.4)]">
+<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
+            DEPLOY
+          </button>
+<div class="font-label-data-sm text-label-data-sm text-primary">State: Edge Reticle Glow Active</div>
+</div>
+<!-- Button Pressed -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Button/Primary (Pressed)</span>
+<button class="w-full h-[52px] rounded-lg bg-on-primary-container text-primary font-headline-md text-headline-md flex items-center justify-center gap-2 translate-y-0.5">
+<span class="material-symbols-outlined text-[20px]">rocket_launch</span>
+            DEPLOY
+          </button>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">State: 2dp Inset Shift</div>
+</div>
+<!-- Button Loading -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Button/Primary (Loading)</span>
+<button class="w-full h-[52px] rounded-lg bg-primary-container/80 text-on-primary font-headline-md text-headline-md flex items-center justify-center gap-2 cursor-wait">
+<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+            LOCKING...
+          </button>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">State: Async Mesh Spin</div>
+</div>
+<!-- Button Disabled -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Button/Primary (Disabled)</span>
+<button class="w-full h-[52px] rounded-lg bg-surface-container-highest text-outline font-headline-md text-headline-md flex items-center justify-center gap-2 cursor-not-allowed opacity-50" disabled="">
+<span class="material-symbols-outlined text-[20px]">block</span>
+            OFFLINE
+          </button>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">State: Raycast Disabled</div>
+</div>
+</div>
+<!-- Secondary & Destructive Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md pt-space-xs">
+<!-- Button Secondary -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Button/Secondary (Utility Loadout)</span>
+<button class="w-full h-[52px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-title-md text-title-md flex items-center justify-between px-space-md transition-colors">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">tune</span>
+              LOADOUT SPEC // CHARGE-B
+            </span>
+<span class="font-label-data-sm text-label-data-sm text-primary">EDIT</span>
+</button>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">Elevated alloy fill with tactical glyph</div>
+</div>
+<!-- Button Destructive Hold Confirmation -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-secondary uppercase">Button/DestructiveHold</span>
+<span class="font-label-data-sm text-label-data-sm text-secondary">HOLD [3.0S]</span>
+</div>
+<div class="relative w-full h-[52px] rounded-lg bg-secondary-container/30 overflow-hidden flex items-center px-space-md justify-between">
+<div class="absolute inset-y-0 left-0 bg-secondary-container w-[45%] transition-all"></div>
+<span class="relative z-10 font-headline-md text-headline-md text-secondary flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+              ABORT MATCH
+            </span>
+<span class="relative z-10 font-label-data-sm text-label-data-sm text-secondary font-bold">1.4S</span>
+</div>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">Prevent accidental thumb drops during combat</div>
+</div>
+<!-- PadAction Launch Transformation -->
+<div class="bg-surface-container-low p-space-sm rounded-lg space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-tertiary uppercase">HUD/PadAction Morph</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">[IN-RANGE // LAUNCH]</span>
+</div>
+<button class="w-full h-[52px] rounded-lg bg-gradient-to-r from-tertiary-container to-primary-container text-on-primary font-headline-md text-headline-md flex items-center justify-center gap-2 animate-pulse">
+<span class="material-symbols-outlined text-[22px]">keyboard_double_arrow_up</span>
+            SUPER JUMP // CATAPULT
+          </button>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">Transforms dynamically from Jump -> Catapult</div>
+</div>
+</div>
+</div>
+<!-- Contract Cards Specification -->
+<div class="space-y-space-md">
+<div class="flex items-center justify-between">
+<h3 class="font-title-lg text-title-lg uppercase tracking-wide">Card/Contract Modules (In-Match Objectives)</h3>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">NINE-SLICE CANVAS SLICING: 16PX CORNERS</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Card 1: Hold the Relay -->
+<div class="bg-surface-container-high rounded-xl p-space-md space-y-space-md shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-primary/10 text-primary font-label-caps text-label-caps">OBJ-01 // TACTICAL HOLD</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary font-bold">+250 PTS</span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface">HOLD THE ROOFTOP RELAY</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+              Maintain sole squad occupancy of North Antenna platform for 45 continuous seconds.
+            </p>
+</div>
+<!-- Progress visualization -->
+<div class="space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm">
+<span class="text-on-surface-variant">SQUAD INTEGRITY</span>
+<span class="text-primary font-bold">32s / 45s (71%)</span>
+</div>
+<div class="w-full h-2 rounded bg-surface-container-lowest overflow-hidden flex">
+<div class="bg-primary h-full w-[71%] rounded-sm"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-primary"></span> SECURED</span>
+<span>GRID: NORTH-08</span>
+</div>
+</div>
+<!-- Card 2: Finish Together (Contested) -->
+<div class="bg-surface-container-high rounded-xl p-space-md space-y-space-md shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-secondary/10 text-secondary font-label-caps text-label-caps flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+              OBJ-02 // CONTESTED
+            </span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary font-bold">+500 PTS</span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface">FINISH TOGETHER</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+              Extract all 3 operatives onto the VTOL helipad simultaneously within a 4-second flight window.
+            </p>
+</div>
+<!-- Progress visualization -->
+<div class="space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm">
+<span class="text-secondary font-bold">HOSTILE INTERCEPT ACTIVE</span>
+<span class="text-secondary font-bold">2/3 OPERATIVES</span>
+</div>
+<div class="w-full h-2 rounded bg-surface-container-lowest overflow-hidden flex">
+<div class="bg-primary h-full w-[66%]"></div>
+<div class="bg-secondary h-full w-[34%] animate-pulse"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span class="text-secondary flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-secondary"></span> 1 ENEMY ON PAD</span>
+<span>VTOL ARRIVING: 00:12</span>
+</div>
+</div>
+<!-- Card 3: Build a Team Route -->
+<div class="bg-surface-container-high rounded-xl p-space-md space-y-space-md shadow-md">
+<div class="flex items-center justify-between">
+<span class="px-space-xs py-0.5 rounded bg-tertiary/10 text-tertiary font-label-caps text-label-caps">OBJ-03 // AERONAUTICAL</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary font-bold">+350 PTS</span>
+</div>
+<div>
+<h4 class="font-headline-md text-headline-md text-on-surface">BUILD A TEAM ROUTE</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+              Link consecutive zip-glides across 4 sky-bridges without any operative touching lower street deck.
+            </p>
+</div>
+<!-- Progress visualization -->
+<div class="space-y-1">
+<div class="flex justify-between font-label-data-sm text-label-data-sm">
+<span class="text-on-surface-variant">WAYPOINTS LINKED</span>
+<span class="text-tertiary font-bold">3 of 4 LINKED</span>
+</div>
+<div class="w-full h-2 rounded bg-surface-container-lowest overflow-hidden flex gap-1">
+<div class="bg-tertiary h-full w-1/4 rounded-sm"></div>
+<div class="bg-tertiary h-full w-1/4 rounded-sm"></div>
+<div class="bg-tertiary h-full w-1/4 rounded-sm"></div>
+<div class="bg-surface-container-highest h-full w-1/4 rounded-sm"></div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-xs font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span class="text-tertiary">SEAL MULTIPLIER: 1.5×</span>
+<span>SKYBRIDGE-WEST</span>
+</div>
+</div>
+</div>
+</div>
+<!-- HUD Objective Status Indicators & Dialog Recovery Safe -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Tug of war & Zone Status Modules -->
+<div class="bg-surface-container rounded-xl p-space-lg space-y-space-md shadow-sm">
+<h3 class="font-title-lg text-title-lg uppercase">HUD/ObjectiveStatus // 3v3 Tug-of-War Bar</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          Real-time capture meter indicating territorial dominance. Cyan advances left-to-right; Coral advances right-to-left.
+        </p>
+<!-- Segmented 3v3 tug-of-war meter -->
+<div class="space-y-2 bg-surface-container-low p-space-md rounded-lg">
+<div class="flex justify-between font-label-data-md text-label-data-md font-bold">
+<span class="text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">shield</span>
+              BLUE WING [64%]
+            </span>
+<span class="text-tertiary font-mono">ZONE BRAVO</span>
+<span class="text-secondary flex items-center gap-1">
+              RED WING [36%]
+              <span class="material-symbols-outlined text-[18px]">file_download_done</span>
+</span>
+</div>
+<div class="relative w-full h-6 rounded bg-surface-container-lowest overflow-hidden flex">
+<!-- Blue progress -->
+<div class="bg-primary h-full w-[64%] flex items-center justify-start px-2 font-label-data-sm text-label-data-sm text-on-primary font-bold">
+              DOMINANT
+            </div>
+<!-- Neutral Divider indicator -->
+<div class="w-1 h-full bg-tertiary z-10"></div>
+<!-- Red progress -->
+<div class="bg-secondary-container h-full w-[36%] flex items-center justify-end px-2 font-label-data-sm text-label-data-sm text-on-secondary font-bold">
+              CONTESTING
+            </div>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>LOCK CAPTURE IN: 00:08</span>
+<span>CONTEST RATE: -1.4%/SEC</span>
+</div>
+</div>
+<!-- Crosshair Spread Calibration states -->
+<div class="pt-space-xs space-y-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Dynamic Crosshair Reticle States (TMP SDF / Shader)</span>
+<div class="grid grid-cols-4 gap-2 text-center">
+<div class="bg-surface-container-low p-2 rounded flex flex-col items-center justify-center space-y-1">
+<svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 32 32">
+<circle cx="16" cy="16" r="4" stroke-dasharray="2 2"></circle>
+<line x1="16" x2="16" y1="2" y2="8"></line>
+<line x1="16" x2="16" y1="24" y2="30"></line>
+<line x1="2" x2="8" y1="16" y2="16"></line>
+<line x1="24" x2="30" y1="16" y2="16"></line>
+</svg>
+<span class="font-label-data-sm text-label-data-sm text-on-surface">STABLE</span>
+</div>
+<div class="bg-surface-container-low p-2 rounded flex flex-col items-center justify-center space-y-1">
+<svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 32 32">
+<circle cx="16" cy="16" r="9" stroke-dasharray="3 3"></circle>
+<line x1="16" x2="16" y1="1" y2="5"></line>
+<line x1="16" x2="16" y1="27" y2="31"></line>
+<line x1="1" x2="5" y1="16" y2="16"></line>
+<line x1="27" x2="31" y1="16" y2="16"></line>
+</svg>
+<span class="font-label-data-sm text-label-data-sm text-on-surface">SPRINTING</span>
+</div>
+<div class="bg-surface-container-low p-2 rounded flex flex-col items-center justify-center space-y-1">
+<svg class="w-8 h-8 text-tertiary" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 32 32">
+<circle cx="16" cy="16" r="12" stroke-dasharray="4 2"></circle>
+<path d="M12 8 L16 4 L20 8"></path>
+<path d="M12 24 L16 28 L20 24"></path>
+</svg>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">AIRBORNE</span>
+</div>
+<div class="bg-surface-container-low p-2 rounded flex flex-col items-center justify-center space-y-1">
+<svg class="w-8 h-8 text-secondary" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 32 32">
+<line x1="8" x2="24" y1="8" y2="24"></line>
+<line x1="24" x2="8" y1="8" y2="24"></line>
+</svg>
+<span class="font-label-data-sm text-label-data-sm text-secondary">BLOCKED</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Two-Step Destructive Confirmation Safe Dialog -->
+<div class="bg-surface-container rounded-xl p-space-lg space-y-space-md shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-space-sm">
+<span class="px-space-xs py-0.5 rounded bg-secondary-container text-on-secondary font-label-caps text-label-caps font-bold">
+              MODAL // TWO-STEP RECOVERY SAFE
+            </span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SAFETY LEVEL: CRITICAL</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface">DISBAND SQUAD & FORFEIT STREAK?</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">
+            You are the Squad Commander. Disbanding will immediately award match forfeit points to the opposing team and consume 150 Competitive MMR Shield credits.
+          </p>
+</div>
+<div class="bg-surface-container-low p-space-md rounded-lg space-y-space-md">
+<div class="flex items-center gap-space-sm text-secondary font-label-data-sm text-label-data-sm">
+<span class="material-symbols-outlined text-[20px]">shield_with_heart</span>
+<span>MMR SHIELD PROTECTION WILL BE REVOKED FOR 24 HOURS</span>
+</div>
+<div class="flex flex-col sm:flex-row items-center gap-space-sm">
+<button class="w-full sm:w-1/2 h-[48px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-title-md text-title-md">
+              CANCEL SAFELY
+            </button>
+<button class="w-full sm:w-1/2 h-[48px] rounded-lg bg-secondary-container hover:bg-on-secondary-container text-on-secondary font-headline-md text-headline-md flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">delete_forever</span>
+              CONFIRM FORFEIT
+            </button>
+</div>
+</div>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant flex items-center justify-between">
+<span>ESCAPE KEY / ANDROID BACK TRAPS MODAL</span>
+<span class="text-primary">FOCUSED: CANCEL (SAFE DEFAULT)</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 4: HUD ERGONOMICS, TOUCH CLUSTERS & SAFE ZONES -->
+<section class="py-space-xl px-gutter bg-surface-container-lowest space-y-space-lg">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-xs">
+<div>
+<div class="flex items-center gap-2 font-label-data-sm text-label-data-sm text-primary uppercase tracking-widest">
+<span>04.0 // ERGONOMIC SURFACE CANVAS</span>
+<span>——/——></span>
+</div>
+<h2 class="font-headline-lg text-headline-lg uppercase">Touch Ergonomics, Safe Zones & Accessibility</h2>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">DYNAMIC SAFE BOUNDARY: 48DP LATERAL / NOTCH INSETS</span>
+</div>
+<!-- 2400x1080 Interactive Simulated Landscape Frame -->
+<div class="relative w-full rounded-2xl bg-surface-container-low overflow-hidden shadow-2xl p-space-md sm:p-space-lg">
+<div class="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-surface-container-lowest/60 pointer-events-none"></div>
+<!-- Safe Area Frame Guide Overlay -->
+<div class="relative z-10 w-full flex flex-col justify-between min-h-[460px]">
+<!-- Top HUD Banner (Score, Latency, Objective Line-of-sight) -->
+<div class="flex items-center justify-between w-full bg-surface-container-high/80 backdrop-blur-md p-space-sm rounded-lg shadow">
+<!-- Left Status (Friendly Squad) -->
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded bg-primary-container text-on-primary font-label-data-sm text-label-data-sm flex items-center justify-center font-bold">
+              3v3
+            </div>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-primary">ALLIED SQUAD: ALPHA</span>
+<div class="flex gap-1">
+<span class="w-5 h-1.5 rounded-full bg-primary"></span>
+<span class="w-5 h-1.5 rounded-full bg-primary"></span>
+<span class="w-5 h-1.5 rounded-full bg-primary/40"></span>
+</div>
+</div>
+</div>
+<!-- Passive Center: Objective Header -->
+<div class="flex flex-col items-center">
+<div class="font-label-caps text-label-caps text-tertiary">OVERTIME STAGE // CAPTURE RETICLE</div>
+<div class="font-label-data-lg text-label-data-lg font-bold text-on-surface tracking-wider">01:14.20</div>
+</div>
+<!-- Right Status (Hostile Squad) -->
+<div class="flex items-center gap-space-sm text-right">
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-secondary">OPPOSING SQUAD: OMEGA</span>
+<div class="flex gap-1">
+<span class="w-5 h-1.5 rounded-full bg-secondary"></span>
+<span class="w-5 h-1.5 rounded-full bg-secondary"></span>
+<span class="w-5 h-1.5 rounded-full bg-secondary"></span>
+</div>
+</div>
+<div class="w-8 h-8 rounded bg-secondary-container text-on-secondary font-label-data-sm text-label-data-sm flex items-center justify-center font-bold">
+              3/3
+            </div>
+</div>
+</div>
+<!-- Center Viewport (Passive Crosshair / Horizon Reticle) -->
+<div class="my-auto flex flex-col items-center justify-center py- space-y-2 pointer-events-none">
+<div class="relative w-24 h-24 flex items-center justify-center">
+<!-- Flight Reticle Ring -->
+<div class="absolute inset-0 rounded-full border-2 border-primary/40 border-dashed animate-[spin_10s_linear_infinite]"></div>
+<div class="w-12 h-12 rounded-full border border-primary flex items-center justify-center">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+</div>
+<!-- Horizon ticks -->
+<div class="absolute -left-4 w-3 h-0.5 bg-primary/60"></div>
+<div class="absolute -right-4 w-3 h-0.5 bg-primary/60"></div>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant tracking-widest bg-surface-container-high/60 px-2 py-0.5 rounded">
+            ALT: 218M // HEADING: 042° NE
+          </span>
+</div>
+<!-- Bottom Dual-Thumb Ergonomic Clusters -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-lg w-full pt-space-md">
+<!-- LEFT THUMB ARC CLUSTER (Movement, Ping, Tactical Stance) -->
+<div class="bg-surface-container-high/70 backdrop-blur-md p-space-md rounded-xl space-y-space-sm">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-primary">
+<span>LEFT THUMB ARC (35% RADIUS)</span>
+<span class="text-on-surface-variant font-mono">X: 0..840px</span>
+</div>
+<div class="flex items-center gap-space-md">
+<!-- Analog Stick Anchor -->
+<div class="w-20 h-20 rounded-full bg-surface-container-lowest flex items-center justify-center shadow-inner relative">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center shadow">
+<span class="material-symbols-outlined text-[20px] text-on-primary">north_east</span>
+</div>
+</div>
+<div class="flex-1 space-y-2">
+<button class="w-full h-[48px] rounded-lg bg-surface-container text-on-surface font-title-md text-title-md flex items-center justify-center gap-2 hover:bg-surface-container-highest">
+<span class="material-symbols-outlined text-[18px] text-primary">radar</span>
+                  TACTICAL PING DIAL
+                </button>
+<div class="flex gap-2 font-label-data-sm text-label-data-sm">
+<span class="px-2 py-1 rounded bg-surface-container text-on-surface flex-1 text-center">CROUCH</span>
+<span class="px-2 py-1 rounded bg-surface-container text-on-surface flex-1 text-center">VAULT</span>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT THUMB ARC CLUSTER (Primary Fire, Ultimate, Thrusters) -->
+<div class="bg-surface-container-high/70 backdrop-blur-md p-space-md rounded-xl space-y-space-sm">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-tertiary">
+<span class="text-on-surface-variant font-mono">X: 1560..2400px</span>
+<span>RIGHT THUMB ARC (35% RADIUS)</span>
+</div>
+<div class="flex items-center justify-between gap-space-sm">
+<!-- Secondary Tactical -->
+<button class="w-16 h-16 rounded-xl bg-surface-container hover:bg-surface-container-highest flex flex-col items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[20px] text-primary">flight_takeoff</span>
+<span class="font-label-data-sm text-label-data-sm">GLIDE</span>
+</button>
+<!-- Ultimate Trigger -->
+<button class="w-18 h-18 px-3 py-2 rounded-xl bg-tertiary-container hover:opacity-90 flex flex-col items-center justify-center text-on-tertiary shadow-lg">
+<span class="material-symbols-outlined text-[24px]">electric_bolt</span>
+<span class="font-label-caps text-label-caps uppercase">OVERCHARGE</span>
+</button>
+<!-- Primary Trigger Button (Large) -->
+<button class="flex-1 h-16 rounded-xl bg-secondary-container hover:opacity-95 text-on-secondary font-headline-md text-headline-md flex items-center justify-center gap-2 shadow-lg">
+<span class="material-symbols-outlined text-[24px]">flash_on</span>
+                PRIMARY FIRE
+              </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Resilience, Accessibility & Localization Table -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter pt-space-md">
+<!-- Safe Area Insets -->
+<div class="bg-surface-container rounded-xl p-space-md space-y-space-xs shadow-sm">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-[20px]">aspect_ratio</span>
+<h4 class="font-title-md text-title-md uppercase">Hardware Inset Matrix</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          Automated Canvas Scaler supports 16:9, 18:9, 19.5:9 (iPhone Dynamic Island / Notch) and 20:9 (Galaxy Punch Hole) without critical HUD truncation.
+        </p>
+<div class="pt-2 font-label-data-sm text-label-data-sm text-on-surface font-mono">
+          CANVAS_PADDING_X: MAX(48px, SAFE_AREA_LEFT)
+        </div>
+</div>
+<!-- Localization Buffer (+30%) -->
+<div class="bg-surface-container rounded-xl p-space-md space-y-space-xs shadow-sm">
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-[20px]">translate</span>
+<h4 class="font-title-md text-title-md uppercase">+30% Text Expansion</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          TextMeshPro auto-sizing constraints reserve 30% horizontal expansion buffers for German, French, and Russian verb structures without button height blowout.
+        </p>
+<div class="pt-2 font-label-data-sm text-label-data-sm text-on-surface font-mono">
+          TMP_AUTO_SIZE: MIN 11PT / MAX 18PT
+        </div>
+</div>
+<!-- Reduce Motion Fallback -->
+<div class="bg-surface-container rounded-xl p-space-md space-y-space-xs shadow-sm">
+<div class="flex items-center gap-2 text-secondary">
+<span class="material-symbols-outlined text-[20px]">accessibility</span>
+<h4 class="font-title-md text-title-md uppercase">Motion Sensitivity Fallback</h4>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          When <code class="text-primary font-mono">SystemInfo.accessibilitySettings</code> detects Reduced Motion, parallax horizon tilting and screen shake disable immediately into discrete alpha fades.
+        </p>
+<div class="pt-2 font-label-data-sm text-label-data-sm text-on-surface font-mono">
+          CAMERA_SHAKE_AMP: 0.0 // FADE_T: 120MS
+        </div>
+</div>
+</div>
+</section>
+</div></main><footer class="w-full bg-surface-container-lowest py-space-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="w-full px-gutter flex flex-col md:flex-row items-center justify-between gap-space-md"><div class="flex items-center gap-space-md"><span class="font-headline-md text-headline-md text-primary">HOTDROP</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">3V3 ULTRA-WIDE TACTICAL ARENA</span></div><div class="flex items-center gap-space-lg font-label-data-sm text-label-data-sm text-on-surface-variant"><span class="text-on-surface-variant">SECURE PROTOCOL ENGAGED</span><span class="text-primary">NODE: US-EAST-04</span><span>LATENCY: 24MS</span></div></div></footer></body></html>

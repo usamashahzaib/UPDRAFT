@@ -6,24 +6,24 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: updraft
-      POSTGRES_USER: updraft
+      POSTGRES_DB: hotdrop
+      POSTGRES_USER: hotdrop
       POSTGRES_PASSWORD: CHANGE_ME_LOCAL_DEV_ONLY
     ports:
       - "5432:5432"
     volumes:
-      - updraft_pgdata:/var/lib/postgresql/data
+      - hotdrop_pgdata:/var/lib/postgresql/data
 
   backend:
     build:
       context: .
-      dockerfile: Backend/UpdraftBackend/Dockerfile
+      dockerfile: Backend/HotdropBackend/Dockerfile
     depends_on:
       - postgres
     environment:
-      ConnectionStrings__Postgres: "Host=postgres;Database=updraft;Username=updraft;Password=CHANGE_ME_LOCAL_DEV_ONLY"
+      ConnectionStrings__Postgres: "Host=postgres;Database=hotdrop;Username=hotdrop;Password=CHANGE_ME_LOCAL_DEV_ONLY"
     ports:
       - "8080:8080"
 
 volumes:
-  updraft_pgdata:
+  hotdrop_pgdata:

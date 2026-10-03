@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>UPDRAFT — Screen 02 First-Launch Appearance Choice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          surface: '#0b1322',
+          'surface-container-lowest': '#060e1d',
+          'surface-container-low': '#101827',
+          'surface-container': '#141c2b',
+          'surface-container-high': '#1b2940',
+          'surface-container-highest': '#263a59',
+          primary: '#30d5e8',
+          'primary-deep': '#138ea3',
+          coral: '#ff6376',
+          gold: '#ffd166',
+          success: '#7ed68a',
+          disabled: '#536176',
+          outline: '#49627b',
+          'outline-subtle': '#2d3b50',
+          'text-primary': '#f4f7fb',
+          'text-secondary': '#bbc6d8',
+          'text-muted': '#7f8ca3'
+        },
+        fontFamily: {
+          heading: ['Space Grotesk', 'sans-serif'],
+          body: ['Hanken Grotesk', 'sans-serif'],
+          mono: ['JetBrains Mono', 'monospace']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root {
+    --safe-left: env(safe-area-inset-left, 32px);
+    --safe-right: env(safe-area-inset-right, 32px);
+    --safe-bottom: env(safe-area-inset-bottom, 24px);
+    --safe-top: env(safe-area-inset-top, 20px);
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body class="bg-[#0b1322] text-text-primary w-screen h-screen overflow-hidden flex flex-col justify-between font-body select-none relative">
+
+  <!-- Neutral Switchyard Platform Backdrop -->
+  <div class="absolute inset-0 z-0 pointer-events-none">
+    <img src="https://lh3.googleusercontent.com/aida/AEtjO1XKVW9e2vVk7KvrUCafO88D2xLd44MfnYM7ROcptVY9cdrdx5XVLS4pvnh9gX3cfliJ0HG_HiGQ7aLnVvtFOSzBV6uYUCaVgFKd61gnJ2qFJect2ftP2sIlGNE2n9CCbioKl2YVKi3tw74y42TvGHQskAZxcWm6ugx_eeH-3CBuMBR6vHvk5NSrXzabIsXV2PVodW-lvbCgeprK4y7CnOmMTRakG9qAQYcCZWpY3gHmrMPQYKBR3j9MqQ" alt="Switchyard Neutral Platform" class="w-full h-full object-cover object-center filter brightness-[0.55] saturate-[0.9] contrast-[1.05]" />
+    <div class="absolute inset-0 bg-gradient-to-t from-[#060e1d] via-[#0b1322]/85 to-[#0b1322]/60"></div>
+    <div class="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#060e1d] to-transparent"></div>
+  </div>
+
+  <!-- Top Inset Header: Title & Explicit Equal-Hitbox Guarantee -->
+  <header class="relative z-10 w-full pt-[var(--safe-top)] px-[var(--safe-left)] flex items-center justify-between">
+    <div class="flex flex-col">
+      <div class="flex items-center gap-3">
+        <h1 class="font-heading text-2xl font-black tracking-tight text-white uppercase">
+          CHOOSE YOUR LOOK
+        </h1>
+        <span class="px-2.5 py-0.5 rounded bg-surface-container-high border border-outline/40 font-mono text-[11px] text-primary font-bold tracking-wider">
+          STARTER OUTFIT
+        </span>
+      </div>
+      <p class="font-body text-xs text-text-secondary mt-0.5 flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-primary text-sm">verified</span>
+        Appearance only. Same movement, abilities, animations, and hitbox.
+      </p>
+    </div>
+
+    <!-- Rotation & Framing Toggle (48dp Touch Target) -->
+    <div class="flex items-center gap-2 bg-surface-container-high/90 p-1 rounded-xl border border-outline/50 shadow-md">
+      <button class="h-10 px-3.5 rounded-lg bg-surface-container-highest text-white font-mono text-xs font-bold flex items-center gap-1.5 shadow">
+        <span class="material-symbols-outlined text-base text-primary">accessibility_new</span> FULL BODY
+      </button>
+      <button class="h-10 px-3.5 rounded-lg hover:bg-surface-container-highest/50 text-text-muted hover:text-white font-mono text-xs font-bold flex items-center gap-1.5 transition">
+        <span class="material-symbols-outlined text-base">face</span> FACE
+      </button>
+      <div class="w-px h-6 bg-outline/40 mx-1"></div>
+      <button class="size-10 rounded-lg hover:bg-surface-container-highest/50 text-text-secondary hover:text-primary flex items-center justify-center transition" title="Drag to rotate">
+        <span class="material-symbols-outlined text-lg">360</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Central Staging Area: Two Equal-Quality Body Presentations Side by Side -->
+  <main class="relative z-10 flex-1 w-full max-w-6xl mx-auto px-6 py-4 flex items-center justify-center gap-10">
+    
+    <!-- Option A Card: Body Presentation 01 (Safely Selected by Default) -->
+    <div class="relative flex-1 max-w-[440px] h-[480px] rounded-2xl bg-surface-container-low/85 border-2 border-primary shadow-[0_0_30px_rgba(48,213,232,0.25)] flex flex-col justify-between p-5 backdrop-blur-sm cursor-pointer transition-all">
+      <!-- Selected Indicator Pill -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="size-6 rounded-full bg-primary text-surface-container-lowest flex items-center justify-center font-bold">
+            <span class="material-symbols-outlined text-sm font-black">check</span>
+          </div>
+          <span class="font-heading font-black text-sm text-white tracking-wide uppercase">BODY PRESENTATION 01</span>
+        </div>
+        <span class="font-mono text-[11px] text-primary font-bold bg-primary/10 border border-primary/30 px-2 py-0.5 rounded">
+          SELECTED
+        </span>
+      </div>
+
+      <!-- Athletic Character Rendering (Restrained, grounded sport apparel, ARC rifle at low ready) -->
+      <div class="relative flex-1 flex items-center justify-center overflow-hidden my-2">
+        <img src="https://lh3.googleusercontent.com/aida/AEtjO1XKVW9e2vVk7KvrUCafO88D2xLd44MfnYM7ROcptVY9cdrdx5XVLS4pvnh9gX3cfliJ0HG_HiGQ7aLnVvtFOSzBV6uYUCaVgFKd61gnJ2qFJect2ftP2sIlGNE2n9CCbioKl2YVKi3tw74y42TvGHQskAZxcWm6ugx_eeH-3CBuMBR6vHvk5NSrXzabIsXV2PVodW-lvbCgeprK4y7CnOmMTRakG9qAQYcCZWpY3gHmrMPQYKBR3j9MqQ" alt="Operative Style 01" class="h-full object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)]" />
+        <!-- Drag rotate hint overlay -->
+        <div class="absolute bottom-2 inset-x-0 flex items-center justify-center gap-1 text-[11px] font-mono text-text-muted bg-surface-container-lowest/60 py-1 rounded-full border border-outline/30 mx-8">
+          <span class="material-symbols-outlined text-xs">drag_pan</span> DRAG TO ROTATE
+        </div>
+      </div>
+
+      <!-- Equipment Specs & Baseline Guarantee -->
+      <div class="pt-3 border-t border-outline/40 flex items-center justify-between text-xs">
+        <span class="font-mono text-text-secondary flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-primary"></span> ARC Rifle (Equipped)
+        </span>
+        <span class="font-mono text-text-muted">Standard Hitbox Footprint</span>
+      </div>
+    </div>
+
+    <!-- Option B Card: Body Presentation 02 (Alternate Equal Presentation) -->
+    <div class="relative flex-1 max-w-[440px] h-[480px] rounded-2xl bg-surface-container-low/60 border border-outline/60 hover:border-outline hover:bg-surface-container-low/80 flex flex-col justify-between p-5 backdrop-blur-sm cursor-pointer transition-all group">
+      <!-- Unselected Indicator Pill -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="size-6 rounded-full border-2 border-outline/60 group-hover:border-primary flex items-center justify-center text-transparent transition">
+            <span class="material-symbols-outlined text-sm font-black">check</span>
+          </div>
+          <span class="font-heading font-black text-sm text-text-secondary group-hover:text-white tracking-wide uppercase">BODY PRESENTATION 02</span>
+        </div>
+        <span class="font-mono text-[11px] text-text-muted group-hover:text-text-secondary">
+          TAP TO SELECT
+        </span>
+      </div>
+
+      <!-- Athletic Character Rendering (Identical starter outfit, identical lighting & posture) -->
+      <div class="relative flex-1 flex items-center justify-center overflow-hidden my-2 opacity-85 group-hover:opacity-100 transition-opacity">
+        <img src="https://lh3.googleusercontent.com/aida/AEtjO1XKVW9e2vVk7KvrUCafO88D2xLd44MfnYM7ROcptVY9cdrdx5XVLS4pvnh9gX3cfliJ0HG_HiGQ7aLnVvtFOSzBV6uYUCaVgFKd61gnJ2qFJect2ftP2sIlGNE2n9CCbioKl2YVKi3tw74y42TvGHQskAZxcWm6ugx_eeH-3CBuMBR6vHvk5NSrXzabIsXV2PVodW-lvbCgeprK4y7CnOmMTRakG9qAQYcCZWpY3gHmrMPQYKBR3j9MqQ" alt="Operative Style 02" class="h-full object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)] scale-x-[-1]" />
+        <!-- Drag rotate hint overlay -->
+        <div class="absolute bottom-2 inset-x-0 flex items-center justify-center gap-1 text-[11px] font-mono text-text-muted bg-surface-container-lowest/60 py-1 rounded-full border border-outline/30 mx-8">
+          <span class="material-symbols-outlined text-xs">drag_pan</span> DRAG TO ROTATE
+        </div>
+      </div>
+
+      <!-- Equipment Specs & Baseline Guarantee -->
+      <div class="pt-3 border-t border-outline/40 flex items-center justify-between text-xs">
+        <span class="font-mono text-text-secondary flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-outline"></span> ARC Rifle (Equipped)
+        </span>
+        <span class="font-mono text-text-muted">Standard Hitbox Footprint</span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom Action Chrome: Primary Continue & Quiet Decide Later -->
+  <footer class="relative z-10 w-full pb-[var(--safe-bottom)] px-[var(--safe-left)] flex items-center justify-between bg-surface-container-lowest/70 border-t border-outline/30 backdrop-blur-md pt-3">
+    <!-- Reassurance note -->
+    <div class="flex items-center gap-2 text-xs font-mono text-text-muted">
+      <span class="material-symbols-outlined text-primary text-base">shuffle</span>
+      <span>You can freely change your appearance anytime from <strong class="text-text-primary">Appearance</strong>.</span>
+    </div>
+
+    <!-- Action Group (Strict 48dp+ Touch Targets) -->
+    <div class="flex items-center gap-4">
+      <button class="h-12 px-6 rounded-xl hover:bg-surface-container-high text-text-secondary hover:text-white font-heading font-bold text-xs uppercase tracking-wider transition active:scale-95">
+        DECIDE LATER
+      </button>
+      <button class="h-12 px-10 rounded-xl bg-primary hover:bg-primary/90 text-surface-container-lowest font-heading font-black text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(48,213,232,0.4)] flex items-center gap-2 active:scale-95 transition">
+        <span>CONTINUE</span>
+        <span class="material-symbols-outlined text-base">arrow_forward</span>
+      </button>
+    </div>
+  </footer>
+
+</body>
+</html>

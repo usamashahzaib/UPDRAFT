@@ -1,7 +1,7 @@
 # STEP 1 ACCEPTANCE — GATE A: TRUSTWORTHY ANDROID FOUNDATION + TOUCH
 
-**Project:** UPDRAFT
-**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md` (v1.0 Final Master Specification)
+**Project:** HOTDROP
+**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md` (v1.0 Final Master Specification)
 **Date:** 2026-09-28
 **Gate / Step:** Gate A — Foundation (Android build, touch, camera, movement correctness)
 
@@ -43,7 +43,7 @@ Inspected before any editor/build/test launch:
 | A.15 | Credential-free offline (§20/§22) | offline practice never touches auth; telemetry local-only queue | device sessions ran with no network/auth; `analytics_queue.jsonl` written locally only | implemented+verified |
 | A.16 | Compile-clean tree (working-tree repair) | `Updraft.Network.asmdef` + `Photon.Realtime`; `NetSession` alias fix; `NetClientPresenter`/`OnlinePlay` using-fixes | EditMode 44/44 after repair; tree previously failed with CS0012/CS0234 | implemented+verified |
 
-**Budgets (measured, not inferred):** startup via `adb shell am start -W` TotalTime = **679 / 716 / 744 / 695 / 745 / 831 ms** across cold starts (budget ≤8 s). In-engine markers: `engine_to_first_script` = 2228 / 2238 / 2258 / 2273 ms; `match_load_in` = 1–2 ms. `UPDRAFT_PERF` (30 s windows): **average_fps 29.9–30.1, frames_over_50ms ≤7, unity_allocated_mb 70 (menu) / 99 (match)**; OS-level PSS ≈ **281.7 MB**. All within §23 for the reference device.
+**Budgets (measured, not inferred):** startup via `adb shell am start -W` TotalTime = **679 / 716 / 744 / 695 / 745 / 831 ms** across cold starts (budget ≤8 s). In-engine markers: `engine_to_first_script` = 2228 / 2238 / 2258 / 2273 ms; `match_load_in` = 1–2 ms. `HOTDROP_PERF` (30 s windows): **average_fps 29.9–30.1, frames_over_50ms ≤7, unity_allocated_mb 70 (menu) / 99 (match)**; OS-level PSS ≈ **281.7 MB**. All within §23 for the reference device.
 
 ## 3. Automated regression results
 
@@ -97,7 +97,7 @@ Revert → **1/1 passed** (32.7 s). First mutation candidate (block re-acquisiti
 1. Clone + open `ProjectUpdraft/` with Unity 6000.3.25f1 (revision e1dba0a9aba4).
 2. Tests: the two `Run-UnityTests.ps1` commands above.
 3. APK: `Build-AndroidDev.ps1` → `Builds/Android/UpdraftDev.apk`; expected ~87.4 MB, ARM64/IL2CPP/debuggable.
-4. Device: `adb install -r`; `adb shell am start -W …` (cold TotalTime <1 s); `adb pull /sdcard/Android/data/com.DefaultCompany.ProjectUpdraft/files/analytics_queue.jsonl` for event evidence; logcat greps `UPDRAFT_BUDGET|UPDRAFT_PERF|TouchDiag`.
+4. Device: `adb install -r`; `adb shell am start -W …` (cold TotalTime <1 s); `adb pull /sdcard/Android/data/com.DefaultCompany.ProjectUpdraft/files/analytics_queue.jsonl` for event evidence; logcat greps `HOTDROP_BUDGET|HOTDROP_PERF|TouchDiag`.
 
 Balance/config version: `v1.0-spec` (stamped in every telemetry event). Build version: 1.0.
 

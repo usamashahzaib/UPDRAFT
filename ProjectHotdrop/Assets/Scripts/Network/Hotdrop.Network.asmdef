@@ -1,0 +1,28 @@
+{
+    "name": "Hotdrop.Network",
+    "rootNamespace": "Hotdrop.Network",
+    "references": [
+        "Hotdrop.Runtime",
+        "Fusion.Unity",
+        "Photon.Realtime",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Fusion.Runtime.dll",
+        "Fusion.Common.dll",
+        "Fusion.Sockets.dll",
+        "Fusion.Realtime.dll",
+        "Fusion.Log.dll",
+        "Fusion.Addons.SimpleKCC.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

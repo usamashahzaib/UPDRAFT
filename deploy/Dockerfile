@@ -4,12 +4,12 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 WORKDIR /src
 
-COPY Backend/UpdraftBackend/UpdraftBackend.csproj Backend/UpdraftBackend/
-RUN dotnet restore Backend/UpdraftBackend/UpdraftBackend.csproj --arch ${TARGETARCH}
+COPY Backend/HotdropBackend/HotdropBackend.csproj Backend/HotdropBackend/
+RUN dotnet restore Backend/HotdropBackend/HotdropBackend.csproj --arch ${TARGETARCH}
 
-COPY Backend/UpdraftBackend/ Backend/UpdraftBackend/
+COPY Backend/HotdropBackend/ Backend/HotdropBackend/
 COPY docs/legal/account-deletion.html docs/legal/account-deletion.html
-RUN dotnet publish Backend/UpdraftBackend/UpdraftBackend.csproj \
+RUN dotnet publish Backend/HotdropBackend/HotdropBackend.csproj \
     --configuration Release \
     --output /app/publish \
     --arch ${TARGETARCH} \
@@ -25,4 +25,4 @@ EXPOSE 8080
 COPY --from=build /app/publish .
 
 USER $APP_UID
-ENTRYPOINT ["dotnet", "UpdraftBackend.dll"]
+ENTRYPOINT ["dotnet", "HotdropBackend.dll"]

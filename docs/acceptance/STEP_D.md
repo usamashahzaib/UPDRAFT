@@ -1,7 +1,7 @@
 # Gate D Acceptance Record — 30-50 Tester Pad Validation & Retention Baseline
 
-**Project:** UPDRAFT  
-**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md`, v1.0, §§23–26  
+**Project:** HOTDROP  
+**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md`, v1.0, §§23–26  
 **Gate:** D — Pad Validation Study & Initial KPI Gate  
 **Audit date:** 2026-09-28  
 **Result:** **IN PROGRESS — TECHNICAL IMPLEMENTATIONS COMPLETED, EXTERNAL PLAYTEST OPEN**

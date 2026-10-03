@@ -1,8 +1,8 @@
-# Project UPDRAFT Terms of Service (Draft)
+# Project HOTDROP Terms of Service (Draft)
 
 **Effective date:** [PLACEHOLDER: EFFECTIVE DATE]
 
-These Terms of Service ("Terms") govern your access to and use of **Project UPDRAFT** (the "Game"), provided by [PLACEHOLDER: COMPANY NAME] ("we," "us," or "our"). By downloading, accessing, or playing the Game, you agree to these Terms. If you do not agree, do not use the Game.
+These Terms of Service ("Terms") govern your access to and use of **Project HOTDROP** (the "Game"), provided by [PLACEHOLDER: COMPANY NAME] ("we," "us," or "our"). By downloading, accessing, or playing the Game, you agree to these Terms. If you do not agree, do not use the Game.
 
 This document is a draft and should be reviewed by qualified counsel before publication.
 

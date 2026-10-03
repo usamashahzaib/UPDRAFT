@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>UPDRAFT — Hero Lobby</title>
+<!-- Google Fonts & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;family=Space+Grotesk:wght@300..700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;family=Space+Grotesk:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "secondary-fixed-dim": "#ffb2b7",
+            "surface-tint": "#38d9ec",
+            "on-secondary-fixed": "#40000d",
+            "primary": "#7cefff",
+            "surface-container-low": "#141c2b",
+            "inverse-on-surface": "#293041",
+            "on-error": "#690005",
+            "secondary-container": "#930d2d",
+            "surface": "#0b1322",
+            "outline": "#859396",
+            "on-primary": "#00363c",
+            "on-surface-variant": "#bbc9cb",
+            "on-secondary": "#67001b",
+            "inverse-surface": "#dbe2f8",
+            "tertiary": "#ffda88",
+            "background": "#0b1322",
+            "surface-container-high": "#222a3a",
+            "on-secondary-fixed-variant": "#8f092b",
+            "on-primary-fixed-variant": "#004f57",
+            "on-primary-container": "#005862",
+            "secondary-fixed": "#ffdadb",
+            "surface-container-lowest": "#060e1d",
+            "surface-dim": "#0b1322",
+            "primary-fixed": "#93f1ff",
+            "outline-variant": "#3c494b",
+            "on-primary-fixed": "#001f23",
+            "on-tertiary-fixed-variant": "#5b4300",
+            "on-tertiary-container": "#654c00",
+            "on-secondary-container": "#ff9da4",
+            "on-surface": "#dbe2f8",
+            "primary-container": "#30d5e8",
+            "tertiary-fixed-dim": "#edc157",
+            "surface-container": "#18202f",
+            "on-tertiary": "#3f2e00",
+            "tertiary-container": "#e8bc54",
+            "surface-variant": "#2d3545",
+            "error": "#ffb4ab",
+            "surface-bright": "#31394a",
+            "on-tertiary-fixed": "#251a00",
+            "surface-container-highest": "#2d3545",
+            "tertiary-fixed": "#ffdf9b",
+            "inverse-primary": "#006973",
+            "error-container": "#93000a",
+            "secondary": "#ffb2b7",
+            "primary-fixed-dim": "#38d9ec",
+            "on-background": "#dbe2f8",
+            "on-error-container": "#ffdad6"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "fontFamily": {
+            "label-data-md": ["JetBrains Mono"],
+            "body-sm": ["Hanken Grotesk"],
+            "body-lg": ["Hanken Grotesk"],
+            "headline-lg-mobile": ["Space Grotesk"],
+            "title-lg": ["Hanken Grotesk"],
+            "body-md": ["Hanken Grotesk"],
+            "label-data-lg": ["JetBrains Mono"],
+            "headline-xl": ["Space Grotesk"],
+            "headline-lg": ["Space Grotesk"],
+            "label-caps": ["Space Grotesk"],
+            "headline-md": ["Space Grotesk"],
+            "title-md": ["Hanken Grotesk"],
+            "label-data-sm": ["JetBrains Mono"],
+            "headline-xl-mobile": ["Space Grotesk"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    /* Android Safe-zone landscape clipping */
+    body {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+    }
+    .hud-clip-edge {
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+    }
+    .hud-notch {
+      clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface w-screen h-screen overflow-hidden flex flex-col justify-between font-body-md select-none"><!-- World Backdrop: Atmospheric Daylight Switchyard & Hero Operative with Launch Pad trajectory -->
+<div class="absolute inset-0 z-0 overflow-hidden pointer-events-none select-none">
+<!-- Full-screen Switchyard Cinematic Image with athletic character and launch pad -->
+<img alt="Switchyard Venue" class="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.9] contrast-[1.04]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxj1E7RKVd2XQfts0ZOhqCCdkosXJ0XaPJzkQjUOZCWvQB9X9N-tzc5T5SKmLDVB_202uCDNmgONjix_Spa9EuNXboVK5lR9U8GRAa2aQTDSXx_fWbvAewP7TT8fT7Vq79gfT4UPZ7_xDZISNtpC3dokdi-fIC9yy6Vj38SF4tmip-QR5YDe5OEz3fny7ImcmV1tmEOH3FlgGvb137r-fQ9EoznXVm7dRrYj1HmP6u0hnJ2HcZc9ge"/>
+<!-- Subtle atmospheric vignette and read-gradient overlays preserving center character clarity -->
+<div class="absolute inset-0 bg-gradient-to-t from-[#101827] via-transparent to-[#101827]/75"></div>
+<div class="absolute inset-y-0 left-0 w-[42%] bg-gradient-to-r from-[#101827]/95 via-[#101827]/60 to-transparent"></div>
+<div class="absolute inset-y-0 right-0 w-[38%] bg-gradient-to-l from-[#101827]/95 via-[#101827]/60 to-transparent"></div>
+<!-- Subtle Air Route trajectory highlight pulse overlay in foreground -->
+<div class="absolute bottom-8 left-[38%] w-72 h-36 bg-[#30D5E8]/10 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
+</div>
+<!-- ================= TOP HUD & SYSTEM STATUS ================= -->
+<header class="relative z-20 w-full px-8 pt-3 pb-2 flex items-center justify-between border-b border-[#49627B]/30 bg-[#101827]/80 backdrop-blur-md">
+<!-- Top-Left: Original UPDRAFT Brand Identity only (No build/FPS/server health) -->
+<div class="flex items-center gap-3">
+<div class="h-9 flex items-center">
+<img alt="UPDRAFT" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1UZ1rpabzikMAGTvXsO79e6FbQLA-6ZOzouqLsl-qRJ7-QGso3qrqqaoSj3bgh0gWtthiMrBcvhi1upimRRuj56SXuZDqfmLrpF_4QEMO0jN2zgMh6SgcGcCw1HurGKaBXUbs11PMR99l7OLJ0o-3j-BBzM0q05M5wcDo-3Q60IKS1Uro_KF7VQ6_hj2ae8lMzJPvT4pgEMBFLvrr0gGl-AWnuX3C4XMs_JZZ70qmTl_8XdU5fcyp60_qg"/>
+</div>
+</div>
+<!-- Top-Center: Production State Interactive Switcher Toolbar -->
+<!-- Top-Right: Player Info, Currency, Connection, Settings (Minimum 48dp touch targets) -->
+<div class="flex items-center gap-3">
+<!-- Player Alias & Level -->
+<div class="flex items-center gap-2 h-11 px-3.5 rounded-xl bg-[#1B2940]/90 border border-[#49627B]/40 shadow-sm">
+<span class="font-headline-md text-sm font-bold text-white tracking-wide">VividSwift</span>
+<span class="text-[#49627B]">•</span>
+<span class="font-label-data-sm text-xs font-semibold text-[#30D5E8] tracking-wider">Level 14</span>
+</div>
+<!-- Currency: Flight Seals with gold seal icon (#FFD166) -->
+<div class="flex items-center gap-2 h-11 px-3.5 rounded-xl bg-[#1B2940]/90 border border-[#FFD166]/40 shadow-sm">
+<span class="material-symbols-outlined text-[#FFD166] text-xl">military_tech</span>
+<div class="flex items-baseline gap-1 font-label-data-md text-xs font-bold text-white">
+<span class="text-[#FFD166] text-sm" id="top-flight-seals">7</span>
+<span class="text-[#BBC6D8] font-medium font-body-sm">Flight Seals</span>
+</div>
+</div>
+<!-- Network Connection (Quiet, informative status only) -->
+<div class="flex items-center gap-2 h-11 px-3 rounded-xl bg-[#1B2940]/90 border border-[#49627B]/40 text-[#BBC6D8]" id="top-network-status">
+<span class="w-2 h-2 rounded-full bg-[#30D5E8]" id="net-indicator-dot"></span>
+<span class="font-label-data-sm text-xs" id="net-indicator-text">US East • 24 ms</span>
+</div>
+<!-- Settings Utility (Standard clean outline cog, >=48dp touch target) -->
+<button aria-label="Settings" class="size-11 rounded-xl bg-[#1B2940]/90 hover:bg-[#263A59] border border-[#49627B]/50 flex items-center justify-center text-[#BBC6D8] hover:text-white transition-colors active:scale-95">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+</div>
+</header>
+<!-- Center Tagline (Restrained brand lines) -->
+<div class="relative z-10 w-full flex justify-center pt-2 pointer-events-none"><div class="flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-2xl bg-[#101827]/75 border border-[#49627B]/40 backdrop-blur-md shadow-sm text-center"><p class="font-label-caps text-xs tracking-wider text-[#BBC6D8] uppercase whitespace-nowrap">Three players. One team. Three minutes.</p><p class="font-body-sm text-[11px] tracking-wide text-[#859396] whitespace-nowrap">Build shortcuts your enemies can steal.</p></div></div>
+<!-- ================= MAIN STAGE: LEFT ACTIONS & RIGHT GOAL CARD ================= -->
+<main class="relative z-10 w-full flex-1 flex justify-between items-center px-10 py-2 pointer-events-none">
+<!-- LEFT-HAND ACTION CLUSTER: Dominant Primary + Subordinate Secondary -->
+<div class="pointer-events-auto flex flex-col gap-3.5 max-w-[400px] w-full">
+<!-- Dominant Primary CTA: Relay Mode -->
+<button class="group relative w-full text-left p-5 rounded-2xl bg-gradient-to-r from-[#1B2940] via-[#141C2B] to-[#1B2940] border-2 border-[#30D5E8] shadow-[0_0_24px_rgba(48,213,232,0.25)] active:scale-[0.98] transition-all duration-150 overflow-hidden hud-clip-edge cursor-pointer" id="primary-play-btn">
+<div class="absolute -right-8 -top-8 size-28 bg-[#30D5E8]/20 rounded-full blur-2xl group-hover:bg-[#30D5E8]/30 transition-all"></div>
+<div class="absolute top-0 left-0 h-full w-2 bg-[#30D5E8]" id="play-accent-bar"></div>
+<!-- Eyebrow & Mode Tag -->
+<div class="flex items-center justify-between mb-1.5">
+<div class="flex items-center gap-2 px-2.5 py-0.5 rounded bg-[#30D5E8]/20 border border-[#30D5E8]/40 text-[#30D5E8] font-label-data-sm text-xs font-bold tracking-widest uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-[#30D5E8] animate-ping" id="play-ping-dot"></span>
+<span id="play-eyebrow-text">RELAY</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-[#101827]/80 border border-[#49627B]/50 font-label-caps text-xs text-white font-bold tracking-wider" id="play-state-pill">
+          SOLO • READY
+        </span>
+</div>
+<!-- Dominant Main Title -->
+<h1 class="font-headline-lg text-2xl font-black tracking-tight text-white mb-1 group-hover:text-[#30D5E8] transition-colors" id="play-main-title">
+        PLAY 3-MINUTE RELAY
+      </h1>
+<!-- Supporting Line -->
+<p class="font-body-md text-xs text-[#BBC6D8] mb-3 leading-relaxed" id="play-supporting-line">
+        3v3 • One active objective • Zone rotates every 30 sec
+      </p>
+<!-- Bottom Action Cue -->
+<div class="flex items-center justify-between pt-2.5 border-t border-[#49627B]/40">
+<div class="flex items-center gap-2">
+<span class="size-2 rounded-full bg-[#30D5E8]" id="play-queue-status-dot"></span>
+<span class="font-label-caps text-xs text-[#BBC6D8] font-semibold tracking-wider" id="play-queue-status-text">TOUCH TO START MATCH</span>
+</div>
+<span class="material-symbols-outlined text-[#30D5E8] text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</div>
+</button>
+<!-- Subordinate Secondary Button: Play Offline -->
+<button class="group w-full text-left px-5 py-3.5 rounded-xl bg-[#1B2940]/90 hover:bg-[#263A59] border border-[#49627B]/50 hover:border-[#30D5E8]/50 transition-all active:scale-[0.98] backdrop-blur-md cursor-pointer" id="secondary-offline-btn">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-base font-bold text-white group-hover:text-[#30D5E8] transition-colors" id="offline-btn-title">
+              PLAY OFFLINE
+            </span>
+<span class="text-[10px] font-label-data-sm px-1.5 py-0.5 rounded bg-[#101827] text-[#BBC6D8] border border-[#49627B]/30">SOLO</span>
+</div>
+<p class="font-body-sm text-xs text-[#BBC6D8] mt-0.5" id="offline-btn-desc">
+            12 Launch Challenges • Works without internet
+          </p>
+</div>
+<span class="material-symbols-outlined text-[#BBC6D8] group-hover:text-[#30D5E8] group-hover:translate-x-1 transition-transform">sports_esports</span>
+</div>
+</button>
+</div>
+<!-- RIGHT-HAND GOAL CARD: Single Active Contract Card -->
+<div class="pointer-events-auto w-[380px]">
+<div class="rounded-2xl bg-[#1B2940]/95 border border-[#49627B] p-5 shadow-2xl backdrop-blur-md flex flex-col gap-3.5 transition-all duration-300" id="active-contract-card">
+<!-- Header & Action Badge -->
+<div class="flex items-center justify-between border-b border-[#49627B]/40 pb-2.5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#30D5E8] text-base">flag</span>
+<span class="font-label-caps text-xs font-bold text-[#30D5E8] tracking-widest uppercase">ACTIVE CONTRACT</span>
+</div>
+<span class="font-label-data-sm text-[11px] text-[#BBC6D8] px-2 py-0.5 rounded bg-[#141C2B] border border-[#49627B]/40">
+          SEASON 1
+        </span>
+</div>
+<!-- Contract Details -->
+<div>
+<h2 class="font-headline-md text-lg font-black text-white tracking-tight uppercase" id="contract-title">
+          HOLD THE RELAY
+        </h2>
+<p class="font-body-sm text-xs text-[#BBC6D8] mt-0.5" id="contract-desc">
+          Earn 45 seconds of valid objective occupation.
+        </p> </div>
+<!-- Progress Component with Tabular Numeric Bar & Gold Fill -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between items-baseline font-label-data-sm text-xs">
+<span class="text-[#BBC6D8]">Occupation Progress</span>
+<span class="text-[#FFD166] font-bold" id="contract-progress-text">31 / 45 sec <span class="text-[#BBC6D8] font-normal">(68%)</span></span>
+</div>
+<div class="w-full h-2.5 rounded-full bg-[#101827] overflow-hidden border border-[#49627B]/50 p-[1px]">
+<div class="h-full rounded-full bg-[#FFD166] shadow-[0_0_8px_rgba(255,209,102,0.5)] transition-all duration-500" id="contract-progress-bar" style="width: 68%;"></div>
+</div>
+</div>
+<!-- Reward Banner: +1 Flight Seal with gold seal icon -->
+<div class="flex items-center gap-3 p-2.5 rounded-xl bg-[#101827]/80 border border-[#FFD166]/30">
+<div class="size-8 rounded-lg flex items-center justify-center bg-[#FFD166]/20 text-[#FFD166] shrink-0 border border-[#FFD166]/40">
+<span class="material-symbols-outlined text-xl">military_tech</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-caps text-[10px] text-[#FFD166] font-bold tracking-wider">COMPLETION REWARD</span>
+<span class="font-headline-md text-xs font-bold text-white truncate" id="contract-reward-text">+1 Flight Seal (Cosmetic track)</span>
+</div>
+</div>
+<!-- Optional Claim Action (Only visible in Reward Ready state) -->
+<div class="hidden pt-1" id="claim-action-container">
+<button class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FFD166] to-[#E8BC54] text-[#101827] font-headline-md text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_16px_rgba(255,209,102,0.4)] hover:brightness-110 active:scale-95 transition-all cursor-pointer" onclick="claimRewardAction()">
+<span class="material-symbols-outlined text-base">check_circle</span>
+<span>CLAIM REWARD</span>
+</button>
+</div>
+<!-- Fair-Play Cosmetic Integrity Note -->
+<div class="pt-2 border-t border-[#49627B]/30 flex items-start gap-2">
+<span class="material-symbols-outlined text-xs text-[#BBC6D8] shrink-0 mt-0.5">shield</span>
+<p class="font-body-sm text-[11px] leading-tight text-[#BBC6D8]/90">
+          All 3 weapons unlocked • Cosmetics never change power
+        </p>
+</div>
+</div>
+</div>
+</main>
+<!-- ================= BOTTOM NAVIGATION (EXACTLY THREE DESTINATIONS) ================= -->
+<footer class="relative z-20 w-full px-8 pb-3 pt-2 bg-[#101827]/85 border-t border-[#49627B]/30 backdrop-blur-md flex flex-col items-center gap-2">
+<!-- Exactly Three Destinations: Party, Appearance, More -->
+<nav class="flex items-center gap-4 justify-center w-full max-w-xl">
+<!-- Nav Item 1: Party -->
+<button class="h-12 min-w-[130px] px-5 rounded-xl bg-[#1B2940] hover:bg-[#263A59] border border-[#49627B]/50 hover:border-[#30D5E8]/40 flex items-center justify-center gap-2.5 transition-colors active:scale-95 cursor-pointer" id="nav-party" onclick="selectNav('party')"><span class="material-symbols-outlined text-[#30D5E8] text-xl">group</span><span class="font-label-caps text-xs font-bold tracking-wider text-white">Party</span></button>
+<!-- Nav Item 2: Appearance -->
+<button class="h-12 min-w-[140px] px-5 rounded-xl bg-[#1B2940] hover:bg-[#263A59] border border-[#49627B]/50 hover:border-[#30D5E8]/40 flex items-center justify-center gap-2.5 transition-colors active:scale-95 cursor-pointer" id="nav-appearance" onclick="selectNav('appearance')">
+<span class="material-symbols-outlined text-[#BBC6D8] text-xl">checkroom</span>
+<span class="font-label-caps text-xs font-bold tracking-wider text-white">Appearance</span>
+</button>
+<!-- Nav Item 3: More (with tooltip info note) -->
+<div class="relative group">
+<button class="h-12 min-w-[120px] px-5 rounded-xl bg-[#1B2940] hover:bg-[#263A59] border border-[#49627B]/50 hover:border-[#30D5E8]/40 flex items-center justify-center gap-2.5 transition-colors active:scale-95 cursor-pointer" id="nav-more" onclick="selectNav('more')">
+<span class="material-symbols-outlined text-[#BBC6D8] text-xl">more_horiz</span>
+<span class="font-label-caps text-xs font-bold tracking-wider text-white">More</span>
+</button>
+<!-- More Tooltip / Hub Guide -->
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2.5 rounded-xl bg-[#141C2B] border border-[#49627B] shadow-xl text-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30">
+<span class="font-label-caps text-[10px] text-[#30D5E8] font-bold block mb-1 uppercase tracking-wider">More Hub Hub</span>
+<p class="font-body-sm text-[11px] text-[#BBC6D8] leading-tight">
+          Profile • Contracts • Mastery • Training • Settings • Account • Support
+        </p>
+</div>
+</div>
+</nav>
+<!-- Android Landscape Gesture Navigation Pill (Standard Safe Zone) -->
+<div class="w-36 h-1 rounded-full bg-[#49627B]/50 mt-0.5"></div>
+</footer>
+<!-- ================= PRODUCTION COMPONENT STRIP MODAL / DRAWER ================= -->
+<!-- Interactive JavaScript for State Switching & Live Feedback -->
+<script>
+  function setLobbyState(state) {
+    document.querySelectorAll('.state-btn').forEach(btn => {
+      btn.className = 'state-btn px-2.5 py-1 rounded-lg text-xs font-label-data-sm font-semibold transition-colors text-[#BBC6D8] hover:text-white hover:bg-[#1B2940]';
+    });
+    const activeBtn = document.getElementById('btn-state-' + state);
+    if (activeBtn) {
+      activeBtn.className = 'state-btn px-2.5 py-1 rounded-lg text-xs font-label-data-sm font-semibold transition-colors bg-[#30D5E8]/20 text-[#30D5E8] border border-[#30D5E8]/40';
+    }
+
+    const playBtn = document.getElementById('primary-play-btn');
+    const playTitle = document.getElementById('play-main-title');
+    const playDesc = document.getElementById('play-supporting-line');
+    const playPill = document.getElementById('play-state-pill');
+    const playAccent = document.getElementById('play-accent-bar');
+    const playDot = document.getElementById('play-queue-status-dot');
+    const playStatus = document.getElementById('play-queue-status-text');
+    const offlineBtn = document.getElementById('secondary-offline-btn');
+
+    const contractTitle = document.getElementById('contract-title');
+    const contractDesc = document.getElementById('contract-desc');
+    const contractProgText = document.getElementById('contract-progress-text');
+    const contractProgBar = document.getElementById('contract-progress-bar');
+    const contractReward = document.getElementById('contract-reward-text');
+    const claimContainer = document.getElementById('claim-action-container');
+
+    const netDot = document.getElementById('net-indicator-dot');
+    const netText = document.getElementById('net-indicator-text');
+    const navPartyCount = document.getElementById('nav-party-count');
+
+    // Reset claim container default
+    claimContainer.classList.add('hidden');
+    playBtn.classList.remove('opacity-60', 'pointer-events-none', 'border-[#FF6376]');
+    playBtn.classList.add('border-[#30D5E8]');
+    playAccent.className = 'absolute top-0 left-0 h-full w-2 bg-[#30D5E8]';
+    netDot.className = 'w-2 h-2 rounded-full bg-[#30D5E8]';
+    netText.textContent = 'US East • 24 ms';
+    navPartyCount.textContent = '(1/3)';
+
+    if (state === 'default') {
+      playTitle.textContent = 'PLAY 3-MINUTE RELAY';
+      playDesc.textContent = '3v3 • One active objective • Zone rotates every 30 sec';
+      playPill.textContent = 'SOLO • READY';
+      playPill.className = 'px-2.5 py-0.5 rounded-full bg-[#101827]/80 border border-[#49627B]/50 font-label-caps text-xs text-white font-bold tracking-wider';
+      playStatus.textContent = 'TOUCH TO START MATCH';
+
+      contractTitle.textContent = 'HOLD THE RELAY';
+      contractDesc.textContent = 'Earn 45 seconds of valid objective occupation.';
+      contractProgText.innerHTML = '31 / 45 sec <span class="text-[#BBC6D8] font-normal">(68%)</span>';
+      contractProgBar.style.width = '68%';
+      contractReward.textContent = '+1 Flight Seal (Cosmetic track)';
+    } else if (state === 'newplayer') {
+      playTitle.textContent = 'PLAY 3-MINUTE RELAY';
+      playDesc.textContent = 'Complete your initial flight placement round';
+      playPill.textContent = 'ROOKIE • READY';
+      playPill.className = 'px-2.5 py-0.5 rounded-full bg-[#30D5E8]/20 border border-[#30D5E8]/40 font-label-caps text-xs text-[#30D5E8] font-bold tracking-wider';
+      playStatus.textContent = 'TOUCH TO START MATCH';
+
+      contractTitle.textContent = 'FIRST FLIGHT';
+      contractDesc.textContent = 'Complete one 3v3 Relay match to calibrate jump velocity.';
+      contractProgText.innerHTML = '0 / 1 match <span class="text-[#BBC6D8] font-normal">(0%)</span>';
+      contractProgBar.style.width = '5%';
+      contractReward.textContent = '+1 Flight Seal (Onboarding)';
+    } else if (state === 'offline') {
+      playTitle.textContent = 'NETWORK OFFLINE';
+      playDesc.textContent = 'Reconnect to queue competitive 3v3 relay matches';
+      playPill.textContent = 'NO CONNECTION';
+      playPill.className = 'px-2.5 py-0.5 rounded-full bg-[#FF6376]/20 border border-[#FF6376]/40 font-label-caps text-xs text-[#FF6376] font-bold tracking-wider';
+      playAccent.className = 'absolute top-0 left-0 h-full w-2 bg-[#FF6376]';
+      playBtn.classList.remove('border-[#30D5E8]');
+      playBtn.classList.add('border-[#FF6376]', 'opacity-60');
+      playStatus.textContent = 'RELAY QUEUE UNAVAILABLE';
+      playDot.className = 'size-2 rounded-full bg-[#FF6376]';
+
+      netDot.className = 'w-2 h-2 rounded-full bg-[#FF6376]';
+      netText.textContent = 'OFFLINE';
+
+      offlineBtn.classList.add('border-[#30D5E8]', 'shadow-[0_0_16px_rgba(48,213,232,0.3)]');
+    } else if (state === 'party') {
+      playTitle.textContent = 'PLAY 3-MINUTE RELAY';
+      playDesc.textContent = 'Full squad assembled • Matched against 3-stack rivals';
+      playPill.textContent = '3/3 • SQUAD READY';
+      playPill.className = 'px-2.5 py-0.5 rounded-full bg-[#30D5E8] font-label-caps text-xs text-[#101827] font-black tracking-wider';
+      playStatus.textContent = 'READY AS SQUAD LEADER';
+      navPartyCount.textContent = '(3/3)';
+
+      contractTitle.textContent = 'HOLD THE RELAY';
+      contractDesc.textContent = 'Earn 45 seconds of valid objective occupation.';
+      contractProgText.innerHTML = '31 / 45 sec <span class="text-[#BBC6D8] font-normal">(68%)</span>';
+      contractProgBar.style.width = '68%';
+    } else if (state === 'reward') {
+      contractTitle.textContent = 'HOLD THE RELAY';
+      contractDesc.textContent = 'Objective goal fulfilled! Tap below to bank your seal.';
+      contractProgText.innerHTML = '<span class="text-[#FFD166] font-bold">45 / 45 sec (100% COMPLETED)</span>';
+      contractProgBar.style.width = '100%';
+      claimContainer.classList.remove('hidden');
+    }
+  }
+
+  function claimRewardAction() {
+    const sealsEl = document.getElementById('top-flight-seals');
+    let seals = parseInt(sealsEl.textContent) || 7;
+    sealsEl.textContent = seals + 1;
+    document.getElementById('claim-action-container').innerHTML = '<div class="py-2 text-center text-xs font-label-data-sm text-[#FFD166] font-bold bg-[#FFD166]/10 border border-[#FFD166]/30 rounded-xl">REWARD BANKED (+1 SEAL)</div>';
+  }
+
+  function toggleComponentStrip() {
+    const drawer = document.getElementById('component-strip-drawer');
+    drawer.classList.toggle('hidden');
+  }
+
+  function selectNav(destination) {
+    ['party', 'appearance', 'more'].forEach(dest => {
+      const el = document.getElementById('nav-' + dest);
+      if (dest === destination) {
+        el.classList.add('border-[#30D5E8]', 'shadow-[0_0_12px_rgba(48,213,232,0.2)]', 'bg-[#263A59]');
+      } else {
+        el.classList.remove('border-[#30D5E8]', 'shadow-[0_0_12px_rgba(48,213,232,0.2)]', 'bg-[#263A59]');
+      }
+    });
+  }
+</script></body></html>

@@ -1,4 +1,4 @@
-# MERIDIAN QA — Project UPDRAFT audit
+# MERIDIAN QA — Project HOTDROP audit
 
 ## 1. EXECUTIVE VERDICT: NOT-READY
 

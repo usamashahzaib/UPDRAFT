@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>UPDRAFT — Screen 01 Startup States Review Matrix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          surface: '#0b1322',
+          'surface-container-lowest': '#060e1d',
+          'surface-container-low': '#101827',
+          'surface-container': '#141c2b',
+          'surface-container-high': '#1b2940',
+          'surface-container-highest': '#263a59',
+          primary: '#30d5e8',
+          coral: '#ff6376',
+          gold: '#ffd166',
+          success: '#7ed68a',
+          disabled: '#536176',
+          outline: '#49627b',
+          'outline-subtle': '#2d3b50',
+          'text-primary': '#f4f7fb',
+          'text-secondary': '#bbc6d8',
+          'text-muted': '#7f8ca3'
+        },
+        fontFamily: {
+          heading: ['Space Grotesk', 'sans-serif'],
+          body: ['Hanken Grotesk', 'sans-serif'],
+          mono: ['JetBrains Mono', 'monospace']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body class="bg-[#060e1d] text-text-primary p-8 font-body select-none">
+
+  <!-- Header & Design System Audit -->
+  <div class="flex items-center justify-between border-b border-outline/40 pb-4 mb-8">
+    <div class="flex items-center gap-4">
+      <div class="px-3 py-1 rounded bg-primary/10 border border-primary/40 font-mono text-xs text-primary font-bold">
+        SCREEN 01 STATE MATRIX
+      </div>
+      <h1 class="font-heading text-2xl font-black tracking-tight text-white uppercase">
+        STARTUP & CONNECTION — DESIGN REVIEW ONLY
+      </h1>
+    </div>
+    <div class="flex items-center gap-4 text-xs font-mono text-text-muted">
+      <span>REF: 2400 × 1080 (ANDROID LANDSCAPE)</span>
+      <span>•</span>
+      <span class="text-primary font-bold">AEROSPACE UTILITY SPORT</span>
+    </div>
+  </div>
+
+  <!-- Flow Direction Annotation Banner -->
+  <div class="mb-8 p-4 rounded-xl bg-surface-container-high/80 border border-primary/30 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="material-symbols-outlined text-primary text-xl">alt_route</span>
+      <span class="font-mono text-xs text-text-secondary">
+        <strong class="text-white">ROUTING LOGIC:</strong> 
+        Connected Returning Player → <span class="text-primary">Home (03)</span> | 
+        First-Time Launch → <span class="text-gold">Appearance Choice (02)</span> | 
+        Offline Choice → <span class="text-text-muted">Offline Challenges (14)</span>
+      </span>
+    </div>
+    <span class="font-mono text-[11px] text-text-muted uppercase">NON-INTRUSIVE CLIENT TELEMETRY</span>
+  </div>
+
+  <!-- Grid of 5 Separate Production States -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+    <!-- STATE 1: NO CONNECTION -->
+    <div class="rounded-2xl bg-surface-container-low border border-outline/60 p-6 flex flex-col justify-between h-[360px] shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-outline/30 pb-3">
+        <span class="font-mono text-[11px] text-coral font-bold tracking-wider uppercase flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-coral"></span> 01. NO CONNECTION
+        </span>
+        <span class="font-mono text-[10px] text-text-muted">DISCONNECTED</span>
+      </div>
+      <div class="flex flex-col items-center text-center my-auto px-4">
+        <div class="size-12 rounded-xl bg-coral/10 border border-coral/30 flex items-center justify-center text-coral mb-3">
+          <span class="material-symbols-outlined text-2xl">wifi_off</span>
+        </div>
+        <h2 class="font-heading font-black text-lg text-white tracking-tight uppercase">
+          NO CONNECTION
+        </h2>
+        <p class="font-body text-xs text-text-secondary mt-1.5 leading-relaxed">
+          Online Relay is unavailable. Offline play is ready.
+        </p>
+      </div>
+      <div class="flex flex-col gap-2 pt-3 border-t border-outline/30">
+        <button class="h-11 rounded-lg bg-primary hover:bg-primary/90 text-surface-container-lowest font-heading font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-sm">play_arrow</span> PLAY OFFLINE
+        </button>
+        <button class="h-10 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-text-secondary hover:text-white font-mono text-xs uppercase tracking-wider border border-outline/40 flex items-center justify-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">refresh</span> TRY AGAIN
+        </button>
+      </div>
+    </div>
+
+    <!-- STATE 2: SERVICE UNAVAILABLE -->
+    <div class="rounded-2xl bg-surface-container-low border border-outline/60 p-6 flex flex-col justify-between h-[360px] shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-outline/30 pb-3">
+        <span class="font-mono text-[11px] text-gold font-bold tracking-wider uppercase flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-gold"></span> 02. SERVICE UNAVAILABLE
+        </span>
+        <span class="font-mono text-[10px] text-text-muted">BACKEND DOWN</span>
+      </div>
+      <div class="flex flex-col items-center text-center my-auto px-4">
+        <div class="size-12 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-center text-gold mb-3">
+          <span class="material-symbols-outlined text-2xl">cloud_sync</span>
+        </div>
+        <h2 class="font-heading font-black text-lg text-white tracking-tight uppercase">
+          RELAY SERVICE UNAVAILABLE
+        </h2>
+        <p class="font-body text-xs text-text-secondary mt-1.5 leading-relaxed">
+          Practice offline or try again.
+        </p>
+      </div>
+      <div class="flex flex-col gap-2 pt-3 border-t border-outline/30">
+        <button class="h-11 rounded-lg bg-primary hover:bg-primary/90 text-surface-container-lowest font-heading font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-sm">play_arrow</span> PLAY OFFLINE
+        </button>
+        <button class="h-10 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-text-secondary hover:text-white font-mono text-xs uppercase tracking-wider border border-outline/40 flex items-center justify-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">refresh</span> TRY AGAIN
+        </button>
+      </div>
+    </div>
+
+    <!-- STATE 3: UPDATE REQUIRED -->
+    <div class="rounded-2xl bg-surface-container-low border border-outline/60 p-6 flex flex-col justify-between h-[360px] shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-outline/30 pb-3">
+        <span class="font-mono text-[11px] text-primary font-bold tracking-wider uppercase flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-primary"></span> 03. UPDATE REQUIRED
+        </span>
+        <span class="font-mono text-[10px] text-text-muted">VERSION MISMATCH</span>
+      </div>
+      <div class="flex flex-col items-center text-center my-auto px-4">
+        <div class="size-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary mb-3">
+          <span class="material-symbols-outlined text-2xl">system_update</span>
+        </div>
+        <h2 class="font-heading font-black text-lg text-white tracking-tight uppercase">
+          UPDATE REQUIRED
+        </h2>
+        <p class="font-body text-xs text-text-secondary mt-1.5 leading-relaxed">
+          Install the latest version to play online.
+        </p>
+      </div>
+      <div class="flex flex-col gap-2 pt-3 border-t border-outline/30">
+        <button class="h-11 rounded-lg bg-primary hover:bg-primary/90 text-surface-container-lowest font-heading font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-sm">download</span> UPDATE
+        </button>
+        <button class="h-10 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-text-secondary hover:text-white font-mono text-xs uppercase tracking-wider border border-outline/40 flex items-center justify-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">offline_bolt</span> PLAY OFFLINE
+        </button>
+      </div>
+    </div>
+
+    <!-- STATE 4: MAINTENANCE -->
+    <div class="rounded-2xl bg-surface-container-low border border-outline/60 p-6 flex flex-col justify-between h-[360px] shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-outline/30 pb-3">
+        <span class="font-mono text-[11px] text-gold font-bold tracking-wider uppercase flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-gold"></span> 04. MAINTENANCE
+        </span>
+        <span class="font-mono text-[10px] text-text-muted">SCHEDULED DOWNTIME</span>
+      </div>
+      <div class="flex flex-col items-center text-center my-auto px-4">
+        <div class="size-12 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-center text-gold mb-3">
+          <span class="material-symbols-outlined text-2xl">construction</span>
+        </div>
+        <h2 class="font-heading font-black text-lg text-white tracking-tight uppercase">
+          ROOFTOP MAINTENANCE
+        </h2>
+        <p class="font-body text-xs text-text-secondary mt-1.5 leading-relaxed">
+          Relay network optimization in progress. Estimated return: 14:00 UTC.
+        </p>
+      </div>
+      <div class="flex flex-col gap-2 pt-3 border-t border-outline/30">
+        <button class="h-11 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-white font-heading font-bold text-xs uppercase tracking-wider border border-outline/40 flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-sm">refresh</span> RETRY
+        </button>
+        <button class="h-10 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary font-mono text-xs uppercase tracking-wider border border-primary/30 flex items-center justify-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">play_arrow</span> PLAY OFFLINE
+        </button>
+      </div>
+    </div>
+
+    <!-- STATE 5: SAVE RECOVERY -->
+    <div class="rounded-2xl bg-surface-container-low border border-outline/60 p-6 flex flex-col justify-between h-[360px] shadow-xl relative overflow-hidden">
+      <div class="flex items-center justify-between border-b border-outline/30 pb-3">
+        <span class="font-mono text-[11px] text-primary font-bold tracking-wider uppercase flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-primary"></span> 05. SAVE RECOVERY
+        </span>
+        <span class="font-mono text-[10px] text-text-muted">RESTORING STATE</span>
+      </div>
+      <div class="flex flex-col items-center text-center my-auto px-4">
+        <div class="size-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary mb-3">
+          <span class="material-symbols-outlined text-2xl">sync_saved_locally</span>
+        </div>
+        <h2 class="font-heading font-black text-lg text-white tracking-tight uppercase">
+          RESTORING YOUR PROGRESS
+        </h2>
+        <p class="font-body text-xs text-text-secondary mt-1.5 leading-relaxed">
+          Retrieving cloud player data (Flight Seals, unlocked wraps). Attempt 2 of 3.
+        </p>
+        <!-- Bounded recovery indicator -->
+        <div class="w-48 h-1.5 bg-surface-container-highest rounded-full mt-3 overflow-hidden border border-outline/40">
+          <div class="h-full bg-primary rounded-full w-2/3 animate-pulse"></div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2 pt-3 border-t border-outline/30">
+        <button class="h-11 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-white font-heading font-bold text-xs uppercase tracking-wider border border-outline/40 flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-sm">refresh</span> RETRY
+        </button>
+        <button class="h-10 rounded-lg bg-surface-container hover:bg-surface-container-high text-text-muted hover:text-white font-mono text-xs uppercase tracking-wider border border-outline/30 flex items-center justify-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">support_agent</span> SUPPORT
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,70 @@
+# Spec 26/28: milestone acceptance needs test evidence, so both Unity suites run on every
+# push and their XML results + logs are archived as workflow artifacts.
+#
+# Runs on the self-hosted Windows machine that has Unity 6000.3.25f1 installed and
+# licensed: it reuses ProjectHotdrop/Run-UnityTests.ps1, the same runner that produced
+# every recorded gate result, so no Unity license secret is needed.
+# One-time runner setup: docs/CI_SETUP.md.
+name: Unity Tests
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Unity takes an exclusive lock on ProjectHotdrop/Temp. Overlapping runs would fight over
+# it and a cancelled run leaves a stale UnityLockfile, so serialize instead of cancelling.
+concurrency:
+  group: unity-tests
+  cancel-in-progress: false
+
+jobs:
+  unity-suites:
+    name: EditMode + PlayMode
+    runs-on: [self-hosted, windows, x64, unity]
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout (with LFS)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          # Keep the Unity Library cache on the runner; a clean checkout would delete it
+          # and force a cold import on every push.
+          clean: false
+
+      - name: EditMode suite
+        id: editmode
+        shell: powershell
+        run: '& "$env:GITHUB_WORKSPACE\ProjectHotdrop\Run-UnityTests.ps1" -Platform EditMode'
+
+      - name: Archive EditMode results
+        if: steps.editmode.conclusion == 'success' || steps.editmode.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-editmode-${{ github.run_number }}
+          path: |
+            ProjectHotdrop/TestResults/EditMode.xml
+            ProjectHotdrop/TestResults/EditMode.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      # PlayMode is skipped when EditMode fails: both suites compile the same assemblies,
+      # so a red EditMode is fixed first.
+      - name: PlayMode suite
+        id: playmode
+        shell: powershell
+        run: '& "$env:GITHUB_WORKSPACE\ProjectHotdrop\Run-UnityTests.ps1" -Platform PlayMode'
+
+      - name: Archive PlayMode results
+        if: steps.playmode.conclusion == 'success' || steps.playmode.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-playmode-${{ github.run_number }}
+          path: |
+            ProjectHotdrop/TestResults/PlayMode.xml
+            ProjectHotdrop/TestResults/PlayMode.log
+          if-no-files-found: warn
+          retention-days: 30

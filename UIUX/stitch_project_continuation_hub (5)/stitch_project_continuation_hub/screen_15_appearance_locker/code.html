@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-container-high":"#222a3a","primary-fixed":"#93f1ff","surface-container-highest":"#2d3545","on-secondary-container":"#ff9da4","primary":"#7cefff","on-tertiary-container":"#654c00","on-primary-fixed-variant":"#004f57","secondary-fixed-dim":"#ffb2b7","surface-bright":"#31394a","surface":"#0b1322","primary-fixed-dim":"#38d9ec","error-container":"#93000a","on-surface-variant":"#bbc9cb","background":"#0b1322","secondary":"#ffb2b7","on-surface":"#dbe2f8","on-secondary-fixed-variant":"#8f092b","on-secondary":"#67001b","on-secondary-fixed":"#40000d","tertiary-fixed-dim":"#edc157","primary-container":"#30d5e8","on-background":"#dbe2f8","error":"#ffb4ab","surface-tint":"#38d9ec","on-tertiary-fixed":"#251a00","secondary-container":"#930d2d","surface-container":"#18202f","surface-container-lowest":"#060e1d","on-error-container":"#ffdad6","on-primary-fixed":"#001f23","tertiary":"#ffda88","inverse-surface":"#dbe2f8","tertiary-fixed":"#ffdf9b","on-primary-container":"#005862","on-tertiary":"#3f2e00","inverse-on-surface":"#293041","secondary-fixed":"#ffdadb","surface-variant":"#2d3545","surface-dim":"#0b1322","surface-container-low":"#141c2b","inverse-primary":"#006973","on-primary":"#00363c","on-error":"#690005","outline":"#859396","tertiary-container":"#e8bc54","on-tertiary-fixed-variant":"#5b4300","outline-variant":"#3c494b"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"space-xs":"0.25rem","space-md":"0.75rem",gutter:"1rem","space-sm":"0.5rem",margin:"1.5rem","space-lg":"1.25rem","space-xl":"2rem"},fontFamily:{"body-md":["Hanken Grotesk"],"headline-md":["Space Grotesk"],"headline-xl-mobile":["Space Grotesk"],"label-data-md":["JetBrains Mono"],"title-md":["Hanken Grotesk"],"body-lg":["Hanken Grotesk"],"headline-xl":["Space Grotesk"],"headline-lg-mobile":["Space Grotesk"],"body-sm":["Hanken Grotesk"],"label-data-lg":["JetBrains Mono"],"label-caps":["Space Grotesk"],"headline-lg":["Space Grotesk"],"label-data-sm":["JetBrains Mono"],"title-lg":["Hanken Grotesk"]},fontSize:{"body-md":["14px",{lineHeight:"20px",letterSpacing:"0em",fontWeight:"400"}],"headline-md":["20px",{lineHeight:"26px",letterSpacing:"0em",fontWeight:"600"}],"headline-xl-mobile":["30px",{lineHeight:"36px",letterSpacing:"-0.02em",fontWeight:"700"}],"label-data-md":["14px",{lineHeight:"18px",letterSpacing:"0.03em",fontWeight:"600"}],"title-md":["16px",{lineHeight:"22px",letterSpacing:"0.01em",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"22px",letterSpacing:"0em",fontWeight:"400"}],"headline-xl":["40px",{lineHeight:"48px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-lg-mobile":["22px",{lineHeight:"28px",letterSpacing:"-0.01em",fontWeight:"700"}],"body-sm":["12px",{lineHeight:"16px",letterSpacing:"0.01em",fontWeight:"400"}],"label-data-lg":["18px",{lineHeight:"22px",letterSpacing:"0.02em",fontWeight:"700"}],"label-caps":["12px",{lineHeight:"14px",letterSpacing:"0.08em",fontWeight:"700"}],"headline-lg":["28px",{lineHeight:"34px",letterSpacing:"-0.01em",fontWeight:"700"}],"label-data-sm":["11px",{lineHeight:"14px",letterSpacing:"0.05em",fontWeight:"500"}],"title-lg":["18px",{lineHeight:"24px",letterSpacing:"0.01em",fontWeight:"600"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased select-none"><header class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.3)]"><div class="h-16 w-full px-margin flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-sm"><img alt="HOTDROP bold modern aerospace sports shooter logo. Dynamic upward trajectory and drop vector with clean cyan and gold aerodynamic accents. Text HOTDROP with subtitle AIR-GROUND KINETIC RELAY.. Brand logo. - Primary color: #30d5e8
+- Font: spaceGrotesk
+- Mode: dark
+- Roundness: rounded-md
+" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VM_61Wb1RR8JSN5wdI1v_8gQJzSyg5R2ML72TrgyksDVqGqVTxMftM6cu04ozQEvnYBzH_2JVG-c4DQ6TpiC1BApdIkOCRLzB4K6fMNuNmjPhLa7gsds59R_D5hCdBaNzBoxNW0RY7je3fFaNEhpiYtrIkeqmWVQYFPcO08OJc9ooA9OzhNDFGfMqJiA8-SPkI5TWbc6UbIDRfwP1ipVpN4VDOkJPyE4jZQxLHB8Rkr0eI6dUC5Los"/><div class="flex flex-col"><span class="font-headline-md text-headline-md tracking-tight text-on-surface uppercase">HOTDROP</span><span class="font-label-data-sm text-label-data-sm text-primary tracking-wider uppercase">KINETIC RELAY // V2.4</span></div></div><div class="hidden md:flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container rounded-lg"><span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-data-sm text-label-data-sm text-on-surface">SYS // 24MS</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">LAT_US_WEST</span></div><nav class="hidden lg:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-lowest rounded-lg" data-active-classes="bg-surface-container-high text-primary font-title-md"><a class="px-space-md py-space-xs rounded-lg font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors uppercase" data-path="mission-control" href="#">Mission Control</a><a class="px-space-md py-space-xs rounded-lg font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors uppercase" data-path="offline-challenges" href="#">Offline Challenges</a><a aria-current="page" class="px-space-md py-space-xs rounded-lg transition-colors uppercase bg-surface-container-high text-primary font-title-md" data-path="appearance-locker" href="#">Appearance Locker</a><a class="px-space-md py-space-xs rounded-lg font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors uppercase" data-path="operative-profile" href="#">Operative Profile</a></nav></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container rounded-lg"><span class="font-label-data-sm text-label-data-sm text-tertiary uppercase">SEALS</span><span class="font-label-data-md text-label-data-md text-tertiary-fixed">48,250</span></div><div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container rounded-lg"><span class="font-label-data-sm text-label-data-sm text-primary uppercase">K-CORE</span><span class="font-label-data-md text-label-data-md text-primary-fixed">1,420</span></div><button class="p-space-xs rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined text-[20px]">settings</span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="flex flex-col text-right hidden sm:flex"><span class="font-label-caps text-label-caps text-on-surface uppercase">CALLSIGN // APEX</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">TIER 04 // ELITE</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></div></header><main class="w-full pt-16 bg-surface min-h-[calc(100vh-4.5rem)] pb-20"><div class="flex flex-col w-full">
+<div class="w-full px-margin py-space-md flex flex-col gap-space-md">
+<!-- Top System Subheader & Parity Guarantee -->
+<div class="w-full flex flex-col lg:flex-row lg:items-center justify-between gap-space-sm bg-surface-container-low p-space-md rounded-lg shadow-sm">
+<div class="flex items-center gap-space-md">
+<div class="w-2.5 h-7 bg-primary-container rounded-sm"></div>
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-md text-headline-md tracking-tight uppercase text-on-surface">APPEARANCE // TACTICAL LOCKER</span>
+<span class="px-space-xs py-0.5 rounded bg-surface-container-highest font-label-data-sm text-label-data-sm text-primary uppercase">REGISTRY v2.4</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-space-xs mt-0.5">
+<span class="material-symbols-outlined text-[15px] text-primary">verified_user</span>
+<span>Cosmetics strictly non-mechanical • 100% identical silhouette, hitboxes, recoil recovery, and acoustic signatures.</span>
+</p>
+</div>
+</div>
+<!-- Right Quick Specs / Parity Telemetry -->
+<div class="flex items-center gap-space-md self-start lg:self-center">
+<div class="flex items-center gap-space-xs px-space-md py-space-xs bg-surface-container rounded-lg">
+<span class="material-symbols-outlined text-[16px] text-tertiary">tune</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SILHOUETTE:</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface uppercase">MATCHED 1:1</span>
+</div>
+<div class="flex items-center gap-space-xs px-space-md py-space-xs bg-surface-container rounded-lg">
+<span class="material-symbols-outlined text-[16px] text-primary">graphic_eq</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">ACOUSTICS:</span>
+<span class="font-label-data-sm text-label-data-sm text-primary uppercase">STANDARDIZED</span>
+</div>
+</div>
+</div>
+<!-- Main Dynamic Stage + Wardrobe Workspace -->
+<div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-space-md items-start">
+<!-- Left / Center: Interactive Operative 3D Turntable Presentation Stage -->
+<div class="lg:col-span-7 flex flex-col gap-space-sm">
+<div class="relative w-full h-[580px] rounded-xl bg-surface-container-lowest overflow-hidden flex flex-col justify-between p-space-lg shadow-xl">
+<!-- Background Atmospheric Deck Render -->
+<div class="absolute inset-0 bg-cover bg-center opacity-85" data-alt="Tactical rooftop switchyard sports arena under brilliant crisp coastal sunlight with carbon-fiber launch platforms, clean aerodynamic cyan guide vectors on runway, ultra realistic athletic game character presentation deck, high-tech tournament aesthetic with skyward trajectory markings and high contrast avionics lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCNBQc0nGVqhejdpE7E-v0jh2mjPaXsDUWDPEES0EjlbB9V5-Sij2ZvV_cIuFYI6KR6mjGD24-UGpVndwCNkJlUY5J_dkwkDd6g_lb4Nmm_yfIWyI8iW0eCAXJwThzutMP_0p2l3tZ3mjTD0FHe7NLmL3VVF18ZY9F7hszmbyZNWEZeTv-J0tj_XzJA_lB-Ltzy4bTFT2t-6DB_4vPO6VT4rSGEx4coK98iu7W4KuILTno_N2IqO_WJ')"></div>
+<!-- Gradient Vignette & Grid Lines -->
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-surface-container-lowest/60 pointer-events-none"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-surface-container-lowest/70 via-transparent to-surface-container-lowest/40 pointer-events-none"></div>
+<!-- Top Stage HUD Indicators -->
+<div class="relative z-10 flex items-center justify-between w-full">
+<div class="flex items-center gap-space-sm bg-surface-container-high/90 backdrop-blur-md px-space-md py-space-xs rounded-lg">
+<span class="inline-block w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface font-semibold tracking-wider">STAGE // SWITCHYARD PLATFORM 03</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">ELV +142M</span>
+</div>
+<div class="flex items-center gap-space-xs bg-surface-container-high/90 backdrop-blur-md px-space-md py-space-xs rounded-lg">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">sunny</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface">DAYLIGHT // 5600K RAW</span>
+</div>
+</div>
+<!-- Stage Center Interactive Rotation Overlay & Focal Target -->
+<div class="relative z-10 w-full flex-1 flex flex-col items-center justify-end pb-space-lg pointer-events-none">
+<!-- Dynamic Active Loadout Floating Tag -->
+<div class="mb-space-md bg-surface-container/90 backdrop-blur-md px-space-lg py-space-xs rounded-lg flex items-center gap-space-md shadow-lg">
+<div class="flex flex-col">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">CURRENT ARMED WEAPON</span>
+<span class="font-headline-md text-headline-md text-primary">ARC PRECISION RIFLE // MK IV</span>
+</div>
+<div class="h-6 w-px bg-surface-container-highest"></div>
+<div class="flex flex-col">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">ACTIVE WRAP</span>
+<span class="font-label-data-md text-label-data-md text-tertiary">AERO-VECTOR SLATE</span>
+</div>
+</div>
+<!-- Turntable Radial Reticle on Platform Ground -->
+<div class="w-72 h-16 relative flex items-center justify-center">
+<svg class="w-full h-full text-primary/40 animate-[spin_24s_linear_infinite]" fill="none" viewbox="0 0 200 50">
+<ellipse cx="100" cy="25" rx="90" ry="20" stroke="currentColor" stroke-dasharray="6 6" stroke-width="1.5"></ellipse>
+<ellipse cx="100" cy="25" rx="60" ry="12" stroke="currentColor" stroke-dasharray="2 4" stroke-width="1"></ellipse>
+<circle cx="100" cy="5" fill="currentColor" r="2.5"></circle>
+<circle cx="100" cy="45" fill="currentColor" r="2.5"></circle>
+<circle cx="10" cy="25" fill="currentColor" r="2.5"></circle>
+<circle cx="190" cy="25" fill="currentColor" r="2.5"></circle>
+</svg>
+<div class="absolute inset-x-0 -bottom-1 flex justify-center">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant tracking-widest uppercase bg-surface-container-lowest/80 px-space-sm py-0.5 rounded">360° AZIMUTH TURNTABLE</span>
+</div>
+</div>
+</div>
+<!-- Bottom Stage Controls (Inspection Triggers & Camera Angle) -->
+<div class="relative z-10 flex flex-wrap items-center justify-between gap-space-sm pt-space-sm">
+<!-- Turntable Drag Hint -->
+<div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container/90 backdrop-blur-md rounded-lg text-on-surface">
+<span class="material-symbols-outlined text-[18px] text-primary">swipe</span>
+<span class="font-label-data-sm text-label-data-sm uppercase tracking-wide">DRAG TO ROTATE OPERATIVE</span>
+</div>
+<!-- Pose & Zoom Sliders / Toggles -->
+<div class="flex items-center gap-space-xs">
+<button class="px-space-md py-space-xs bg-surface-container-highest text-primary font-label-data-sm text-label-data-sm rounded-lg flex items-center gap-space-xs transition-colors hover:bg-surface-bright" id="btn-pose-lowready">
+<span class="material-symbols-outlined text-[15px]">sports_martial_arts</span>
+<span>LOW-READY</span>
+</button>
+<button class="px-space-md py-space-xs bg-surface-container text-on-surface-variant font-label-data-sm text-label-data-sm rounded-lg flex items-center gap-space-xs transition-colors hover:bg-surface-container-high hover:text-on-surface" id="btn-pose-aim">
+<span class="material-symbols-outlined text-[15px]">file_download_done</span>
+<span>ADS POSE</span>
+</button>
+<button class="p-space-xs bg-surface-container text-on-surface-variant rounded-lg transition-colors hover:bg-surface-container-high hover:text-on-surface" id="btn-reset-view" title="Reset Camera">
+<span class="material-symbols-outlined text-[18px]">replay</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Direct Parity Proof Banner (Zero RNG, Zero Pay-to-Win) -->
+<div class="w-full bg-surface-container p-space-md rounded-lg flex items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">balance</span>
+</div>
+<div>
+<div class="font-title-md text-title-md text-on-surface">FAIR PLAY REQUISITIONS</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">HOTDROP locker unlocks are strictly earned through competitive matches, Flight Seals, and mastery challenges.</p>
+</div>
+</div>
+<div class="hidden sm:flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-primary uppercase">NO LOOTBOXES</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">NO COMBAT BUFFS</span>
+</div>
+</div>
+</div>
+<!-- Right Panel: Requisition Tabs, Filtering & Item Selection Grid -->
+<div class="lg:col-span-5 flex flex-col gap-space-md">
+<!-- Category Navigation Tabs (Strict 48dp target height) -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-xs bg-surface-container-lowest p-space-xs rounded-xl">
+<button class="cat-tab h-12 px-space-xs rounded-lg flex flex-col items-center justify-center bg-surface-container-high text-primary transition-colors" data-category="presentation">
+<span class="material-symbols-outlined text-[18px]">accessibility_new</span>
+<span class="font-label-caps text-label-caps uppercase text-center leading-none mt-1">BODY PRES.</span>
+</button>
+<button class="cat-tab h-12 px-space-xs rounded-lg flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-category="suit">
+<span class="material-symbols-outlined text-[18px]">dry_cleaning</span>
+<span class="font-label-caps text-label-caps uppercase text-center leading-none mt-1">BODY STYLE</span>
+</button>
+<button class="cat-tab h-12 px-space-xs rounded-lg flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-category="wraps">
+<span class="material-symbols-outlined text-[18px]">colorize</span>
+<span class="font-label-caps text-label-caps uppercase text-center leading-none mt-1">WEAPON WRAP</span>
+</button>
+<button class="cat-tab h-12 px-space-xs rounded-lg flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-category="badges">
+<span class="material-symbols-outlined text-[18px]">military_tech</span>
+<span class="font-label-caps text-label-caps uppercase text-center leading-none mt-1">BADGES</span>
+</button>
+</div>
+<!-- Filter Row & Inventory Search Meta -->
+<div class="flex items-center justify-between gap-space-sm bg-surface-container-low px-space-md py-space-xs rounded-lg">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase mr-1">FILTER:</span>
+<button class="px-space-md py-1 rounded bg-surface-container-highest text-primary font-label-data-sm text-label-data-sm uppercase" id="filter-all">ALL (14)</button>
+<button class="px-space-md py-1 rounded bg-surface-container text-on-surface-variant hover:text-on-surface font-label-data-sm text-label-data-sm uppercase transition-colors" id="filter-owned">OWNED (8)</button>
+<button class="px-space-md py-1 rounded bg-surface-container text-on-surface-variant hover:text-on-surface font-label-data-sm text-label-data-sm uppercase transition-colors" id="filter-locked">LOCKED (6)</button>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">SEALS: 48,250</span>
+</div>
+<!-- Item Stack / Wardrobe Grid -->
+<div class="flex flex-col gap-space-sm max-h-[380px] overflow-y-auto pr-1">
+<!-- Card 1: EQUIPPED Default Issue -->
+<div class="item-card active-card p-space-md rounded-xl bg-surface-container-high transition-all cursor-pointer shadow-md" data-desc="Regulation flame-retardant synthetic knit tailored for high-G roofdrops and rooftop vaulting maneuvers. Zero drag coefficient." data-item-id="item-01" data-source="Default Operational Requisition" data-status="equipped" data-sub="Default Issue Uniform" data-title="Standard Flight Utility" data-type="suit" data-unlocked="true">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-0.5 rounded bg-primary-container text-on-primary-container font-label-data-sm text-label-data-sm font-bold uppercase">EQUIPPED</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SLOT // BODY SUIT</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="w-14 h-14 rounded-lg bg-surface-container-lowest overflow-hidden relative flex-shrink-0 flex items-center justify-center">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Tactical dark athletic jumpsuit with cyan trim strips, minimalist aerodynamic cut, matte polymer fabric detail texture." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBNr7UxIg4qsTBoyOgLSek2yC87ArhPhQX5JyrN8eesRxWeLdeFUBxGoTRr9REtWhVjBLOFl-eIviz7YeiNMyurS3_MfJWyeJYa4FFE9GQISAiqflGWqhNJ2nDh-RRoYCrS4A9n2r5Vl020lmqIVzimCvFk0BsnGsXDkGXDcat8ddOXZ6y5zNWXLja3QOZrL_hJJ5HS2c47igTAM5UvFSbtYUGhIYsJDFfbRJcAo-Kbd0IQlTuOGODg')"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-title-md text-title-md text-on-surface truncate">Standard Flight Utility</div>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">Default Issue • Free / Neutral</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-sm text-label-data-sm text-primary">ACTIVE</span>
+</div>
+</div>
+</div>
+<!-- Card 2: EQUIPPED WEAPON WRAP -->
+<div class="item-card p-space-md rounded-xl bg-surface-container transition-all hover:bg-surface-container-high cursor-pointer shadow-sm" data-desc="Ceramic powder-coated matte gunmetal finish inscribed with sub-millimeter trajectory calibration lines." data-item-id="item-02" data-source="Unlocked via 6 Flight Seals (Relay Season 01)" data-status="equipped" data-sub="Primary ARC Precision Rifle Wrap" data-title="Aero-Vector Slate" data-type="wraps" data-unlocked="true">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-0.5 rounded bg-primary-container text-on-primary-container font-label-data-sm text-label-data-sm font-bold uppercase">EQUIPPED WRAP</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SLOT // ARC RIFLE</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="w-14 h-14 rounded-lg bg-surface-container-lowest overflow-hidden relative flex-shrink-0 flex items-center justify-center">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Close up precision kinetic sniper rifle skin in matte slate grey with fine cyan laser alignment hashes and aerovector stencils." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCd7vv7pThLim03J6f_2Lvn8oAMHKtkYFGlCziERwVq42ch0o1rskVbiTQnLlwYgtC00awbrGe8xh7mqDdbLJnidfmFgPJBohfd-OxQZtOEaBHD8fVVgnIBamflv0Ptyy7VhWGeGPkHguMw9QsQIqgUtWxjeOxpIPHHgDa372xYsSu82htMYoj46NUDccubBTF3qJpbRnJkMq5Z4-k2kb6JT0x9kI-lI33EPvDfWReapYFyDyJ_q35q')"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-title-md text-title-md text-on-surface truncate">Aero-Vector Slate</div>
+<div class="font-label-data-sm text-label-data-sm text-primary">ARC Rifle Wrap • 6 Flight Seals</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">OWNED</span>
+</div>
+</div>
+</div>
+<!-- Card 3: LOCKED High-Altitude Ionized -->
+<div class="item-card p-space-md rounded-xl bg-surface-container/60 transition-all hover:bg-surface-container cursor-pointer shadow-sm opacity-85" data-desc="Reinforced pressurized mesh weave with ozone-treated thermal plating. Certified for 400m orbital rooftop drops." data-item-id="item-03" data-source="Complete Relay Specialist Bronze" data-status="locked" data-sub="Body Style / Flight Suit" data-title="High-Altitude Ionized" data-type="suit" data-unlocked="false">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-highest text-secondary font-label-data-sm text-label-data-sm font-bold uppercase">LOCKED</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">BODY STYLE</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-secondary">lock</span>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="w-14 h-14 rounded-lg bg-surface-container-lowest overflow-hidden relative flex-shrink-0 flex items-center justify-center">
+<div class="absolute inset-0 bg-cover bg-center grayscale" data-alt="High tech athletic flight combat suit in dark titanium weave with ionized heat shields and high altitude intake valves." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBP06G4JvCr-25lY23xZJDpPU0dvBrNFLdzPwRW7RcWh5iYyCDnNOfKiYFCuC0-AtpHWJI5cX0n-DvSPiXp_vrBxTms8BOC-z1kq6vO3JgfpmsNgZhOzIu6QVNQ_EBEcLWWptRB4_JW3q-rT676rBe7HNCvHEdESYFT3bs6RJviMl433Ka53qS1bxAG4e6nCpGLE1mseRSWLg7PcY_WPjxiqpESBltwhVbmcQ25Vet-Pdj0WMif-0eL')"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-title-md text-title-md text-on-surface truncate">High-Altitude Ionized</div>
+<div class="font-label-data-sm text-label-data-sm text-secondary truncate">Req: Relay Specialist Bronze</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">CHALLENGE</span>
+</div>
+</div>
+</div>
+<!-- Card 4: LOCKED Jump Pad Chassis Anodized Cobalt Rim -->
+<div class="item-card p-space-md rounded-xl bg-surface-container/60 transition-all hover:bg-surface-container cursor-pointer shadow-sm opacity-85" data-desc="Lightweight CNC-milled cobalt alloy perimeter ring with anti-glare thermal coating. Provides crisp visual placement cues." data-item-id="item-04" data-source="Choose after earning 6 Flight Seals" data-status="locked" data-sub="Deployable Jump Pad Chassis" data-title="Anodized Cobalt Rim" data-type="wraps" data-unlocked="false">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-0.5 rounded bg-surface-container-highest text-secondary font-label-data-sm text-label-data-sm font-bold uppercase">LOCKED</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">TACTICAL DEPLOYABLE</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-secondary">lock</span>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="w-14 h-14 rounded-lg bg-surface-container-lowest overflow-hidden relative flex-shrink-0 flex items-center justify-center">
+<div class="absolute inset-0 bg-cover bg-center grayscale" data-alt="Compact circular tactical pneumatic jump pad device with electric cobalt anodized metal perimeter and warning hash markers." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAkxyFDS5Isd2jOURRryiyDNKnlzu1T9yrj9KFlAw-zNHHKkCDh5CSjNE3d3412kGf-xqKV0k3FH-snAL2o4BZr1UZCpfLlCmeODoias83429NrPC8JeWHsW2gVf_CgESTKpSdYESidacDE_hQLXZZPAMcsOScYV-OwtY5ySI4D2ZBW2SQzStq5vhsusjBdVR3y3uqBC7MCgTkkwokvX3WQtCY_9x78ojU0pc4qortWaNfup8TPh3-r')"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-title-md text-title-md text-on-surface truncate">Anodized Cobalt Rim</div>
+<div class="font-label-data-sm text-label-data-sm text-secondary truncate">Req: 6 Flight Seals Milestone</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SEALS</span>
+</div>
+</div>
+</div>
+<!-- Card 5: EQUIPPED BADGE -->
+<div class="item-card p-space-md rounded-xl bg-surface-container transition-all hover:bg-surface-container-high cursor-pointer shadow-sm" data-desc="Acknowledged by League Observers for establishing the primary launch trajectory route in high-tier Relay competition." data-item-id="item-05" data-source="Earned in Track 02 (Sub-42s Clean Circuit)" data-status="equipped" data-sub="Mastery Insignia Badge" data-title="Route Architect (Silver)" data-type="badges" data-unlocked="true">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-0.5 rounded bg-tertiary-container text-on-tertiary-container font-label-data-sm text-label-data-sm font-bold uppercase">EQUIPPED BADGE</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">INSIGNIA SLOT 01</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-tertiary">military_tech</span>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="w-14 h-14 rounded-lg bg-surface-container-lowest overflow-hidden relative flex-shrink-0 flex items-center justify-center">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="Chiseled silver athletic insignia badge representing speed routes with sharp wind chevron arrows and an aerospace relay crest." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAp1ia1aULh_DzdXZDMA3fa3l03qGeJQdFu-Yjny4SuEwCYj1_9AMlL8udZlqb4JF3uW-S9Ljlk5218SLqSO9w0d52KmT9nnev9kwLBtB-Rx-QbfMWVZ4LaDLA_B1gPc8xdUrWYfHomSG9_0hp9PX40zlyOdrzTVYe7d926w3IWJT9GAGH84l_rGWZWYWfoiCSCLM3TNZ-wLlgngBkGWQ7ejDJj5qTVqg3I8wq3KbJqbdKcY1_ckZ1w')"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-title-md text-title-md text-on-surface truncate">Route Architect (Silver)</div>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">Track 02 Mastery Reward</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-sm text-label-data-sm text-tertiary">DISPLAYED</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Detail Inspection Drawer / Equipping Station -->
+<div class="w-full bg-surface-container-low p-space-md rounded-xl shadow-lg flex flex-col gap-space-sm" id="inspector-panel">
+<div class="flex items-center justify-between">
+<span class="font-label-data-sm text-label-data-sm text-primary uppercase font-bold tracking-wider">TELEMETRY &amp; ACQUISITION SPEC</span>
+<div class="flex items-center gap-space-xs px-space-sm py-0.5 rounded bg-surface-container-high" id="save-badge">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">SAVED TO OPERATIVE PROFILE</span>
+</div>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface" id="inspect-title">Standard Flight Utility</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5" id="inspect-desc">Regulation flame-retardant synthetic knit tailored for high-G roofdrops and rooftop vaulting maneuvers. Zero drag coefficient.</p>
+</div>
+<!-- Verification Matrix (Zero Mechanical Impact) -->
+<div class="grid grid-cols-3 gap-space-xs bg-surface-container p-space-xs rounded-lg">
+<div class="flex flex-col text-center p-space-xs">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">HITBOX DELTA</span>
+<span class="font-label-data-md text-label-data-md text-on-surface">0.00% (STABLE)</span>
+</div>
+<div class="flex flex-col text-center p-space-xs bg-surface-container-low rounded">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">VELOCITY BIAS</span>
+<span class="font-label-data-md text-label-data-md text-on-surface">0.00 M/S</span>
+</div>
+<div class="flex flex-col text-center p-space-xs">
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant uppercase">SOUND EMISSION</span>
+<span class="font-label-data-md text-label-data-md text-on-surface">MATCHED</span>
+</div>
+</div>
+<!-- Source / Lock Warning String -->
+<div class="flex items-center gap-space-sm px-space-sm py-space-xs bg-surface-container rounded-lg">
+<span class="material-symbols-outlined text-[18px] text-tertiary">verified</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant" id="inspect-source">Default Operational Requisition</span>
+</div>
+<!-- Instantaneous Equip Action Button with Cyan Feedback -->
+<div class="flex items-center gap-space-sm pt-space-xs">
+<button class="flex-1 h-12 rounded-lg bg-primary-container text-on-primary-container font-headline-md text-headline-md uppercase tracking-wide flex items-center justify-center gap-space-sm transition-all shadow-md hover:bg-primary active:scale-[0.98]" id="btn-equip-action">
+<span class="material-symbols-outlined text-[20px]" id="equip-icon">check</span>
+<span id="equip-label">EQUIPPED ON ACTIVE OPERATIVE</span>
+</button>
+<button class="h-12 w-12 rounded-lg bg-surface-container-high text-on-surface flex items-center justify-center hover:bg-surface-bright transition-colors" id="btn-inspect-360" title="Focus Camera">
+<span class="material-symbols-outlined text-[20px]">center_focus_strong</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  (function () {
+    const itemCards = document.querySelectorAll('.item-card');
+    const inspectTitle = document.getElementById('inspect-title');
+    const inspectDesc = document.getElementById('inspect-desc');
+    const inspectSource = document.getElementById('inspect-source');
+    const equipButton = document.getElementById('btn-equip-action');
+    const equipLabel = document.getElementById('equip-label');
+    const equipIcon = document.getElementById('equip-icon');
+    const saveBadge = document.getElementById('save-badge');
+
+    let currentSelectedCard = itemCards[0];
+
+    function updateInspector(card) {
+      const isUnlocked = card.getAttribute('data-unlocked') === 'true';
+      const isEquipped = card.getAttribute('data-status') === 'equipped';
+      const title = card.getAttribute('data-title');
+      const desc = card.getAttribute('data-desc');
+      const source = card.getAttribute('data-source');
+
+      inspectTitle.textContent = title;
+      inspectDesc.textContent = desc;
+      inspectSource.textContent = source;
+
+      itemCards.forEach(c => {
+        c.classList.remove('bg-surface-container-high', 'shadow-md');
+        if (!c.classList.contains('opacity-85')) {
+          c.classList.add('bg-surface-container');
+        }
+      });
+
+      card.classList.remove('bg-surface-container');
+      card.classList.add('bg-surface-container-high', 'shadow-md');
+      currentSelectedCard = card;
+
+      if (!isUnlocked) {
+        equipButton.disabled = true;
+        equipButton.className = "flex-1 h-12 rounded-lg bg-surface-container-highest text-on-surface-variant font-headline-md text-headline-md uppercase tracking-wide flex items-center justify-center gap-space-sm cursor-not-allowed";
+        equipLabel.textContent = "LOCKED // REQUIRES CHALLENGE";
+        equipIcon.textContent = "lock";
+      } else if (isEquipped) {
+        equipButton.disabled = false;
+        equipButton.className = "flex-1 h-12 rounded-lg bg-surface-container-highest text-primary font-headline-md text-headline-md uppercase tracking-wide flex items-center justify-center gap-space-sm transition-all";
+        equipLabel.textContent = "EQUIPPED ON ACTIVE OPERATIVE";
+        equipIcon.textContent = "check_circle";
+      } else {
+        equipButton.disabled = false;
+        equipButton.className = "flex-1 h-12 rounded-lg bg-primary-container text-on-primary-container font-headline-md text-headline-md uppercase tracking-wide flex items-center justify-center gap-space-sm transition-all shadow-md hover:bg-primary active:scale-[0.98]";
+        equipLabel.textContent = "EQUIP TO LOADOUT";
+        equipIcon.textContent = "touch_app";
+      }
+    }
+
+    itemCards.forEach(card => {
+      card.addEventListener('click', function () {
+        updateInspector(this);
+      });
+    });
+
+    equipButton.addEventListener('click', function () {
+      if (equipButton.disabled) return;
+      
+      const isUnlocked = currentSelectedCard.getAttribute('data-unlocked') === 'true';
+      if (!isUnlocked) return;
+
+      currentSelectedCard.setAttribute('data-status', 'equipped');
+      updateInspector(currentSelectedCard);
+
+      // Trigger Saved Profile confirmation feedback
+      saveBadge.classList.add('bg-primary-container');
+      const badgeText = saveBadge.querySelector('span:last-child');
+      if (badgeText) {
+        badgeText.classList.remove('text-on-surface-variant');
+        badgeText.classList.add('text-on-primary-container', 'font-bold');
+        badgeText.textContent = "SYNCED TO CLOUD PROFILE";
+      }
+
+      setTimeout(() => {
+        saveBadge.classList.remove('bg-primary-container');
+        if (badgeText) {
+          badgeText.classList.remove('text-on-primary-container', 'font-bold');
+          badgeText.classList.add('text-on-surface-variant');
+          badgeText.textContent = "SAVED TO OPERATIVE PROFILE";
+        }
+      }, 1600);
+    });
+
+    // Pose toggle interactions
+    const btnLowReady = document.getElementById('btn-pose-lowready');
+    const btnAim = document.getElementById('btn-pose-aim');
+    if (btnLowReady && btnAim) {
+      btnLowReady.addEventListener('click', function () {
+        btnLowReady.className = "px-space-md py-space-xs bg-surface-container-highest text-primary font-label-data-sm text-label-data-sm rounded-lg flex items-center gap-space-xs transition-colors";
+        btnAim.className = "px-space-md py-space-xs bg-surface-container text-on-surface-variant font-label-data-sm text-label-data-sm rounded-lg flex items-center gap-space-xs transition-colors hover:bg-surface-container-high hover:text-on-surface";
+      });
+      btnAim.addEventListener('click', function () {
+        btnAim.className = "px-space-md py-space-xs bg-surface-container-highest text-primary font-label-data-sm text-label-data-sm rounded-lg flex items-center gap-space-xs transition-colors";
+        btnLowReady.className = "px-space-md py-space-xs bg-surface-container text-on-surface-variant font-label-data-sm text-label-data-sm rounded-lg flex items-center gap-space-xs transition-colors hover:bg-surface-container-high hover:text-on-surface";
+      });
+    }
+
+    // Category Tabs Switching Visuals
+    const catTabs = document.querySelectorAll('.cat-tab');
+    catTabs.forEach(tab => {
+      tab.addEventListener('click', function () {
+        catTabs.forEach(t => {
+          t.className = "cat-tab h-12 px-space-xs rounded-lg flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors";
+        });
+        this.className = "cat-tab h-12 px-space-xs rounded-lg flex flex-col items-center justify-center bg-surface-container-high text-primary transition-colors";
+      });
+    });
+
+    // Quick filter filters
+    const filterAll = document.getElementById('filter-all');
+    const filterOwned = document.getElementById('filter-owned');
+    const filterLocked = document.getElementById('filter-locked');
+
+    function setFilterActive(activeBtn) {
+      [filterAll, filterOwned, filterLocked].forEach(b => {
+        b.className = "px-space-md py-1 rounded bg-surface-container text-on-surface-variant hover:text-on-surface font-label-data-sm text-label-data-sm uppercase transition-colors";
+      });
+      activeBtn.className = "px-space-md py-1 rounded bg-surface-container-highest text-primary font-label-data-sm text-label-data-sm uppercase";
+    }
+
+    filterAll.addEventListener('click', () => {
+      setFilterActive(filterAll);
+      itemCards.forEach(c => c.style.display = 'block');
+    });
+
+    filterOwned.addEventListener('click', () => {
+      setFilterActive(filterOwned);
+      itemCards.forEach(c => {
+        c.style.display = c.getAttribute('data-unlocked') === 'true' ? 'block' : 'none';
+      });
+    });
+
+    filterLocked.addEventListener('click', () => {
+      setFilterActive(filterLocked);
+      itemCards.forEach(c => {
+        c.style.display = c.getAttribute('data-unlocked') === 'false' ? 'block' : 'none';
+      });
+    });
+  })();
+</script></main><footer class="fixed bottom-0 left-0 right-0 h-18 w-full bg-surface-container-lowest/95 backdrop-blur-xl z-50"><div class="h-full w-full px-margin flex items-center justify-between"><div class="flex items-center gap-space-md"><button class="h-12 px-space-lg rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high hover:text-on-surface font-headline-md text-headline-md uppercase flex items-center gap-space-sm transition-colors"><span class="material-symbols-outlined text-[20px]">arrow_back</span><span>Back</span></button><div class="hidden sm:flex items-center gap-space-xs font-label-data-sm text-label-data-sm text-on-surface-variant"><span class="text-primary">RELAY:</span><span>ACTIVE LINK 09-K</span></div></div><div class="flex items-center gap-space-md"><button class="h-12 px-space-lg rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-bright hover:text-on-surface font-headline-md text-headline-md uppercase flex items-center gap-space-sm transition-colors"><span class="material-symbols-outlined text-[20px]">radar</span><span>Recon Radar</span></button><button class="h-12 px-space-xl rounded-lg bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary font-headline-md text-headline-md uppercase flex items-center gap-space-sm transition-colors"><span class="material-symbols-outlined text-[22px]">rocket_launch</span><span>Deploy Hotdrop</span></button></div></div></footer></body></html>

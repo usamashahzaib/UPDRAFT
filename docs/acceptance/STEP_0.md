@@ -1,7 +1,7 @@
 # STEP 0 ACCEPTANCE — SECTION 0: THE BET
 
-**Project:** UPDRAFT  
-**Specification:** `ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md` (v1.0 Final Master Specification)  
+**Project:** HOTDROP  
+**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md` (v1.0 Final Master Specification)  
 **Audit Date:** 2026-09-28  
 **Gate / Step:** Step 0 — SECTION 0: THE BET  
 **Source Revision Snapshot:** `bbb3d7e` (master branch, with recorded working tree state)  
@@ -29,7 +29,7 @@ Before executing builds or tests, active system processes were inspected to ensu
 | **REQ-0.2** | **Signature Launch Pad Mechanic**<br>Launch pads placeable by players, armed in 0.75s, 18s lifetime, 60 HP, 14m/s horiz / 12m/s vert launch. **Both teams can steal/use pads.** Enemies can destroy pads; friendly fire ignored. | Spec §6 | [`LaunchPad.cs`](file:///e:/Usama/Game/ProjectUpdraft/Assets/Scripts/Pads/LaunchPad.cs)<br>[`LaunchPadBehaviour.cs`](file:///e:/Usama/Game/ProjectUpdraft/Assets/Scripts/Pads/LaunchPadBehaviour.cs)<br>[`PlayerPadManager.cs`](file:///e:/Usama/Game/ProjectUpdraft/Assets/Scripts/Pads/PlayerPadManager.cs) | `LaunchPadTests.cs` (29 passed, including `Pad_UsableByBothTeams_WhenArmed`). | `verified` |
 | **REQ-0.3** | **Gate D Human Playtest Validation**<br>Prove gameplay fun with real humans via 30–50 tester pad A/B study before store work or monetization. | Spec §8, §25, §26 | [`StudySettings.cs`](file:///e:/Usama/Game/ProjectUpdraft/Assets/Scripts/Core/StudySettings.cs)<br>[`Telemetry.cs`](file:///e:/Usama/Game/ProjectUpdraft/Assets/Scripts/Core/Telemetry.cs) | Offline playtest framework & telemetry events ready. External tester panel dataset pending. | `blocked` *(External playtest dependency)* |
 | **REQ-0.4** | **Gated Monetization Pipeline**<br>Rewarded ads (AdMob, non-forced, capped) + 3 permanent cosmetic bundles ($1.99 Signal, $3.99 Foundry, $5.99 Skyline). Disabled pre-Gate D. | Spec §7, §19 | [`CatalogConfig.cs`](file:///e:/Usama/Game/ProjectUpdraft/Assets/Scripts/Config/CatalogConfig.cs)<br>[`AdConfig.cs`](file:///e:/Usama/Game/ProjectUpdraft/Assets/Scripts/Config/AdConfig.cs)<br>[`CommerceEndpoints.cs`](file:///e:/Usama/Game/Backend/UpdraftBackend/Endpoints/CommerceEndpoints.cs) | `CatalogConfig.shopEnabled = false`, `AdConfig.rewardedAdsEnabled = false`. Commerce unit tests 8/8 passed. | `verified` |
-| **REQ-0.5** | **Phase 2 BR Growth Path**<br>12-player Battle Royale mode built on same stack ONLY IF D7 retention ≥ 15% is proven at Gate D. Excluded from v1 release scope. | Spec §2, §27 | [`PROJECT_UPDRAFT_SPEC.md`](file:///e:/Usama/Game/ProjectUpdraft/PROJECT_UPDRAFT_SPEC.md)<br>[`README.md`](file:///e:/Usama/Game/ProjectUpdraft/README.md) | Enforced in v1 spec scope bounds (§2 Excluded v1: battle royale). Zero premature BR feature code in v1. | `verified` |
+| **REQ-0.5** | **Phase 2 BR Growth Path**<br>12-player Battle Royale mode built on same stack ONLY IF D7 retention ≥ 15% is proven at Gate D. Excluded from v1 release scope. | Spec §2, §27 | [`PROJECT_HOTDROP_SPEC.md`](file:///e:/Usama/Game/ProjectUpdraft/PROJECT_HOTDROP_SPEC.md)<br>[`README.md`](file:///e:/Usama/Game/ProjectUpdraft/README.md) | Enforced in v1 spec scope bounds (§2 Excluded v1: battle royale). Zero premature BR feature code in v1. | `verified` |
 | **REQ-0.6** | **Process & Architecture Guarantees**<br>Authoritative spec, exact values in named ScriptableObject configs, presentation separated from pure C# rules, no out-of-scope feature creep, client-trusted economy, or fake services. | Spec §20, §21, §32, §33 | `Assets/Scripts/Config/*.cs`<br>`Assets/Scripts/Movement/`<br>`Assets/Scripts/Match/` | Pure C# simulation layers isolated in assemblies. 12 Config Assets generated and loaded via `Resources/Config/`. | `verified` |
 
 ---

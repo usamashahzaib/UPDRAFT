@@ -1,4 +1,14 @@
 
+## 2026-10-01 — Spec Amendment v2.1: two body rigs + Gate G art bar
+
+Recorded in `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md` (header, §15, §17); `ProjectUpdraft/ASSET_LICENSE_REGISTER.md` updated from one body to two bodies on one skeleton; Gate E work items added to `docs/acceptance/STEP_E.md`.
+
+- **Two body rigs — Male and Female — share one skeleton and one animation set;** animations are retargeted across both. Identical capsule (1.8 m × 0.35 m) and identical hitboxes by requirement: cosmetic-only, zero gameplay difference. Every cosmetic ships in both-rig variants (same read, same price).
+- **First launch offers a one-time rig choice before the tutorial;** the rig is changeable any time in Appearance. Both are Gate E product-shell work; the account still carries a single equipped cosmetic with no rig dimension.
+- **Parity guards added the same day:** `Assets/Scripts/Player/BodyRig.cs` defines the two rig ids and one shared capsule/hitbox/animation profile; `Assets/Scripts/Tests/BodyRigParityTests.cs` proves both rigs resolve to it (capsule vs the shipped MovementConfig, NetPlayer hitbox geometry, PlayerPrefab animation/collision layout, identical movement traces). The prefab generators read the shared profile instead of hardcoded numbers. Data-only: no UI, art or network change. Unity EditMode **199/199** and PlayMode **8/8** passed on 2026-10-01.
+- **Gate G art bar — "AAA stylized":** Apex Legends / Fortnite tier materials, lighting and animation on mobile; not cartoon, not chibi, not toy-like; grounded athletic proportions, premium PBR-lite materials, dramatic arena lighting; the map reads as a real, lived industrial rooftop complex with wear and environmental storytelling; photoreal faces explicitly out of scope (stylized faces readable at 10 m on a phone screen).
+- **Graybox is expected and approved until Gate G.** Blocky placeholder presentation is the intended state; do not invest in art or rework frontend visuals before Gate G.
+
 ## 2026-09-28 — Device verification and Milestone B completion pass
 
 Verified on the Samsung SM-A065F (Android 14, Mali-G52) by driving the real APK over adb

@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-container-high":"#222a3a","primary-fixed":"#93f1ff","surface-container-highest":"#2d3545","on-secondary-container":"#ff9da4","primary":"#7cefff","on-tertiary-container":"#654c00","on-primary-fixed-variant":"#004f57","secondary-fixed-dim":"#ffb2b7","surface-bright":"#31394a","surface":"#0b1322","primary-fixed-dim":"#38d9ec","error-container":"#93000a","on-surface-variant":"#bbc9cb","background":"#0b1322","secondary":"#ffb2b7","on-surface":"#dbe2f8","on-secondary-fixed-variant":"#8f092b","on-secondary":"#67001b","on-secondary-fixed":"#40000d","tertiary-fixed-dim":"#edc157","primary-container":"#30d5e8","on-background":"#dbe2f8","error":"#ffb4ab","surface-tint":"#38d9ec","on-tertiary-fixed":"#251a00","secondary-container":"#930d2d","surface-container":"#18202f","surface-container-lowest":"#060e1d","on-error-container":"#ffdad6","on-primary-fixed":"#001f23","tertiary":"#ffda88","inverse-surface":"#dbe2f8","tertiary-fixed":"#ffdf9b","on-primary-container":"#005862","on-tertiary":"#3f2e00","inverse-on-surface":"#293041","secondary-fixed":"#ffdadb","surface-variant":"#2d3545","surface-dim":"#0b1322","surface-container-low":"#141c2b","inverse-primary":"#006973","on-primary":"#00363c","on-error":"#690005","outline":"#859396","tertiary-container":"#e8bc54","on-tertiary-fixed-variant":"#5b4300","outline-variant":"#3c494b"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"space-xs":"0.25rem","space-md":"0.75rem",gutter:"1rem","space-sm":"0.5rem",margin:"1.5rem","space-lg":"1.25rem","space-xl":"2rem"},fontFamily:{"body-md":["Hanken Grotesk"],"headline-md":["Space Grotesk"],"headline-xl-mobile":["Space Grotesk"],"label-data-md":["JetBrains Mono"],"title-md":["Hanken Grotesk"],"body-lg":["Hanken Grotesk"],"headline-xl":["Space Grotesk"],"headline-lg-mobile":["Space Grotesk"],"body-sm":["Hanken Grotesk"],"label-data-lg":["JetBrains Mono"],"label-caps":["Space Grotesk"],"headline-lg":["Space Grotesk"],"label-data-sm":["JetBrains Mono"],"title-lg":["Hanken Grotesk"]},fontSize:{"body-md":["14px",{lineHeight:"20px",letterSpacing:"0em",fontWeight:"400"}],"headline-md":["20px",{lineHeight:"26px",letterSpacing:"0em",fontWeight:"600"}],"headline-xl-mobile":["30px",{lineHeight:"36px",letterSpacing:"-0.02em",fontWeight:"700"}],"label-data-md":["14px",{lineHeight:"18px",letterSpacing:"0.03em",fontWeight:"600"}],"title-md":["16px",{lineHeight:"22px",letterSpacing:"0.01em",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"22px",letterSpacing:"0em",fontWeight:"400"}],"headline-xl":["40px",{lineHeight:"48px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-lg-mobile":["22px",{lineHeight:"28px",letterSpacing:"-0.01em",fontWeight:"700"}],"body-sm":["12px",{lineHeight:"16px",letterSpacing:"0.01em",fontWeight:"400"}],"label-data-lg":["18px",{lineHeight:"22px",letterSpacing:"0.02em",fontWeight:"700"}],"label-caps":["12px",{lineHeight:"14px",letterSpacing:"0.08em",fontWeight:"700"}],"headline-lg":["28px",{lineHeight:"34px",letterSpacing:"-0.01em",fontWeight:"700"}],"label-data-sm":["11px",{lineHeight:"14px",letterSpacing:"0.05em",fontWeight:"500"}],"title-lg":["18px",{lineHeight:"24px",letterSpacing:"0.01em",fontWeight:"600"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased select-none"><header class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.3)]"><div class="h-16 w-full px-margin flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-sm"><img alt="HOTDROP bold modern aerospace sports shooter logo. Dynamic upward trajectory and drop vector with clean cyan and gold aerodynamic accents. Text HOTDROP with subtitle AIR-GROUND KINETIC RELAY.. Brand logo. - Primary color: #30d5e8
+- Font: spaceGrotesk
+- Mode: dark
+- Roundness: rounded-md
+" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VM_61Wb1RR8JSN5wdI1v_8gQJzSyg5R2ML72TrgyksDVqGqVTxMftM6cu04ozQEvnYBzH_2JVG-c4DQ6TpiC1BApdIkOCRLzB4K6fMNuNmjPhLa7gsds59R_D5hCdBaNzBoxNW0RY7je3fFaNEhpiYtrIkeqmWVQYFPcO08OJc9ooA9OzhNDFGfMqJiA8-SPkI5TWbc6UbIDRfwP1ipVpN4VDOkJPyE4jZQxLHB8Rkr0eI6dUC5Los"/><div class="flex flex-col"><span class="font-headline-md text-headline-md tracking-tight text-on-surface uppercase">HOTDROP</span><span class="font-label-data-sm text-label-data-sm text-primary tracking-wider uppercase">KINETIC RELAY // V2.4</span></div></div><div class="hidden md:flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container rounded-lg"><span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-data-sm text-label-data-sm text-on-surface">SYS // 24MS</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">LAT_US_WEST</span></div><nav class="hidden lg:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-lowest rounded-lg" data-active-classes="bg-surface-container-high text-primary font-title-md"><a class="px-space-md py-space-xs rounded-lg font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors uppercase" data-path="mission-control" href="#">Mission Control</a><a class="px-space-md py-space-xs rounded-lg font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors uppercase" data-path="offline-challenges" href="#">Offline Challenges</a><a class="px-space-md py-space-xs rounded-lg font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors uppercase" data-path="appearance-locker" href="#">Appearance Locker</a><a aria-current="page" class="px-space-md py-space-xs rounded-lg transition-colors uppercase bg-surface-container-high text-primary font-title-md" data-path="operative-profile" href="#">Operative Profile</a></nav></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container rounded-lg"><span class="font-label-data-sm text-label-data-sm text-tertiary uppercase">SEALS</span><span class="font-label-data-md text-label-data-md text-tertiary-fixed">48,250</span></div><div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container rounded-lg"><span class="font-label-data-sm text-label-data-sm text-primary uppercase">K-CORE</span><span class="font-label-data-md text-label-data-md text-primary-fixed">1,420</span></div><button class="p-space-xs rounded-lg bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined text-[20px]">settings</span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="flex flex-col text-right hidden sm:flex"><span class="font-label-caps text-label-caps text-on-surface uppercase">CALLSIGN // APEX</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">TIER 04 // ELITE</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></div></header><main class="w-full pt-16 bg-surface min-h-[calc(100vh-4.5rem)] pb-20"><div class="flex flex-col w-full">
+<div class="w-full px-margin py-space-lg flex flex-col gap-space-lg max-w-[1920px] mx-auto">
+<!-- Overline & Meta Telemetry -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-sm pb-space-xs">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm font-label-data-sm text-label-data-sm text-primary tracking-wider uppercase">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span>FLIGHT DOSSIER // SYS-ID 884-KYOTO</span>
+<span class="text-on-surface-variant">•</span>
+<span class="text-on-surface-variant">NON-DECAYING RECORD</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface uppercase tracking-tight mt-space-xs">
+          OPERATIVE PROFILE <span class="text-primary-container">//</span> PERSONAL IMPROVEMENT
+        </h1>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-space-xs mt-0.5">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+          Authoritative Skill Ledger • Zero Public Rating Shaming • Permanent Onboarding Track
+        </p>
+</div>
+<!-- Quick Status Badges -->
+<div class="flex items-center gap-space-sm flex-wrap">
+<div class="flex items-center gap-space-xs px-space-md py-space-xs bg-surface-container rounded-lg">
+<span class="material-symbols-outlined text-tertiary text-[18px]">military_tech</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">INSIGNIA:</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">SILVER TIER II</span>
+</div>
+<div class="flex items-center gap-space-xs px-space-md py-space-xs bg-surface-container-high rounded-lg text-primary">
+<span class="material-symbols-outlined text-[18px]">lock_reset</span>
+<span class="font-label-data-sm text-label-data-sm uppercase">PERSISTENT CALIBRATION</span>
+</div>
+</div>
+</div>
+<!-- Top Grid: Operative Header Card & Permanent Onboarding Status -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Operative Identity Card (7 cols) -->
+<div class="lg:col-span-7 bg-surface-container rounded-xl p-space-lg flex flex-col justify-between relative overflow-hidden shadow-lg">
+<div class="absolute -right-16 -top-16 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+<div>
+<!-- Flight Trajectory Header Track -->
+<div class="flex items-center justify-between font-label-data-sm text-label-data-sm text-on-surface-variant pb-space-md">
+<span class="flex items-center gap-1.5 text-primary">
+<span class="material-symbols-outlined text-[16px]">flight</span>
+              AVIONIC ID // SPEC-09
+            </span>
+<span class="tracking-widest">--/--/--[RETICLE ACTIVE]--&gt;</span>
+</div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md pt-space-xs">
+<div class="flex items-center gap-space-md">
+<div class="w-16 h-16 rounded-xl bg-surface-container-highest flex items-center justify-center relative flex-shrink-0">
+<span class="material-symbols-outlined text-primary text-[36px]">shield_person</span>
+<span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-data-sm text-[10px] font-bold">14</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="font-headline-lg text-headline-lg text-on-surface tracking-tight uppercase truncate" id="callsign-display">VividSwift #4058</span>
+<button class="px-space-sm py-0.5 rounded bg-surface-container-highest hover:bg-surface-bright text-primary font-label-data-sm text-label-data-sm uppercase transition-colors flex items-center gap-1" id="rename-toggle-btn">
+<span class="material-symbols-outlined text-[14px]">edit</span>
+<span>Rename</span>
+</button>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-tertiary">stars</span>
+                  Equipped Mastery: <strong class="text-on-surface">Route Architect (Silver, Tier II)</strong>
+</span>
+</div>
+</div>
+<!-- Currency Badges Stack -->
+<div class="flex sm:flex-col items-center sm:items-end justify-between gap-space-xs bg-surface-container-lowest sm:bg-transparent p-space-sm sm:p-0 rounded-lg">
+<div class="flex items-center gap-space-sm">
+<span class="font-label-caps text-label-caps text-tertiary uppercase">FLIGHT SEALS:</span>
+<span class="font-label-data-md text-label-data-md text-tertiary-fixed bg-surface-container-high px-2 py-0.5 rounded">7 EARNED</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-label-caps text-label-caps text-primary uppercase">PUBLIC CREDITS:</span>
+<span class="font-label-data-md text-label-data-md text-primary-fixed bg-surface-container-high px-2 py-0.5 rounded">1,420 CR</span>
+</div>
+</div>
+</div>
+<!-- Inline Rename Input Panel (Interactive reveal) -->
+<div class="hidden mt-space-md p-space-md bg-surface-container-lowest rounded-lg" id="rename-panel">
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-space-sm">
+<div class="relative flex-1">
+<span class="absolute left-3 top-2.5 font-label-data-md text-on-surface-variant">CALLSIGN //</span>
+<input class="w-full pl-28 pr-3 py-2 bg-surface-container text-primary font-label-data-md text-label-data-md rounded focus:outline-none focus:bg-surface-bright" id="rename-input" maxlength="16" placeholder="Operative-Tag" type="text" value="VividSwift"/>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="px-space-md py-2 bg-primary-container text-on-primary-container font-headline-md text-headline-md rounded hover:bg-primary uppercase transition-colors" id="rename-confirm-btn">
+                  Confirm
+                </button>
+<button class="px-space-md py-2 bg-surface-container-high text-on-surface-variant hover:text-on-surface font-title-md text-title-md rounded transition-colors" id="rename-cancel-btn">
+                  Cancel
+                </button>
+</div>
+</div>
+<div class="mt-space-xs flex items-center gap-space-xs font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px] text-primary">info</span>
+<span>Validation rules: 3–16 Characters, Alphanumeric + hyphen only, Profanity filtered. Tag suffix (#4058) stays fixed.</span>
+</div>
+</div>
+</div>
+<!-- Non-shaming Philosophy Note -->
+<div class="mt-space-md pt-space-sm flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex items-center gap-space-sm font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>PUBLIC IDENTITY: ACTIVE COMPETITIVE LEDGER</span>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-primary uppercase">ZERO MMR LEAK • ROOFTOP SPORT VERIFIED</span>
+</div>
+</div>
+<!-- Permanent Onboarding Track (5 cols) -->
+<div class="lg:col-span-5 bg-surface-container rounded-xl p-space-lg flex flex-col justify-between relative shadow-lg">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface-variant">
+<span class="text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+            PERMANENT ACCREDITATION TRACK
+          </span>
+<span class="font-label-data-sm text-label-data-sm text-primary">PHASE 02</span>
+</div>
+<div class="flex items-center gap-space-lg my-space-sm">
+<!-- Circular Progress Ring (Inline SVG) -->
+<div class="relative w-28 h-28 flex-shrink-0 flex items-center justify-center">
+<svg class="w-28 h-28 transform -rotate-90" viewbox="0 0 100 100">
+<circle class="text-surface-container-highest" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" stroke-width="8"></circle>
+<!-- 86.25% progress: circumference = 263.89, dashoffset = 36.3 -->
+<circle class="text-primary-container" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" stroke-dasharray="263.89" stroke-dashoffset="36.3" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute flex flex-col items-center justify-center text-center">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase">ONBOARD</span>
+<span class="font-headline-md text-headline-md text-on-surface font-bold">LVL 14</span>
+<span class="font-label-data-sm text-[10px] text-primary">86.2%</span>
+</div>
+</div>
+<!-- Progress Details -->
+<div class="flex flex-col gap-1 min-w-0">
+<div class="flex items-baseline gap-space-xs">
+<span class="font-headline-lg text-headline-lg text-on-surface">LEVEL 14</span>
+<span class="font-title-md text-title-md text-on-surface-variant">/ 20</span>
+</div>
+<div class="font-label-data-md text-label-data-md text-primary-fixed">
+              3,450 <span class="text-on-surface-variant font-normal">/ 4,000 XP TO LEVEL 15</span>
+</div>
+<!-- Segmented Micro Bar -->
+<div class="w-full bg-surface-container-lowest h-2 rounded-full overflow-hidden flex gap-0.5 p-0.5 mt-1">
+<div class="bg-primary-container h-full rounded-sm" style="width: 86.25%;"></div>
+<div class="bg-surface-container-highest h-full rounded-sm flex-1"></div>
+</div>
+</div>
+</div>
+<div class="p-space-sm bg-surface-container-lowest rounded-lg flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">shield</span>
+<p class="font-label-data-sm text-label-data-sm text-on-surface-variant leading-relaxed">
+<strong class="text-primary">Permanent Guarantee:</strong> Onboarding level never resets or decays between seasonal deployments. Your training milestone progress is indelible.
+          </p>
+</div>
+</div>
+</div>
+<!-- Core Personal Improvement Metrics: Constructive & Respectful Grid -->
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">vital_signs</span>
+<h2 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">
+            CORE PERSONAL IMPROVEMENT METRICS
+          </h2>
+<span class="font-label-data-sm text-label-data-sm text-primary px-space-xs py-0.5 bg-surface-container rounded uppercase">
+            CONSTRUCTIVE DRIFT
+          </span>
+</div>
+<span class="hidden sm:inline font-label-data-sm text-label-data-sm text-on-surface-variant">
+          TELEMETRY LOGS LAST 48 DEPLOYMENTS
+        </span>
+</div>
+<!-- 5 Metric Bento Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-gutter">
+<!-- Card 1: Matches Played -->
+<div class="bg-surface-container rounded-xl p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface-variant">
+<span>PUBLIC MATCHES</span>
+<span class="material-symbols-outlined text-primary text-[18px]">sports_score</span>
+</div>
+<div class="my-space-md">
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold">48</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant block mt-0.5">COMPLETED SESSIONS</span>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-data-sm text-label-data-sm text-primary">
+<span>100% COMPLETION</span>
+<span class="text-on-surface-variant">0 DISCONNECTS</span>
+</div>
+</div>
+<!-- Card 2: Positive Trajectory -->
+<div class="bg-surface-container rounded-xl p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface-variant">
+<span>POSITIVE TRAJECTORY</span>
+<span class="material-symbols-outlined text-tertiary text-[18px]">north_east</span>
+</div>
+<div class="my-space-md">
+<div class="flex items-baseline gap-space-xs">
+<span class="font-headline-xl text-headline-xl text-primary font-bold">64.5%</span>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant block mt-0.5">31 WINS / 4 DRAWS</span>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-data-sm text-label-data-sm">
+<span class="text-tertiary flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">add_task</span> 35 POSITIVE
+            </span>
+<span class="text-on-surface-variant">13 DEFEATS</span>
+</div>
+</div>
+<!-- Card 3: Relay Hold Duration -->
+<div class="bg-surface-container rounded-xl p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface-variant">
+<span>TOTAL RELAY HOLD</span>
+<span class="material-symbols-outlined text-primary text-[18px]">timer</span>
+</div>
+<div class="my-space-md">
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold">42m 18s</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant block mt-0.5">UNCONTESTED CAPTURE</span>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-data-sm text-label-data-sm text-primary">
+<span>OBJ CONTRIBUTOR</span>
+<span class="text-on-surface-variant">AVG 53s / MATCH</span>
+</div>
+</div>
+<!-- Card 4: Verified Teammate Launches -->
+<div class="bg-surface-container rounded-xl p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface-variant">
+<span>TEAMMATE LAUNCHES</span>
+<span class="material-symbols-outlined text-primary text-[18px]">upgrade</span>
+</div>
+<div class="my-space-md">
+<span class="font-headline-xl text-headline-xl text-on-surface font-bold">114</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant block mt-0.5">PAD ROUTE CATAPULTS</span>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-data-sm text-label-data-sm text-tertiary">
+<span>TACTICAL ENABLER</span>
+<span class="text-on-surface-variant">2.4 / GAME</span>
+</div>
+</div>
+<!-- Card 5: Personal Best Hold in Match -->
+<div class="bg-surface-container rounded-xl p-space-md flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="flex items-center justify-between font-label-caps text-label-caps text-on-surface-variant">
+<span>PERSONAL BEST HOLD</span>
+<span class="material-symbols-outlined text-tertiary text-[18px]">trophy</span>
+</div>
+<div class="my-space-md">
+<span class="font-headline-xl text-headline-xl text-tertiary-fixed font-bold">01:14</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant block mt-0.5 truncate">SWITCHYARD WEST</span>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-data-sm text-label-data-sm text-primary">
+<span>SOLO ANCHOR</span>
+<span class="text-on-surface-variant">ZONE APEX</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Center Two-Column Section: Mastery Highlights & Offline Travel Accomplishments -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Mastery Highlights Panel (6 cols) -->
+<div class="lg:col-span-6 bg-surface-container rounded-xl p-space-lg flex flex-col justify-between shadow-lg">
+<div>
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-tertiary text-[22px]">workspace_premium</span>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">
+                MASTERY HIGHLIGHTS
+              </h3>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-primary uppercase">TIER PROGRESSION</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+            Measurable kinetic execution across cooperative and objective flight roles.
+          </p>
+<!-- Mastery Track Items -->
+<div class="flex flex-col gap-space-md">
+<!-- Relay Specialist Track -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[18px]">satellite_alt</span>
+</div>
+<div>
+<span class="font-title-md text-title-md text-on-surface font-semibold block">Relay Specialist</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">Gold Rank In Progress</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-md text-label-data-md text-on-surface">412 <span class="text-on-surface-variant">/ 1,200s</span></span>
+<span class="font-label-data-sm text-label-data-sm text-primary block">34.3%</span>
+</div>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mt-1">
+<div class="bg-tertiary h-full rounded-full" style="width: 34.3%;"></div>
+</div>
+</div>
+<!-- Route Builder Track -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">alt_route</span>
+</div>
+<div>
+<span class="font-title-md text-title-md text-on-surface font-semibold block">Route Builder</span>
+<span class="font-label-data-sm text-label-data-sm text-primary">Silver Rank Achieved</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-md text-label-data-md text-on-surface">18 <span class="text-on-surface-variant">/ 40 Teammates</span></span>
+<span class="font-label-data-sm text-label-data-sm text-primary block">45.0%</span>
+</div>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mt-1">
+<div class="bg-primary-container h-full rounded-full" style="width: 45%;"></div>
+</div>
+</div>
+<!-- Weapon Familiarity Track -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[18px]">file_download_done</span>
+</div>
+<div>
+<span class="font-title-md text-title-md text-on-surface font-semibold block">Weapon Familiarity</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">ARC Rifle Level 2</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-data-md text-label-data-md text-on-surface">28 <span class="text-on-surface-variant">/ 60 Matches</span></span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface block">46.6%</span>
+</div>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mt-1">
+<div class="bg-on-surface-variant h-full rounded-full" style="width: 46.6%;"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm flex items-center justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>NEXT BADGE ROLLOVER: 788 SECONDS RELAY HOLD</span>
+<span class="text-primary cursor-pointer hover:underline">VIEW ALL ROLES &gt;</span>
+</div>
+</div>
+<!-- Offline Travel Accomplishments (6 cols) -->
+<div class="lg:col-span-6 bg-surface-container rounded-xl p-space-lg flex flex-col justify-between shadow-lg">
+<div>
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">explore</span>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">
+                OFFLINE TRAVEL ACCOMPLISHMENTS
+              </h3>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-tertiary uppercase">EXPEDITION DOSSIER</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+            Solo aeronautical training circuits, rooftop trials, and wind tunnel calibration.
+          </p>
+<!-- Offline Chapters Grid -->
+<div class="flex flex-col gap-space-md">
+<!-- Chapter 1: First Flight (Completed) -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-space-md min-w-0">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-[28px]">military_tech</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-md text-title-lg text-on-surface uppercase truncate">Chapter 1: First Flight</span>
+<span class="px-1.5 py-0.5 rounded bg-tertiary-container text-on-tertiary-container font-label-data-sm text-[10px] font-bold">100%</span>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-tertiary-fixed">4/4 Gold Medals Perfect Vector</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Mastery of initial glider launch arcs and launch pad vectoring.</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-tertiary pl-space-sm flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">check_circle</span>
+</div>
+</div>
+<!-- Chapter 2: Rooftop Operator (In Progress) -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-space-md min-w-0">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[28px]">domain</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-md text-title-lg text-on-surface uppercase truncate">Chapter 2: Rooftop Operator</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-primary font-label-data-sm text-[10px] font-bold">50%</span>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-primary">2/4 In Progress • Sector Shibuya Skyway</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">High-speed transitions between air currents and landing pads.</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-primary pl-space-sm flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">sync</span>
+</div>
+</div>
+<!-- Chapter 3: Relay Captain (Unlocked) -->
+<div class="bg-surface-container-lowest p-space-md rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-space-md min-w-0">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant flex-shrink-0">
+<span class="material-symbols-outlined text-[28px]">lock_open</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-md text-title-lg text-on-surface uppercase truncate">Chapter 3: Relay Captain</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-data-sm text-[10px] font-bold">UNLOCKED</span>
+</div>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">Ready for Departure • Level 14 Cleared</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Advanced competitive aerial relay simulation drills.</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant pl-space-sm flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">play_circle</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm flex items-center justify-between font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span>ALL OFFLINE MEDALS AUDITED LOCALLY</span>
+<span class="text-tertiary flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">offline_bolt</span> OFFLINE SYNC 100%
+          </span>
+</div>
+</div>
+</div>
+<!-- Equipped Loadout & Visual Identity Summary -->
+<div class="bg-surface-container rounded-xl p-space-lg flex flex-col gap-space-md shadow-lg relative overflow-hidden">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">app_registration</span>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">
+            EQUIPPED LOADOUT &amp; VISUAL IDENTITY SUMMARY
+          </h3>
+</div>
+<div class="font-label-data-sm text-label-data-sm text-on-surface-variant">
+          SLOT PRESET // ALPHA SQUAD DEPLOYMENT
+        </div>
+</div>
+<!-- 3 Equipped Components Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Presentation Item 1: Body Rig -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md flex items-center gap-space-md group hover:bg-surface-container-low transition-colors">
+<div class="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[32px]">sports_martial_arts</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">ACTIVE CHASSIS RIG</span>
+<span class="font-headline-md text-headline-md text-on-surface truncate">Body Presentation 01</span>
+<span class="font-label-data-sm text-label-data-sm text-primary">Athletic Flight Rig // Reinforced Poly</span>
+</div>
+</div>
+<!-- Presentation Item 2: Weapon Wrap -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md flex items-center gap-space-md group hover:bg-surface-container-low transition-colors">
+<div class="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center text-tertiary flex-shrink-0">
+<span class="material-symbols-outlined text-[32px]">brush</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">PRIMARY COSMETIC WRAP</span>
+<span class="font-headline-md text-headline-md text-on-surface truncate">Aero-Vector Slate</span>
+<span class="font-label-data-sm text-label-data-sm text-tertiary">Matte Anodized Ceramic Paint</span>
+</div>
+</div>
+<!-- Presentation Item 3: Insignia Badge -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md flex items-center gap-space-md group hover:bg-surface-container-low transition-colors">
+<div class="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[32px]">badge</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">PUBLIC DISPLAY BADGE</span>
+<span class="font-headline-md text-headline-md text-on-surface truncate">Route Architect</span>
+<span class="font-label-data-sm text-label-data-sm text-primary">Silver Tier II Flight Authority</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Bar / Screen Navigation -->
+<div class="flex flex-col sm:flex-row items-center justify-between gap-space-md pt-space-xs pb-space-lg">
+<div class="flex items-center gap-space-sm font-label-data-sm text-label-data-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">shield</span>
+<span>HOTDROP PERSONAL GROWTH RECORD • ENCRYPTION HASH: 994-F81A</span>
+</div>
+<div class="flex items-center gap-space-md flex-wrap w-full sm:w-auto justify-end">
+<!-- Return Home Button -->
+<button class="h-12 px-space-lg rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors font-headline-md text-headline-md uppercase flex items-center gap-space-sm flex-1 sm:flex-none justify-center">
+<span class="material-symbols-outlined text-[20px]">home</span>
+<span>Return To Home</span>
+</button>
+<!-- Edit Appearance Button -->
+<button class="h-12 px-space-lg rounded-lg bg-surface-container-high text-primary hover:bg-surface-bright transition-colors font-headline-md text-headline-md uppercase flex items-center gap-space-sm flex-1 sm:flex-none justify-center">
+<span class="material-symbols-outlined text-[20px]">checkroom</span>
+<span>Edit Appearance</span>
+</button>
+<!-- View Flight Contracts Button -->
+<button class="h-12 px-space-xl rounded-lg bg-primary-container text-on-primary-container hover:bg-primary transition-colors font-headline-md text-headline-md uppercase flex items-center gap-space-sm flex-1 sm:flex-none justify-center shadow-lg">
+<span class="material-symbols-outlined text-[22px]">assignment</span>
+<span>View Flight Contracts</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+  (function initOperativeProfile() {
+    const toggleBtn = document.getElementById('rename-toggle-btn');
+    const panel = document.getElementById('rename-panel');
+    const cancelBtn = document.getElementById('rename-cancel-btn');
+    const confirmBtn = document.getElementById('rename-confirm-btn');
+    const input = document.getElementById('rename-input');
+    const display = document.getElementById('callsign-display');
+
+    if (toggleBtn && panel && cancelBtn && confirmBtn && input && display) {
+      toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) {
+          input.focus();
+        }
+      });
+
+      cancelBtn.addEventListener('click', () => {
+        panel.classList.add('hidden');
+      });
+
+      confirmBtn.addEventListener('click', () => {
+        const val = input.value.trim();
+        // Validation: 3-16 chars, alphanumeric and hyphens
+        const regex = /^[a-zA-Z0-9-]{3,16}$/;
+        if (regex.test(val)) {
+          display.textContent = val + ' #4058';
+          panel.classList.add('hidden');
+        } else {
+          input.classList.add('ring-2', 'ring-secondary');
+          setTimeout(() => {
+            input.classList.remove('ring-2', 'ring-secondary');
+          }, 1500);
+        }
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmBtn.click();
+        if (e.key === 'Escape') cancelBtn.click();
+      });
+    }
+  })();
+</script></main><footer class="fixed bottom-0 left-0 right-0 h-18 w-full bg-surface-container-lowest/95 backdrop-blur-xl z-50"><div class="h-full w-full px-margin flex items-center justify-between"><div class="flex items-center gap-space-md"><button class="h-12 px-space-lg rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high hover:text-on-surface font-headline-md text-headline-md uppercase flex items-center gap-space-sm transition-colors"><span class="material-symbols-outlined text-[20px]">arrow_back</span><span>Back</span></button><div class="hidden sm:flex items-center gap-space-xs font-label-data-sm text-label-data-sm text-on-surface-variant"><span class="text-primary">RELAY:</span><span>ACTIVE LINK 09-K</span></div></div><div class="flex items-center gap-space-md"><button class="h-12 px-space-lg rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-bright hover:text-on-surface font-headline-md text-headline-md uppercase flex items-center gap-space-sm transition-colors"><span class="material-symbols-outlined text-[20px]">radar</span><span>Recon Radar</span></button><button class="h-12 px-space-xl rounded-lg bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary font-headline-md text-headline-md uppercase flex items-center gap-space-sm transition-colors"><span class="material-symbols-outlined text-[22px]">rocket_launch</span><span>Deploy Hotdrop</span></button></div></div></footer></body></html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>UPDRAFT — Screen 04 Guided First-Run Training</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          surface: '#0b1322',
+          'surface-container-lowest': '#060e1d',
+          'surface-container-low': '#101827',
+          'surface-container': '#141c2b',
+          'surface-container-high': '#1b2940',
+          'surface-container-highest': '#263a59',
+          primary: '#30d5e8',
+          'primary-deep': '#138ea3',
+          coral: '#ff6376',
+          gold: '#ffd166',
+          success: '#7ed68a',
+          disabled: '#536176',
+          outline: '#49627b',
+          'outline-subtle': '#2d3b50',
+          'text-primary': '#f4f7fb',
+          'text-secondary': '#bbc6d8',
+          'text-muted': '#7f8ca3'
+        },
+        fontFamily: {
+          heading: ['Space Grotesk', 'sans-serif'],
+          body: ['Hanken Grotesk', 'sans-serif'],
+          mono: ['JetBrains Mono', 'monospace']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root {
+    --safe-left: env(safe-area-inset-left, 28px);
+    --safe-right: env(safe-area-inset-right, 28px);
+    --safe-bottom: env(safe-area-inset-bottom, 16px);
+    --safe-top: env(safe-area-inset-top, 16px);
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  @keyframes pulseTarget {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.1); opacity: 1; filter: drop-shadow(0 0 16px rgba(48, 213, 232, 0.8)); }
+  }
+  .anim-target {
+    animation: pulseTarget 2s infinite ease-in-out;
+  }
+</style>
+</head>
+<body class="bg-[#0b1322] text-text-primary w-screen h-screen overflow-hidden flex flex-col justify-between font-body select-none relative">
+
+  <!-- Switchyard 3D Combat Training Arena Scene -->
+  <div class="absolute inset-0 z-0 pointer-events-none">
+    <img src="https://lh3.googleusercontent.com/aida/AEtjO1XKVW9e2vVk7KvrUCafO88D2xLd44MfnYM7ROcptVY9cdrdx5XVLS4pvnh9gX3cfliJ0HG_HiGQ7aLnVvtFOSzBV6uYUCaVgFKd61gnJ2qFJect2ftP2sIlGNE2n9CCbioKl2YVKi3tw74y42TvGHQskAZxcWm6ugx_eeH-3CBuMBR6vHvk5NSrXzabIsXV2PVodW-lvbCgeprK4y7CnOmMTRakG9qAQYcCZWpY3gHmrMPQYKBR3j9MqQ" alt="Switchyard Training Gameplay" class="w-full h-full object-cover object-center filter brightness-[0.9] contrast-[1.05]" />
+    <div class="absolute inset-0 bg-gradient-to-t from-[#060e1d]/90 via-transparent to-[#0b1322]/60"></div>
+  </div>
+
+  <!-- Real Gameplay Reticle / Crosshair (Kept Visually Open & Clean) -->
+  <div class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+    <div class="relative size-12 flex items-center justify-center opacity-85">
+      <div class="size-2 rounded-full border border-primary/80"></div>
+      <div class="absolute top-0 w-0.5 h-2.5 bg-primary/90"></div>
+      <div class="absolute bottom-0 w-0.5 h-2.5 bg-primary/90"></div>
+      <div class="absolute left-0 h-0.5 w-2.5 bg-primary/90"></div>
+      <div class="absolute right-0 h-0.5 w-2.5 bg-primary/90"></div>
+    </div>
+  </div>
+
+  <!-- Ground Target Objective Ring Marker (Step 5: Launch to Platform) -->
+  <div class="absolute top-[48%] left-[62%] -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none anim-target flex flex-col items-center">
+    <div class="size-20 rounded-full border-2 border-gold/90 bg-gold/20 flex items-center justify-center shadow-[0_0_24px_rgba(255,209,102,0.6)]">
+      <span class="material-symbols-outlined text-gold text-2xl">flag</span>
+    </div>
+    <div class="mt-1 px-2.5 py-0.5 rounded bg-surface-container-high/90 border border-gold/50 font-mono text-[10px] text-gold font-bold">
+      ELEVATED PLATFORM • 18m
+    </div>
+  </div>
+
+  <!-- ================= TOP HUD: Objective Broadcast & Step Instruction ================= -->
+  <header class="relative z-20 w-full pt-[var(--safe-top)] px-[var(--safe-left)] flex items-start justify-between">
+    <!-- Score & Timer Compact Broadcast Bar (Realistic Training Mock) -->
+    <div class="flex items-center gap-3 px-4 py-1.5 rounded-lg bg-surface-container-low/80 border border-outline/40 backdrop-blur-md">
+      <div class="flex items-center gap-1.5 font-mono text-xs font-bold text-primary">
+        <span class="size-2 rounded-full bg-primary"></span> ALLY 42
+      </div>
+      <span class="text-text-muted font-mono text-xs">|</span>
+      <div class="font-mono text-xs text-white font-bold">2:15</div>
+      <span class="text-text-muted font-mono text-xs">|</span>
+      <div class="flex items-center gap-1.5 font-mono text-xs font-bold text-coral">
+        ENEMY 38 <span class="size-2 rounded-full bg-coral"></span>
+      </div>
+    </div>
+
+    <!-- SINGLE GUIDED INSTRUCTION CARD (Anchored, non-obstructive callout) -->
+    <div class="flex flex-col items-center max-w-md w-full mx-4">
+      <div class="w-full rounded-xl bg-surface-container-high/95 border-2 border-primary p-4 shadow-2xl backdrop-blur-md flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-primary/20 text-primary font-mono text-[11px] font-bold">
+              STEP 5 OF 9
+            </span>
+            <span class="font-heading font-black text-sm text-white uppercase tracking-wide">
+              LAUNCH TO THE PLATFORM
+            </span>
+          </div>
+          <button class="font-mono text-[11px] text-text-muted hover:text-white uppercase tracking-wider flex items-center gap-1 transition">
+            <span class="material-symbols-outlined text-xs">help</span> SHOW ME
+          </button>
+        </div>
+        <p class="font-body text-xs text-text-secondary leading-snug">
+          Step onto your deployed pad. The Jump button transforms into <strong class="text-primary font-bold">LAUNCH</strong>. Tap it to catch the air route!
+        </p>
+      </div>
+    </div>
+
+    <!-- Quick Utilities: Skip Training (48dp Touch Target) -->
+    <button class="h-10 px-4 rounded-lg bg-surface-container-high/80 hover:bg-surface-container-highest border border-outline/40 text-text-secondary hover:text-white font-mono text-xs font-bold transition flex items-center gap-1.5">
+      <span>SKIP TRAINING</span>
+      <span class="material-symbols-outlined text-sm">close</span>
+    </button>
+  </header>
+
+  <!-- ================= LOWER HUD: Real Mobile Touch Controls (Classic Preset) ================= -->
+  <footer class="relative z-20 w-full pb-[var(--safe-bottom)] px-[var(--safe-left)] flex items-end justify-between pointer-events-none">
+    
+    <!-- LEFT THUMB CLUSTER: Floating Movement Virtual Joystick (48dp+ ergonomically scaled) -->
+    <div class="pointer-events-auto relative size-36 rounded-full border border-outline/40 bg-surface-container-low/40 backdrop-blur-sm flex items-center justify-center shadow-lg">
+      <div class="size-16 rounded-full bg-primary/20 border-2 border-primary/70 flex items-center justify-center shadow-[0_0_16px_rgba(48,213,232,0.3)]">
+        <span class="material-symbols-outlined text-primary text-xl">drag_pan</span>
+      </div>
+      <div class="absolute -bottom-6 font-mono text-[10px] text-text-muted uppercase tracking-wider">
+        MOVE JOYSTICK
+      </div>
+    </div>
+
+    <!-- CENTER TELEMETRY: Health & Ammo Readout -->
+    <div class="pointer-events-auto flex flex-col items-center gap-1 pb-1">
+      <div class="flex items-center gap-2 font-mono text-xs text-text-secondary">
+        <span class="material-symbols-outlined text-primary text-sm">favorite</span>
+        <span class="font-bold text-white">100 / 100</span>
+      </div>
+      <!-- Health Bar -->
+      <div class="w-48 h-2 rounded-full bg-surface-container-high overflow-hidden border border-outline/40 p-[1px]">
+        <div class="h-full rounded-full bg-primary shadow-[0_0_8px_rgba(48,213,232,0.6)] w-full"></div>
+      </div>
+      <span class="font-mono text-[10px] text-text-muted">STATUS: UNCONTESTED</span>
+    </div>
+
+    <!-- RIGHT THUMB CLUSTER: Tactical Action Cluster (Pad, Reload, Launch/Jump, Fire) -->
+    <div class="pointer-events-auto relative flex items-end gap-3.5">
+      
+      <!-- Launch Pad Deploy Button (Left of fire cluster) -->
+      <button class="relative size-14 rounded-full bg-surface-container-high/90 border border-outline hover:border-primary flex flex-col items-center justify-center text-text-secondary shadow-lg active:scale-95 transition">
+        <span class="material-symbols-outlined text-primary text-xl">publish</span>
+        <span class="font-mono text-[9px] font-bold text-text-muted">PAD</span>
+        <span class="absolute -top-1 -right-1 size-3 rounded-full bg-success"></span>
+      </button>
+
+      <!-- Reload Button -->
+      <button class="size-12 rounded-full bg-surface-container-high/80 border border-outline/50 flex flex-col items-center justify-center text-text-secondary hover:text-white active:scale-95 transition">
+        <span class="material-symbols-outlined text-base">refresh</span>
+        <span class="font-mono text-[9px] font-bold">RELOAD</span>
+      </button>
+
+      <!-- Contextual Action Button: TRANSFORMED TO "LAUNCH" (Highlighted for Step 5) -->
+      <button class="relative size-16 rounded-full bg-gradient-to-tr from-primary to-[#5fe7f6] text-surface-container-lowest font-heading font-black text-xs flex flex-col items-center justify-center shadow-[0_0_24px_rgba(48,213,232,0.6)] border-2 border-white animate-pulse active:scale-95 transition">
+        <span class="material-symbols-outlined text-xl">flight_takeoff</span>
+        <span>LAUNCH</span>
+      </button>
+
+      <!-- Primary Fire Button with Equipped Weapon Ammo Readout -->
+      <div class="flex flex-col items-center gap-1">
+        <button class="size-20 rounded-full bg-surface-container-highest/90 border-2 border-primary/60 text-white flex flex-col items-center justify-center shadow-xl active:scale-95 transition">
+          <span class="material-symbols-outlined text-2xl text-primary">target</span>
+          <span class="font-heading font-black text-xs tracking-wider">FIRE</span>
+        </button>
+        <span class="font-mono text-xs font-bold text-primary">ARC 24/24</span>
+      </div>
+
+    </div>
+
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>UPDRAFT — Batch 2 Flow Review Strip</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300..700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        background: "#0A0F1A",
+        surface: "#101827",
+        "panel-bg": "#1B2940",
+        "panel-border": "#49627B",
+        "action-cyan": "#30D5E8",
+        "reward-gold": "#FFD166",
+        "danger-coral": "#FF6376"
+      },
+      fontFamily: {
+        headline: ["Space Grotesk", "sans-serif"],
+        body: ["Hanken Grotesk", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"]
+      }
+    }
+  }
+};
+</script>
+<style>
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+</style>
+</head>
+<body class="bg-[#0A0F1A] text-[#F4F7FB] p-8 font-body min-h-screen">
+  <!-- Top Banner -->
+  <div class="max-w-7xl mx-auto mb-8 border-b border-[#49627B]/40 pb-6 flex items-center justify-between">
+    <div>
+      <div class="flex items-center gap-2 mb-2">
+        <span class="px-2.5 py-0.5 rounded bg-[#30D5E8]/20 border border-[#30D5E8]/40 text-[#30D5E8] font-mono text-xs font-bold">
+          DESIGN REVIEW ONLY
+        </span>
+        <span class="text-xs font-mono text-[#7F8CA3]">ANDROID LANDSCAPE 2400 × 1080</span>
+      </div>
+      <h1 class="font-headline font-black text-2xl uppercase tracking-tight text-[#F4F7FB]">
+        BATCH 2 FLOW REVIEW: PARTY → MATCHMAKING → PREPARATION → GAMEPLAY
+      </h1>
+      <p class="text-sm text-[#BBC6D8]">Complete online match progression flow without public ranks, clans, chat, or monetization friction.</p>
+    </div>
+    <div class="text-right font-mono text-xs text-[#7F8CA3]">
+      <div>AEROSPACE UTILITY SPORT</div>
+      <div class="text-[#30D5E8]">V0.9.4-PROD HANDOFF</div>
+    </div>
+  </div>
+
+  <!-- Flow Strip Nodes -->
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Flow Pipeline Overview -->
+    <div class="p-6 rounded-xl bg-[#1B2940]/70 border border-[#49627B] flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <!-- Node 1 -->
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 rounded-lg bg-[#30D5E8]/20 border border-[#30D5E8] flex items-center justify-center text-[#30D5E8] font-headline font-bold text-sm">03</div>
+          <span class="text-xs font-headline font-bold mt-2">HOME</span>
+          <span class="text-[10px] text-[#7F8CA3]">Solo / Squad</span>
+        </div>
+        <span class="material-symbols-outlined text-[#49627B]">arrow_forward</span>
+        
+        <!-- Node 2 -->
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 rounded-lg bg-[#30D5E8]/20 border border-[#30D5E8] flex items-center justify-center text-[#30D5E8] font-headline font-bold text-sm">05</div>
+          <span class="text-xs font-headline font-bold mt-2">PARTY ROOM</span>
+          <span class="text-[10px] text-[#7F8CA3]">Code / 3 Slots</span>
+        </div>
+        <span class="material-symbols-outlined text-[#49627B]">arrow_forward</span>
+        
+        <!-- Node 3 -->
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 rounded-lg bg-[#30D5E8]/20 border border-[#30D5E8] flex items-center justify-center text-[#30D5E8] font-headline font-bold text-sm">06</div>
+          <span class="text-xs font-headline font-bold mt-2">MATCHMAKING</span>
+          <span class="text-[10px] text-[#7F8CA3]">Real Time / 24ms</span>
+        </div>
+        <span class="material-symbols-outlined text-[#49627B]">arrow_forward</span>
+        
+        <!-- Node 4 -->
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 rounded-lg bg-[#FFD166]/20 border border-[#FFD166] flex items-center justify-center text-[#FFD166] font-headline font-bold text-sm">MF</div>
+          <span class="text-xs font-headline font-bold mt-2">MATCH FOUND</span>
+          <span class="text-[10px] text-[#7F8CA3]">6 Honest Slots</span>
+        </div>
+        <span class="material-symbols-outlined text-[#49627B]">arrow_forward</span>
+        
+        <!-- Node 5 -->
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 rounded-lg bg-[#30D5E8]/20 border border-[#30D5E8] flex items-center justify-center text-[#30D5E8] font-headline font-bold text-sm">07</div>
+          <span class="text-xs font-headline font-bold mt-2">LOADOUT PREP</span>
+          <span class="text-[10px] text-[#7F8CA3]">8s Countdown</span>
+        </div>
+        <span class="material-symbols-outlined text-[#49627B]">arrow_forward</span>
+        
+        <!-- Node 6 -->
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 rounded-lg bg-[#101827] border border-[#49627B] flex items-center justify-center text-[#BBC6D8] font-headline font-bold text-sm">08</div>
+          <span class="text-xs font-headline font-bold mt-2">GAMEPLAY HUD</span>
+          <span class="text-[10px] text-[#7F8CA3]">Switchyard 3v3</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- State Matrix Cards -->
+    <div class="grid grid-cols-3 gap-6">
+      
+      <!-- Card 1: Screen 05 Party State Review -->
+      <div class="p-5 rounded-xl bg-[#1B2940]/80 border border-[#49627B] space-y-3">
+        <div class="flex items-center justify-between border-b border-[#49627B]/40 pb-2">
+          <span class="font-headline font-bold text-xs uppercase text-[#30D5E8]">SCREEN 05 STATES</span>
+          <span class="font-mono text-[10px] text-[#7F8CA3]">PARTY LOGIC</span>
+        </div>
+        <ul class="text-xs text-[#BBC6D8] space-y-2 font-mono">
+          <li>• <strong class="text-[#F4F7FB]">Solo State:</strong> CREATE PARTY or JOIN WITH CODE (8-char auto uppercase).</li>
+          <li>• <strong class="text-[#F4F7FB]">Active 3/3 Squad:</strong> Leader triggers Play Relay; members toggle Ready / Not Ready.</li>
+          <li>• <strong class="text-[#F4F7FB]">Disconnection:</strong> Member dropped reverts to Open Slot without kicking the party.</li>
+          <li>• <strong class="text-[#F4F7FB]">Plain Copy:</strong> "Ready — you will join when the leader starts the search."</li>
+        </ul>
+      </div>
+
+      <!-- Card 2: Screen 06 Matchmaking State Review -->
+      <div class="p-5 rounded-xl bg-[#1B2940]/80 border border-[#49627B] space-y-3">
+        <div class="flex items-center justify-between border-b border-[#49627B]/40 pb-2">
+          <span class="font-headline font-bold text-xs uppercase text-[#30D5E8]">SCREEN 06 STATES</span>
+          <span class="font-mono text-[10px] text-[#7F8CA3]">SEARCH RULES</span>
+        </div>
+        <ul class="text-xs text-[#BBC6D8] space-y-2 font-mono">
+          <li>• <strong class="text-[#F4F7FB]">Elapsed Timer:</strong> Honest search time, no fake queue estimates or positions.</li>
+          <li>• <strong class="text-[#F4F7FB]">20s Search:</strong> Shows "Expanding the search" without region drift.</li>
+          <li>• <strong class="text-[#F4F7FB]">45s Bot Rule:</strong> Explicitly labeled [BOT] teammates/opponents only if triggered.</li>
+          <li>• <strong class="text-[#F4F7FB]">60s Practice:</strong> Offers "Practice while waiting" without dropping party queue.</li>
+        </ul>
+      </div>
+
+      <!-- Card 3: Screen 07 Loadout & Prep State Review -->
+      <div class="p-5 rounded-xl bg-[#1B2940]/80 border border-[#49627B] space-y-3">
+        <div class="flex items-center justify-between border-b border-[#49627B]/40 pb-2">
+          <span class="font-headline font-bold text-xs uppercase text-[#FFD166]">SCREEN 07 STATES</span>
+          <span class="font-mono text-[10px] text-[#7F8CA3]">WEAPONS &amp; COUNTDOWN</span>
+        </div>
+        <ul class="text-xs text-[#BBC6D8] space-y-2 font-mono">
+          <li>• <strong class="text-[#F4F7FB]">8s Countdown:</strong> Doors locked, pads safe, damage disabled.</li>
+          <li>• <strong class="text-[#F4F7FB]">All 3 Unlocked:</strong> ARC Rifle (Mid), ZIP SMG (Close), BRICK (Scatter).</li>
+          <li>• <strong class="text-[#F4F7FB]">No Pay-to-Win:</strong> No attachments, stat boosts, or power differences.</li>
+          <li>• <strong class="text-[#F4F7FB]">Respawn Choice:</strong> Weapon equipped for life; reselectable upon death.</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Fair-Play & Technical Feasibility Guarantee -->
+    <div class="p-4 rounded-xl bg-[#101827] border border-[#49627B]/60 flex items-center justify-between text-xs text-[#BBC6D8]">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[#30D5E8]">shield</span>
+        <span>Strict adherence to Aerospace Utility Sport UI • No voice/chat toxic vectors • 48dp touch targets on all buttons</span>
+      </div>
+      <div class="font-mono text-[11px] text-[#7F8CA3]">UNITY TEXTMESHPRO &amp; LAYOUT GROUPS READY</div>
+    </div>
+
+  </div>
+</body>
+</html>

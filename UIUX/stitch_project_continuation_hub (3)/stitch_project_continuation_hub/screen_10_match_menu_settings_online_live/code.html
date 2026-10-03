@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"secondary-fixed-dim":"#ffb2b7","tertiary":"#ffda88","on-tertiary-container":"#654c00","outline-variant":"#3c494b","tertiary-fixed":"#ffdf9b","secondary":"#ffb2b7","on-background":"#dbe2f8","surface-bright":"#31394a","on-primary-fixed-variant":"#004f57","primary-fixed":"#93f1ff","inverse-on-surface":"#293041","surface":"#0b1322","surface-container-low":"#141c2b","error":"#ffb4ab","on-secondary-fixed-variant":"#8f092b","on-tertiary-fixed-variant":"#5b4300","inverse-surface":"#dbe2f8","secondary-container":"#930d2d","surface-container-high":"#222a3a","primary-container":"#30d5e8","surface-dim":"#0b1322","tertiary-fixed-dim":"#edc157","on-surface":"#dbe2f8","tertiary-container":"#e8bc54","on-secondary":"#67001b","secondary-fixed":"#ffdadb","on-error-container":"#ffdad6","on-secondary-container":"#ff9da4","on-secondary-fixed":"#40000d","inverse-primary":"#006973","on-primary":"#00363c","surface-tint":"#38d9ec","surface-variant":"#2d3545","on-surface-variant":"#bbc9cb","surface-container":"#18202f","on-primary-container":"#005862","primary":"#7cefff","surface-container-lowest":"#060e1d","on-tertiary-fixed":"#251a00","on-error":"#690005","background":"#0b1322","outline":"#859396","on-tertiary":"#3f2e00","primary-fixed-dim":"#38d9ec","surface-container-highest":"#2d3545","error-container":"#93000a","on-primary-fixed":"#001f23"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-lg":"1.25rem","space-md":"0.75rem","gutter":"1rem","space-xs":"0.25rem","space-sm":"0.5rem","margin":"1.5rem","space-xl":"2rem"},fontFamily:{"headline-xl-mobile":["Space Grotesk"],"title-md":["Hanken Grotesk"],"headline-md":["Space Grotesk"],"headline-lg":["Space Grotesk"],"body-md":["Hanken Grotesk"],"label-data-md":["JetBrains Mono"],"body-lg":["Hanken Grotesk"],"label-data-sm":["JetBrains Mono"],"title-lg":["Hanken Grotesk"],"label-data-lg":["JetBrains Mono"],"headline-lg-mobile":["Space Grotesk"],"headline-xl":["Space Grotesk"],"body-sm":["Hanken Grotesk"],"label-caps":["Space Grotesk"]},fontSize:{"headline-xl-mobile":["30px",{"lineHeight":"36px","letterSpacing":"-0.02em","fontWeight":"700"}],"title-md":["16px",{"lineHeight":"22px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-md":["20px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"600"}],"headline-lg":["28px",{"lineHeight":"34px","letterSpacing":"-0.01em","fontWeight":"700"}],"body-md":["14px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}],"label-data-md":["14px",{"lineHeight":"18px","letterSpacing":"0.03em","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"22px","letterSpacing":"0em","fontWeight":"400"}],"label-data-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.05em","fontWeight":"500"}],"title-lg":["18px",{"lineHeight":"24px","letterSpacing":"0.01em","fontWeight":"600"}],"label-data-lg":["18px",{"lineHeight":"22px","letterSpacing":"0.02em","fontWeight":"700"}],"headline-lg-mobile":["22px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"400"}],"label-caps":["12px",{"lineHeight":"14px","letterSpacing":"0.08em","fontWeight":"700"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased select-none"><header class="fixed top-0 inset-x-0 z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 w-full px-margin flex items-center justify-between"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-high rounded text-primary"><span class="material-symbols-outlined text-[16px]">flight_takeoff</span><span class="font-label-caps text-label-caps tracking-widest text-primary">UPDRAFT // AV-03</span></div><div class="hidden sm:flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container rounded"><span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">LATENCY 24MS</span></div></div><nav class="flex items-center gap-space-xs bg-surface-container-low px-space-xs py-space-xs rounded-lg" data-active-classes="bg-surface-container-highest text-primary font-title-md"><a aria-current="page" class="px-space-md py-space-xs rounded transition-all bg-surface-container-highest text-primary font-title-md" data-path="tactical-hud" href="#">Tactical HUD</a><a class="font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container px-space-md py-space-xs rounded transition-all" data-path="match-telemetry" href="#">Telemetry</a><a class="font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container px-space-md py-space-xs rounded transition-all" data-path="operative-dock" href="#">Operatives</a><a class="font-title-md text-title-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container px-space-md py-space-xs rounded transition-all" data-path="sector-map" href="#">Sector Map</a></nav><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-space-xs rounded"><span class="font-label-data-sm text-label-data-sm text-tertiary">ZONE A // DEFEND</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-14 bg-surface min-h-screen"><div class="flex flex-col w-full relative">
+<!-- WORLD VIEWPORT: Switchyard 3v3 Arena (Live Active Combat Underlay) -->
+<div class="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-surface-container-lowest">
+<div class="w-full h-full bg-cover bg-center opacity-40 scale-105 filter blur-[3px]" data-alt="Dynamic wide-angle screenshot of a hyper-competitive 3v3 aerial shooter arena called Switchyard. Rooftop tactical relay platform suspended over a futuristic coastal metropolis at twilight. Neon cyan air routes, hovering booster pads, and atmospheric mist with soft weapon tracer rounds in distance. High-fidelity game engine aesthetic with cinematic dark navy, deep steel slate, and glowing teal accents." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBgYBsq6v8y2iWiCvZp-vpZuz5DSk1ejvlI9V0S3jHnu-WXu-C9mPRtCRZ5ZGum_KSdlWDtT5t-wtA7LtAaAH5WVeZK4CZ7rhrpP0AguCb2WGC4jvGiGGstqhu58AecAFzDMeJX29Fhu9F_qI5zQnWiT_zmDnly4lGnmKSu4z9LQvivDgNiqPH_wzPe9DavXimKkrIKfprYJkfE3X7T-DDXPAtQ-rQPdcI4e9cqYBuWg2pWwZhnKuza')"></div>
+<!-- Arena Atmospheric & Tactical HUD Layer (Live Proof) -->
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-surface/70 to-surface-container-lowest/80"></div>
+<div class="absolute top-16 inset-x-0 px-space-xl flex justify-between items-start opacity-75">
+<!-- Friendly Wingman Status Indicators -->
+<div class="flex items-center gap-space-sm bg-surface-container-lowest/90 px-space-md py-space-xs rounded-lg shadow-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+<span class="font-label-data-sm text-label-data-sm text-primary">WINGMAN 1: ENGAGING RELAY</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">HP 82%</span>
+</div>
+<div class="flex items-center gap-space-sm bg-surface-container-lowest/90 px-space-md py-space-xs rounded-lg shadow-sm">
+<span class="font-label-data-sm text-label-data-sm text-secondary">OPPONENT // CAPTURE ATTEMPT</span>
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+</div>
+</div>
+</div>
+<!-- PERSISTENT LIVE MATCH COMBAT BANNER (Visual Guarantee: Online Play Does Not Pause) -->
+<div class="relative z-30 w-full px-space-md py-space-xs bg-surface-container-lowest/95 backdrop-blur-md shadow-md">
+<div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-space-sm">
+<!-- Live Score Tug-Of-War Indicator -->
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-space-xs px-space-sm py-0.5 rounded bg-error-container/60 text-error">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+<span class="font-label-caps text-label-caps tracking-widest text-error">LIVE ACTIVE ROUND</span>
+</div>
+<div class="flex items-center gap-space-xs font-label-data-md text-label-data-md">
+<span class="text-primary font-bold">56</span>
+<span class="text-outline">/</span>
+<span class="text-secondary font-bold">52</span>
+<span class="text-on-surface-variant ml-space-xs text-label-data-sm tracking-tight uppercase">CENTER RELAY // 1:24 REMAINING</span>
+</div>
+</div>
+<!-- Network Vector Telemetry -->
+<div class="flex items-center gap-space-lg">
+<div class="flex items-center gap-space-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">wifi_tethering</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface">US East 24ms</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">| LOSS 0.0%</span>
+</div>
+<div class="hidden sm:flex items-center gap-space-xs text-on-surface-variant bg-surface-container-high px-space-sm py-0.5 rounded">
+<span class="font-label-data-sm text-label-data-sm text-tertiary">HOST TICK: 128Hz</span>
+</div>
+</div>
+</div>
+</div>
+<!-- MAIN MATCH MENU MODAL CONTAINER (Tactical Anodized Console Architecture) -->
+<div class="relative z-20 w-full max-w-6xl mx-auto px-space-sm sm:px-space-md py-space-sm">
+<div class="w-full bg-surface-container/95 backdrop-blur-xl rounded-xl shadow-2xl overflow-hidden flex flex-col">
+<!-- MODAL HEADER -->
+<div class="px-space-lg py-space-md bg-surface-container-high/80 flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">tune</span>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-wide uppercase">MATCH MENU</h1>
+<span class="px-space-sm py-0.5 rounded bg-surface-container-highest text-primary font-label-data-sm text-label-data-sm">AV-HUD // ACTIVE OVERLAY</span>
+</div>
+<p class="font-body-sm text-body-sm text-secondary-fixed-dim flex items-center gap-space-xs mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-secondary animate-pulse">warning</span>
+            Online match continues in background. You remain vulnerable to fire.
+          </p>
+</div>
+<!-- Sync Local Storage State -->
+<div class="flex items-center gap-space-xs px-space-md py-space-xs bg-surface-container-lowest rounded-lg">
+<span class="material-symbols-outlined text-primary text-[16px]">check_circle</span>
+<span class="font-label-data-sm text-label-data-sm text-primary tracking-wide uppercase">ALL SETTINGS SAVED LOCALLY</span>
+</div>
+</div>
+<!-- HORIZONTAL TAB REGISTRATION BAR -->
+<div class="w-full px-space-lg pt-space-xs bg-surface-container-lowest/80 flex items-center gap-space-xs overflow-x-auto no-scrollbar">
+<button class="tab-btn px-space-lg py-space-md rounded-t-lg bg-surface-container font-headline-md text-headline-md text-primary shadow-sm flex items-center gap-space-xs" id="tab-controls">
+<span class="material-symbols-outlined text-[18px]">sports_esports</span>
+<span>CONTROLS</span>
+</button>
+<button class="tab-btn px-space-lg py-space-md rounded-t-lg bg-transparent hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-title-md text-title-md transition-all flex items-center gap-space-xs" id="tab-graphics">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span>GRAPHICS</span>
+</button>
+<button class="tab-btn px-space-lg py-space-md rounded-t-lg bg-transparent hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-title-md text-title-md transition-all flex items-center gap-space-xs" id="tab-audio">
+<span class="material-symbols-outlined text-[18px]">volume_up</span>
+<span>AUDIO</span>
+</button>
+<button class="tab-btn px-space-lg py-space-md rounded-t-lg bg-transparent hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-title-md text-title-md transition-all flex items-center gap-space-xs" id="tab-accessibility">
+<span class="material-symbols-outlined text-[18px]">accessibility_new</span>
+<span>ACCESSIBILITY</span>
+</button>
+<button class="tab-btn px-space-lg py-space-md rounded-t-lg bg-transparent hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-title-md text-title-md transition-all flex items-center gap-space-xs" id="tab-account">
+<span class="material-symbols-outlined text-[18px]">badge</span>
+<span>ACCOUNT &amp; SUPPORT</span>
+</button>
+</div>
+<!-- MAIN TAB CONTENT AREA (CONTROLS ACTIVE) -->
+<div class="p-space-lg bg-surface-container grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
+<!-- Left Column: Primary Calibration Panels (7 Cols) -->
+<div class="lg:col-span-7 flex flex-col gap-space-md">
+<!-- Control Scheme Switcher -->
+<div class="bg-surface-container-high p-space-md rounded-lg shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-title-lg text-title-lg text-on-surface block">CONTROL PRESET</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Select layout density for 3-finger / claw landscape touch</span>
+</div>
+<span class="font-label-caps text-label-caps text-primary px-space-sm py-0.5 rounded bg-surface-container-lowest">INPUT v3.1</span>
+</div>
+<div class="grid grid-cols-2 gap-space-sm mt-space-xs">
+<button class="preset-toggle h-12 flex items-center justify-center gap-space-sm rounded-lg bg-primary text-on-primary font-headline-md text-headline-md shadow-md transition-all" id="preset-classic">
+<span class="material-symbols-outlined text-[20px]">radio_button_checked</span>
+<span>CLASSIC</span>
+</button>
+<button class="preset-toggle h-12 flex items-center justify-center gap-space-sm rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-on-surface font-headline-md text-headline-md shadow-sm transition-all" id="preset-simple">
+<span class="material-symbols-outlined text-[20px]">radio_button_unchecked</span>
+<span>SIMPLE</span>
+</button>
+</div>
+</div>
+<!-- Look Sensitivity Slider Block -->
+<div class="bg-surface-container-high p-space-md rounded-lg shadow-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-title-md text-title-md text-on-surface block">LOOK SENSITIVITY</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Free rotation camera yaw &amp; pitch rate</span>
+</div>
+<div class="px-space-md py-space-xs bg-surface-container-lowest rounded">
+<span class="font-label-data-lg text-label-data-lg text-primary" id="look-val-label">65</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">/ 100</span>
+</div>
+</div>
+<div class="py-space-sm flex items-center gap-space-md">
+<span class="font-label-data-sm text-label-data-sm text-outline">00</span>
+<input class="w-full h-2.5 bg-surface-container-lowest rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none" id="look-slider" max="100" min="0" type="range" value="65"/>
+<span class="font-label-data-sm text-label-data-sm text-outline">100</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>LOW ACCURACY</span>
+<span class="text-tertiary">TOURNAMENT STD [60-70]</span>
+<span>RAPID SNAP</span>
+</div>
+</div>
+<!-- Focus Aim Sensitivity Slider Block -->
+<div class="bg-surface-container-high p-space-md rounded-lg shadow-sm flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-title-md text-title-md text-on-surface block">FOCUS AIM SENSITIVITY</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Calibrated for fine 40° FOV weapon scope lock</span>
+</div>
+<div class="px-space-md py-space-xs bg-surface-container-lowest rounded">
+<span class="font-label-data-lg text-label-data-lg text-primary" id="aim-val-label">48</span>
+<span class="font-label-data-sm text-label-data-sm text-outline">/ 100</span>
+</div>
+</div>
+<div class="py-space-sm flex items-center gap-space-md">
+<span class="font-label-data-sm text-label-data-sm text-outline">00</span>
+<input class="w-full h-2.5 bg-surface-container-lowest rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none" id="aim-slider" max="100" min="0" type="range" value="48"/>
+<span class="font-label-data-sm text-label-data-sm text-outline">100</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-label-data-sm text-label-data-sm">
+<span>STABILITY FOCUS</span>
+<span class="text-primary">FRAMING 40° FOV</span>
+<span>DYNAMIC TRACK</span>
+</div>
+</div>
+<!-- Gyroscope Hardware Control Module -->
+<div class="bg-surface-container-high p-space-md rounded-lg shadow-sm flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">GYROSCOPE AIM</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Sub-pixel hardware motion tracking via device sensor</span>
+</div>
+<div class="flex items-center gap-space-md">
+<button class="h-12 px-space-md rounded-lg bg-surface-container-lowest hover:bg-surface-bright text-primary font-label-data-md text-label-data-md transition-all flex items-center gap-space-xs shadow-sm" id="btn-calibrate">
+<span class="material-symbols-outlined text-[16px]">screen_rotation_alt</span>
+<span>CALIBRATE</span>
+</button>
+<!-- 48dp Toggle Switch -->
+<button aria-checked="true" class="w-14 h-12 bg-primary/20 rounded-full p-1.5 flex items-center justify-end transition-all focus:outline-none shadow-inner" id="toggle-gyro" role="switch">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-md">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Column: Secondary Flags & Layout Action Docks (5 Cols) -->
+<div class="lg:col-span-5 flex flex-col gap-space-md">
+<!-- Binary Tactical Toggles (48dp Minimum Target) -->
+<div class="bg-surface-container-high p-space-md rounded-lg shadow-sm flex flex-col gap-space-sm divide-y divide-surface-container">
+<!-- Invert Y-Axis -->
+<div class="flex items-center justify-between pt-space-xs first:pt-0">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">INVERT Y-AXIS</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Aviation-style stick pull</span>
+</div>
+<button aria-checked="false" class="w-14 h-12 bg-surface-container-lowest rounded-full p-1.5 flex items-center justify-start transition-all focus:outline-none" id="toggle-inverty" role="switch">
+<div class="w-8 h-8 rounded-full bg-outline-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</div>
+</button>
+</div>
+<!-- Left-Handed Layout -->
+<div class="flex items-center justify-between pt-space-md">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">LEFT-HANDED LAYOUT</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Mirror stick and tactical clusters</span>
+</div>
+<button aria-checked="false" class="w-14 h-12 bg-surface-container-lowest rounded-full p-1.5 flex items-center justify-start transition-all focus:outline-none" id="toggle-lefthand" role="switch">
+<div class="w-8 h-8 rounded-full bg-outline-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</div>
+</button>
+</div>
+<!-- Aim Assist -->
+<div class="flex items-center justify-between pt-space-md">
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface">AIM ASSIST</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Subtle friction slowdown (no snap)</span>
+</div>
+<button aria-checked="true" class="w-14 h-12 bg-primary/20 rounded-full p-1.5 flex items-center justify-end transition-all focus:outline-none shadow-inner" id="toggle-aimassist" role="switch">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-md">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+</button>
+</div>
+</div>
+<!-- Advanced HUD Repositioning Card -->
+<div class="bg-surface-container-high p-space-md rounded-lg shadow-sm flex flex-col justify-between gap-space-md flex-1">
+<div>
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-title-lg text-title-lg text-on-surface">HUD WORKSPACE</span>
+<span class="font-label-caps text-label-caps text-tertiary">20:9 SAFE CLUSTERS</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                Modify positions, touch diameters, and opacity of Primary Fire, Tactical Jump Jets, and Vector Ping arcs.
+              </p>
+</div>
+<!-- Visual Preview Graphic of Thumb Touch Arcs -->
+<div class="w-full h-24 bg-surface-container-lowest rounded-lg p-space-sm relative overflow-hidden flex items-end justify-between shadow-inner">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-label-data-sm text-label-data-sm">
+                L-ARC
+              </div>
+<div class="flex flex-col items-center justify-center opacity-40">
+<span class="font-label-data-sm text-label-data-sm text-outline">CENTER PASSIVE HUD</span>
+<span class="text-[10px] text-outline font-label-data-sm">NO TOUCH ZONES</span>
+</div>
+<div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-primary font-label-data-sm text-label-data-sm">
+                R-FIRE
+              </div>
+</div>
+<!-- Action Buttons: Customize & Reset -->
+<div class="flex flex-col sm:flex-row items-center gap-space-sm">
+<button class="w-full sm:flex-1 h-12 bg-surface-container-highest hover:bg-surface-bright text-primary font-headline-md text-headline-md rounded-lg shadow-sm transition-all flex items-center justify-center gap-space-xs" id="btn-customize">
+<span class="material-symbols-outlined text-[18px]">drag_pan</span>
+<span>CUSTOMIZE CONTROLS</span>
+</button>
+<button class="w-full sm:w-auto h-12 px-space-md bg-surface-container-lowest hover:bg-surface-container text-on-surface-variant hover:text-error font-title-md text-title-md rounded-lg shadow-sm transition-all flex items-center justify-center gap-space-xs" id="btn-reset">
+<span class="material-symbols-outlined text-[16px]">restart_alt</span>
+<span class="sm:hidden">RESET DEFAULT</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- MODAL BOTTOM BAR: PRIMARY MATCH ACTIONS -->
+<div class="px-space-lg py-space-md bg-surface-container-highest/90 flex flex-wrap items-center justify-between gap-space-md">
+<!-- Abandon / Exit Match Warning Flow -->
+<div class="flex items-center gap-space-sm">
+<button class="h-12 px-space-lg rounded-lg bg-surface-container text-secondary hover:bg-secondary-container hover:text-on-secondary-container font-title-md text-title-md shadow-sm transition-all flex items-center gap-space-xs" id="btn-return-home">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+<span>RETURN HOME</span>
+</button>
+<span class="hidden md:inline font-body-sm text-body-sm text-on-surface-variant max-w-xs">
+            Match is active. Abandoning may affect queue priority &amp; tier rank.
+          </span>
+</div>
+<!-- Dominant Return CTA (Cyan, high-contrast, dominant 48dp min) -->
+<div class="flex items-center gap-space-md w-full sm:w-auto justify-end">
+<div class="hidden lg:flex flex-col text-right">
+<span class="font-label-caps text-label-caps text-primary tracking-widest">IMMEDIATE RETURN</span>
+<span class="font-label-data-sm text-label-data-sm text-on-surface-variant">RESUME JOYSTICK CONTROL</span>
+</div>
+<button class="w-full sm:w-auto min-w-[240px] h-12 px-space-xl rounded-lg bg-primary-container text-on-primary-container hover:bg-primary font-headline-md text-headline-md tracking-wider uppercase shadow-xl transition-all flex items-center justify-center gap-space-sm" id="btn-return-match">
+<span class="material-symbols-outlined text-[22px]">play_arrow</span>
+<span>RETURN TO MATCH</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- NOTIFICATION FEEDBACK TOAST (Hidden by Default) -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-300 bg-surface-container-lowest/95 px-space-lg py-space-sm rounded-lg shadow-2xl flex items-center gap-space-sm" id="toast-notify">
+<span class="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+<span class="font-label-data-md text-label-data-md text-on-surface tracking-wide" id="toast-msg">CALIBRATION SAVED</span>
+</div>
+</div>
+<script>
+  // Slider Data Synchronization
+  const lookSlider = document.getElementById('look-slider');
+  const lookValLabel = document.getElementById('look-val-label');
+  const aimSlider = document.getElementById('aim-slider');
+  const aimValLabel = document.getElementById('aim-val-label');
+  const toast = document.getElementById('toast-notify');
+  const toastMsg = document.getElementById('toast-msg');
+
+  function showToast(msg) {
+    if (!toast || !toastMsg) return;
+    toastMsg.textContent = msg;
+    toast.classList.remove('opacity-0');
+    toast.classList.add('opacity-100');
+    setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0');
+    }, 2000);
+  }
+
+  if (lookSlider && lookValLabel) {
+    lookSlider.addEventListener('input', (e) => {
+      lookValLabel.textContent = e.target.value;
+    });
+  }
+
+  if (aimSlider && aimValLabel) {
+    aimSlider.addEventListener('input', (e) => {
+      aimValLabel.textContent = e.target.value;
+    });
+  }
+
+  // Toggle Switch Controller
+  function setupToggle(btnId, initialChecked = false) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    let checked = initialChecked;
+
+    btn.addEventListener('click', () => {
+      checked = !checked;
+      btn.setAttribute('aria-checked', String(checked));
+      
+      const thumb = btn.firstElementChild;
+      const icon = thumb ? thumb.querySelector('.material-symbols-outlined') : null;
+
+      if (checked) {
+        btn.className = 'w-14 h-12 bg-primary/20 rounded-full p-1.5 flex items-center justify-end transition-all focus:outline-none shadow-inner';
+        if (thumb) thumb.className = 'w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-md';
+        if (icon) icon.textContent = 'check';
+        showToast(btnId.replace('toggle-', '').toUpperCase() + ': ACTIVE');
+      } else {
+        btn.className = 'w-14 h-12 bg-surface-container-lowest rounded-full p-1.5 flex items-center justify-start transition-all focus:outline-none';
+        if (thumb) thumb.className = 'w-8 h-8 rounded-full bg-outline-variant flex items-center justify-center text-on-surface-variant';
+        if (icon) icon.textContent = 'close';
+        showToast(btnId.replace('toggle-', '').toUpperCase() + ': DISABLED');
+      }
+    });
+  }
+
+  setupToggle('toggle-gyro', true);
+  setupToggle('toggle-inverty', false);
+  setupToggle('toggle-lefthand', false);
+  setupToggle('toggle-aimassist', true);
+
+  // Preset Selection Toggles
+  const presetClassic = document.getElementById('preset-classic');
+  const presetSimple = document.getElementById('preset-simple');
+
+  if (presetClassic && presetSimple) {
+    presetClassic.addEventListener('click', () => {
+      presetClassic.className = 'preset-toggle h-12 flex items-center justify-center gap-space-sm rounded-lg bg-primary text-on-primary font-headline-md text-headline-md shadow-md transition-all';
+      presetClassic.querySelector('.material-symbols-outlined').textContent = 'radio_button_checked';
+
+      presetSimple.className = 'preset-toggle h-12 flex items-center justify-center gap-space-sm rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-on-surface font-headline-md text-headline-md shadow-sm transition-all';
+      presetSimple.querySelector('.material-symbols-outlined').textContent = 'radio_button_unchecked';
+      showToast('PRESET: CLASSIC ENGAGED');
+    });
+
+    presetSimple.addEventListener('click', () => {
+      presetSimple.className = 'preset-toggle h-12 flex items-center justify-center gap-space-sm rounded-lg bg-primary text-on-primary font-headline-md text-headline-md shadow-md transition-all';
+      presetSimple.querySelector('.material-symbols-outlined').textContent = 'radio_button_checked';
+
+      presetClassic.className = 'preset-toggle h-12 flex items-center justify-center gap-space-sm rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-on-surface font-headline-md text-headline-md shadow-sm transition-all';
+      presetClassic.querySelector('.material-symbols-outlined').textContent = 'radio_button_unchecked';
+      showToast('PRESET: SIMPLE ENGAGED');
+    });
+  }
+
+  // Action Buttons
+  const btnCalibrate = document.getElementById('btn-calibrate');
+  if (btnCalibrate) {
+    btnCalibrate.addEventListener('click', () => {
+      showToast('GYROSCOPE ZERO-CALIBRATED');
+    });
+  }
+
+  const btnCustomize = document.getElementById('btn-customize');
+  if (btnCustomize) {
+    btnCustomize.addEventListener('click', () => {
+      showToast('OPENING HUD CLUSTER EDITOR...');
+    });
+  }
+
+  const btnReset = document.getElementById('btn-reset');
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      if (lookSlider) lookSlider.value = 65;
+      if (lookValLabel) lookValLabel.textContent = '65';
+      if (aimSlider) aimSlider.value = 48;
+      if (aimValLabel) aimValLabel.textContent = '48';
+      showToast('DEFAULTS RESTORED');
+    });
+  }
+
+  const btnReturnMatch = document.getElementById('btn-return-match');
+  if (btnReturnMatch) {
+    btnReturnMatch.addEventListener('click', () => {
+      showToast('RESUMING TACTICAL FLIGHT HUD...');
+    });
+  }
+
+  const btnReturnHome = document.getElementById('btn-return-home');
+  if (btnReturnHome) {
+    btnReturnHome.addEventListener('click', () => {
+      const confirmAbandon = confirm('Match is active. Abandoning will count as a forfeiture and lower queue priority. Confirm exit?');
+      if (confirmAbandon) {
+        showToast('EXITING TO FLIGHT HANGAR...');
+      }
+    });
+  }
+
+  // Header Nav Tab Switching (Visual only for non-control tabs)
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => {
+        b.className = 'tab-btn px-space-lg py-space-md rounded-t-lg bg-transparent hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-title-md text-title-md transition-all flex items-center gap-space-xs';
+      });
+      btn.className = 'tab-btn px-space-lg py-space-md rounded-t-lg bg-surface-container font-headline-md text-headline-md text-primary shadow-sm flex items-center gap-space-xs';
+      showToast('TAB SWITCH: ' + btn.textContent.trim());
+    });
+  });
+</script></main><footer class="w-full bg-surface-container-lowest/90 backdrop-blur-md"><div class="w-full px-margin py-space-md flex flex-wrap items-center justify-between gap-space-md text-on-surface-variant"><div class="flex items-center gap-space-md"><span class="font-label-data-sm text-label-data-sm text-outline">TARGET CANVAS 2400x1080 (20:9 SAFE)</span><span class="font-label-data-sm text-label-data-sm text-outline">// FLIGHT NOTATION ENGINE v3.4</span></div><div class="flex items-center gap-space-lg"><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">SYS CLK 120 FPS</span><span class="font-label-data-sm text-label-data-sm text-on-surface-variant">ENCRYPTION ACTIVE</span></div></div></footer></body></html>
