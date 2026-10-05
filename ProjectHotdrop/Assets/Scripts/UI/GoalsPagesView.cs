@@ -36,8 +36,37 @@ namespace Hotdrop.UI
         {
             var old = owner != null ? owner.transform.Find("GoalsVisual") : null;
             if (old == null) return;
+            old.gameObject.SetActive(false);
             if (Application.isPlaying) UnityEngine.Object.Destroy(old.gameObject);
             else UnityEngine.Object.DestroyImmediate(old.gameObject);
+        }
+
+        sealed class Resize : MonoBehaviour
+        {
+            internal GameObject owner;
+            internal GoalsDto data;
+            internal Action back, other;
+            internal Action<string> select;
+            internal bool mastery, preview;
+            internal float builtWidth;
+
+            internal void RefreshIfNeeded()
+            {
+                if (owner == null || !gameObject.activeInHierarchy) return;
+                float width = ((RectTransform)transform).rect.width;
+                if (width > 0f && Mathf.Abs(width - builtWidth) > 4f)
+                    Build(owner, data, back, other, mastery, preview, select);
+            }
+
+            void LateUpdate() => RefreshIfNeeded();
+        }
+
+        // Also used by synchronous screenshot rendering, which changes the canvas size without
+        // running a LateUpdate between the resize and the drawn frame.
+        public static void RefreshVisible(Canvas canvas)
+        {
+            if (canvas == null) return;
+            foreach (var page in canvas.GetComponentsInChildren<Resize>()) page.RefreshIfNeeded();
         }
 
         /// <summary>Reachable page when server-verified progression is not enabled in this build.</summary>
@@ -60,6 +89,7 @@ namespace Hotdrop.UI
             var root = UiDraw.Node(owner.transform, "GoalsVisual");
             UiDraw.Fill(root);
             UiDraw.Fill(UiDraw.Box(root, "Base", UiDraw.Hex("#0b1322")).rectTransform);
+            Canvas.ForceUpdateCanvases();
             float width = root.rect.width > 0f ? root.rect.width : owner.GetComponent<RectTransform>().rect.width;
             if (width <= 0f) width = 1280f;
             float contentW = width - Pad * 2f;
@@ -78,6 +108,10 @@ namespace Hotdrop.UI
             page.sizeDelta = new Vector2(width, y + 24f);
             page.anchoredPosition = Vector2.zero;
             Footer(root, mastery, preview, back, other);
+            var resize = root.gameObject.AddComponent<Resize>();
+            resize.owner = owner; resize.data = data; resize.back = back; resize.other = other;
+            resize.select = select; resize.mastery = mastery; resize.preview = preview;
+            resize.builtWidth = width;
         }
 
         // ------------------------------------------------------------ contracts

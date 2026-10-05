@@ -283,14 +283,14 @@ namespace Hotdrop.Tests.PlayMode
             Assert.IsNotNull(firstDirective);
             Assert.IsFalse(firstDirective.Find("Select").GetComponent<Button>().interactable,
                 "Gated contracts cannot select or claim rewards.");
-            Capture(canvas, "12_contracts_read_only", 1920, ParityFolder);
-            Capture(canvas, "12_contracts_read_only", 2400, ParityFolder);
+            Capture(canvas, "12_contracts_read_only_v2", 1920, ParityFolder);
+            Capture(canvas, "12_contracts_read_only_v2", 2400, ParityFolder);
             visual.transform.Find("Footer/Other").GetComponent<Button>().onClick.Invoke();
             yield return null;
             visual = GameObject.Find("GoalsVisual");
             Assert.IsNotNull(visual.transform.Find("Viewport/Page/Track_01"));
-            Capture(canvas, "13_mastery_read_only", 1920, ParityFolder);
-            Capture(canvas, "13_mastery_read_only", 2400, ParityFolder);
+            Capture(canvas, "13_mastery_read_only_v2", 1920, ParityFolder);
+            Capture(canvas, "13_mastery_read_only_v2", 2400, ParityFolder);
             visual.transform.Find("Footer/Back").GetComponent<Button>().onClick.Invoke();
             yield return null;
             Assert.IsNotNull(GameObject.Find("Home"));
@@ -539,6 +539,11 @@ namespace Hotdrop.Tests.PlayMode
                     touchId = 81, phase = UnityEngine.InputSystem.TouchPhase.Began, position = padButton.center
                 });
                 yield return null;
+                int heldPadTouch = (int)typeof(Hotdrop.Input.TouchInputManager)
+                    .GetField("padTouchId", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(game.touchInput);
+                Assert.AreEqual(81, heldPadTouch,
+                    $"The pad control must acquire the touch (rect {padButton}, enabled {game.touchInput.enabled}, pads {StudySettings.PadsEnabled}).");
                 yield return new WaitForSecondsRealtime(.23f);
                 InputSystem.QueueStateEvent(previewTouchscreen, new TouchState
                 {
@@ -581,7 +586,7 @@ namespace Hotdrop.Tests.PlayMode
             var pause = game.GetComponent<OfflinePauseMenu>();
             pause.Open();
             yield return null;
-            Capture(canvas, "10_match_menu_offline_v2", 1920, ParityFolder, true, assertHud: false);
+            Capture(canvas, "10_match_menu_offline_v3", 1920, ParityFolder, true, assertHud: false);
             pause.Close();
 
             // Play the match out and photograph the results screen the game produced itself.
@@ -1228,10 +1233,15 @@ namespace Hotdrop.Tests.PlayMode
                 canvas.planeDistance = includeGameplay ? renderCamera.nearClipPlane + .05f : 10;
                 foreach (var safe in canvas.GetComponentsInChildren<SafeAreaRoot>()) safe.Apply();
                 Canvas.ForceUpdateCanvases();
+                GoalsPagesView.RefreshVisible(canvas);
+                var pauseConsole = Object.FindFirstObjectByType<OfflinePauseMenu>();
+                if (pauseConsole != null && pauseConsole.IsOpen) pauseConsole.RefreshForComposedFrame();
+                Canvas.ForceUpdateCanvases();
                 // ContentWidthFitter normally runs on LateUpdate. This synchronous exporter
                 // must settle that same width before asking the real layout groups to rebuild.
                 foreach (var scroll in canvas.GetComponentsInChildren<ScrollRect>())
                 {
+                    if (scroll.GetComponent<ContentWidthFitter>() == null) continue;
                     scroll.content.sizeDelta = new Vector2(Mathf.Min(MenuLayout.ContentMaxWidth,
                         ((RectTransform)scroll.transform).rect.width - 48), scroll.content.sizeDelta.y);
                     LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);

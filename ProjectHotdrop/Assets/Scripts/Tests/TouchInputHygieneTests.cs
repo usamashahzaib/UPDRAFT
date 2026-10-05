@@ -119,14 +119,16 @@ namespace Hotdrop.Tests
             Rect fireRight = GetRect(input, "fireButtonRect");
             Rect pauseRight = GetRect(input, "pauseButtonRect");
             Assert.Greater(fireRight.center.x, Screen.width * 0.5f, "Default layout puts fire on the right.");
-            Assert.Less(pauseRight.center.x, Screen.width * 0.5f, "Default layout puts pause on the left.");
+            // UIUX screen 08: pause and ping live in the top-right system cluster in both layouts;
+            // only the combat buttons mirror for left-handed play.
+            Assert.Greater(pauseRight.center.x, Screen.width * 0.5f, "Pause sits in the top-right system cluster.");
 
             input.SetLeftHanded(true);
 
             Rect fireLeft = GetRect(input, "fireButtonRect");
             Rect pauseLeft = GetRect(input, "pauseButtonRect");
             Assert.Less(fireLeft.center.x, Screen.width * 0.5f, "Left-handed layout must mirror fire to the left.");
-            Assert.Greater(pauseLeft.center.x, Screen.width * 0.5f, "Left-handed layout must mirror pause to the right.");
+            Assert.AreEqual(pauseRight.center.x, pauseLeft.center.x, 0.01f, "Pause stays in the system cluster in the left-handed layout.");
 
             foreach (var name in new[] { "fireButtonRect", "jumpButtonRect", "padButtonRect", "reloadButtonRect", "pingButtonRect", "pauseButtonRect" })
             {

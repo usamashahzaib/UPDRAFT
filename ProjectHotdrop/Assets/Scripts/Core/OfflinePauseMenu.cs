@@ -30,6 +30,8 @@ namespace Hotdrop.Core
             new System.Collections.Generic.Dictionary<string, (Image, TextMeshProUGUI, TextMeshProUGUI)>();
         RectTransform modal, scrollContent;
         ScrollRect scroll;
+        float configuredWidth;
+        string selectedSection = "CONTROLS";
 
         public const string GraphicsQualityKey = "GraphicsQuality";   // 0 = low, 1 = smooth
         public const string LargerTextKey = "LargerText";
@@ -55,6 +57,7 @@ namespace Hotdrop.Core
 
         void LateUpdate()
         {
+            if (IsOpen) RefreshForComposedFrame();
             if (game.touchInput == null || !game.touchInput.enabled || game.touchInput.EditingLayout || !game.touchInput.PausePressed) return;
             var challenges = game.GetComponent<OfflineChallengeRuntime>();
             if (challenges != null && challenges.Controller.CurrentState == ChallengeFlowState.Gameplay && challenges.Controller.IsAttemptActive)
@@ -156,6 +159,7 @@ namespace Hotdrop.Core
 
             float canvasW = hudRect.rect.width > 0f ? hudRect.rect.width : 1280f;
             float width = Mathf.Min(1152f, canvasW - 32f);
+            configuredWidth = width;
             var card = UiDraw.Box(root, "Console", UiDraw.Hex("#18202f", .95f), 12f);
             modal = card.rectTransform;
             modal.anchorMin = new Vector2(.5f, 0f); modal.anchorMax = new Vector2(.5f, 1f); modal.pivot = new Vector2(.5f, .5f);
@@ -223,6 +227,30 @@ namespace Hotdrop.Core
             BuildFooter(width);
             BuildSections(width);
             SelectSection("CONTROLS");
+        }
+
+        /// <summary>Reflow the console when its canvas size changes, including synchronous
+        /// evidence captures where Unity has no intervening LateUpdate.</summary>
+        public void RefreshForComposedFrame()
+        {
+            if (modal == null || scrollContent == null || game.matchHUD == null) return;
+            float canvasW = game.matchHUD.GetComponent<RectTransform>().rect.width;
+            if (canvasW <= 0f) return;
+            float width = Mathf.Min(1152f, canvasW - 32f);
+            if (Mathf.Abs(width - configuredWidth) < 2f) return;
+            configuredWidth = width;
+            modal.sizeDelta = new Vector2(width, -16f);
+            foreach (Transform child in scrollContent)
+            {
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
+            sections.Clear();
+            refreshers.Clear();
+            scrollContent.sizeDelta = new Vector2(width, scrollContent.sizeDelta.y);
+            BuildSections(width);
+            SelectSection(selectedSection);
+            RefreshAll();
         }
 
         void BuildFooter(float width)
@@ -627,6 +655,7 @@ namespace Hotdrop.Core
 
         void SelectSection(string name)
         {
+            selectedSection = name;
             foreach (var section in sections) section.Value.gameObject.SetActive(section.Key == name);
             foreach (var tab in tabs)
             {

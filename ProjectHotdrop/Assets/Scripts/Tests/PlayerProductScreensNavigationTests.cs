@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using TMPro;
@@ -73,17 +74,12 @@ namespace Hotdrop.Tests
             Invoke("ShowPartyEntry"); // what a successful leave now does
             AssertBackUsable();
 
-            // CREATE PARTY, JOIN CODE and REFRESH — and nothing left over from the Support page.
-            int rowButtons = 0, inputs = 0;
-            var content = Panel.Find("Nav_Scroll/Viewport/Content");
-            Assert.IsNotNull(content, "page rows live in the scroll content");
-            foreach (var child in content.GetComponentsInChildren<Transform>())
-            {
-                if (child.name == "Row_Button" && child.GetComponent<Button>() != null) rowButtons++;
-                if (child.name == "Row_Input") inputs++;
-            }
-            Assert.AreEqual(3, rowButtons, "after leaving, create/join/refresh must be available again");
-            Assert.AreEqual(1, inputs, "party entry shows exactly the invite-code input");
+            // Screen 05 entry state: CREATE PARTY, the code field with JOIN, and the room's own exit.
+            var entry = Panel.Find("PartyRoomVisual");
+            Assert.IsNotNull(entry, "after leaving, the party entry room is rebuilt");
+            Assert.IsNotNull(entry.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name == "CreateParty"), "CREATE PARTY must be available again");
+            Assert.IsNotNull(entry.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name == "JoinCode"), "JOIN must be available again");
+            Assert.AreEqual(1, entry.GetComponentsInChildren<TMPro.TMP_InputField>(true).Length, "party entry shows exactly the invite-code input");
         }
 
         [Test]

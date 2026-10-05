@@ -83,7 +83,8 @@ namespace Hotdrop.Tests
         public void PauseMenu_ToggleIsLabelledSlowdownOnlyAndDefaultsOn()
         {
             string source = ReadProjectSource("Core/OfflinePauseMenu.cs");
-            StringAssert.Contains("AIM ASSIST (SLOWDOWN ONLY)", source,
+            // Screen 10's toggle row: the title plus a subtitle stating the assist only slows aim.
+            StringAssert.Contains("\"AIM ASSIST\", \"Subtle friction slowdown (no snap)\"", source,
                 "the player-facing claim must state what the assist actually does");
             StringAssert.Contains("\"AimAssistEnabled\", true", source, "the assist defaults to on");
             StringAssert.Contains("SetAimAssistEnabled", source, "the toggle must reach the player controllers");
