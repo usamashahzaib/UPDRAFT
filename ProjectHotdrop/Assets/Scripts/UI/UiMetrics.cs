@@ -4,28 +4,27 @@ using UnityEngine.UI;
 namespace Hotdrop.UI
 {
     /// <summary>
-    /// QA-019 / QA-020: physical sizing for every screen. The canvas scale is chosen from the
-    /// device's real density so one canvas unit is ~0.64 dp; every touch target is at least
-    /// <see cref="MinTouchUnits"/> (48 dp) and every text at least <see cref="MinTextUnits"/>
-    /// (~12 dp) after scaling. Menus are authored to fit the <see cref="DesignWidth"/> x
-    /// <see cref="DesignHeight"/> area; if a screen is physically smaller than that the scale
-    /// shrinks to keep everything visible (and long lists scroll).
+    /// Screen sizing. One canvas unit is one CSS pixel of the UIUX reference screens (Stitch
+    /// frames are 1280 px wide). The canvas is fitted to a 1280x720 design frame: 16:9 shows
+    /// exactly that frame, wider phones (20:9) keep the 720 px height and gain width, which is
+    /// how the references' flex layouts compose at those ratios.
     /// </summary>
     public static class UiMetrics
     {
-        public const float DpPerUnit = 0.64f;
+        /// <summary>Design pixels per canvas unit. The UIUX screens are authored in CSS px.</summary>
+        public const float DpPerUnit = 1f;
         public const float DesignWidth = 1280f;
-        public const float DesignHeight = 580f;
+        public const float DesignHeight = 720f;
 
         /// <summary>The hard interactive-size gate: 48 dp, from the design system rules.</summary>
         public const float MinTouchDp = 48f;
-        /// <summary>The hard legibility gate: ~12 dp, the smallest readable label.</summary>
+        /// <summary>The legibility floor for compact labels.</summary>
         public const float MinTextDp = 12f;
 
-        /// <summary>48 dp expressed in canvas units. Every tappable control is at least this tall.</summary>
-        public const float MinTouchUnits = MinTouchDp / DpPerUnit;   // 75 units = 48 dp
-        /// <summary>~12 dp expressed in canvas units. No label is ever rendered smaller.</summary>
-        public const float MinTextUnits = MinTextDp / DpPerUnit;     // ~19 units = 12 dp
+        /// <summary>48 px expressed in canvas units. Every tappable control is at least this tall.</summary>
+        public const float MinTouchUnits = MinTouchDp / DpPerUnit;
+        /// <summary>12 px expressed in canvas units. No label is ever rendered smaller.</summary>
+        public const float MinTextUnits = MinTextDp / DpPerUnit;
 
         /// <summary>Comfort option (Amendment 2): multiplies every label built after the setting changes.</summary>
         public static float TextScale = 1f;
@@ -33,7 +32,7 @@ namespace Hotdrop.UI
         /// <summary>The size the "larger text" comfort option scales labels to.</summary>
         public const float LargerTextScale = UIDesignTokens.LargerTextScale;
 
-        /// <summary>A design font size at the current comfort scale, never below the ~12 dp floor.</summary>
+        /// <summary>A design font size at the current comfort scale, never below the legibility floor.</summary>
         public static float TextSize(float designSize) => Mathf.Max(designSize * TextScale, MinTextUnits);
 
         /// <summary>Design dp (DESIGN.md px) expressed in canvas units. The UI kit authors in dp.</summary>
@@ -59,13 +58,8 @@ namespace Hotdrop.UI
         }
 
         /// <summary>Pixels per canvas unit for a screen of the given size and density.</summary>
-        public static float ScaleFor(float widthPx, float heightPx, float dpi)
-        {
-            float pxPerDp = (dpi > 0f ? dpi : 160f) / 160f;
-            float density = pxPerDp * DpPerUnit;
-            float fit = Mathf.Min(widthPx / DesignWidth, heightPx / DesignHeight);
-            return Mathf.Max(0.01f, Mathf.Min(density, fit));
-        }
+        public static float ScaleFor(float widthPx, float heightPx, float dpi) =>
+            Mathf.Max(0.01f, Mathf.Min(widthPx / DesignWidth, heightPx / DesignHeight));
 
         /// <summary>Size in dp of a length expressed in canvas units at the given scale.</summary>
         public static float UnitsToDp(float units, float scale, float dpi) => units * scale / ((dpi > 0f ? dpi : 160f) / 160f);

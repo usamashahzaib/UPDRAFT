@@ -2,7 +2,7 @@
 
 **Effective date:** [PLACEHOLDER: EFFECTIVE DATE]
 
-This Privacy Policy explains how [PLACEHOLDER: COMPANY NAME] ("we," "us," or "our") collects, uses, shares, and retains information when you play **Project HOTDROP** (the "Game") on Android or use related services.
+This Privacy Policy explains how **Techspirex** ("we," "us," or "our") collects, uses, shares, and retains information when you play **Project HOTDROP** (the "Game") on Android or use related services.
 
 This document is a draft and should be reviewed by qualified counsel before publication.
 
@@ -84,15 +84,15 @@ Backups and logs may take a limited additional period to cycle out. We may retai
 
 ## 5. Account deletion and your rights
 
-You may request deletion from the Game's account settings or through the Project HOTDROP account-deletion webpage: [PLACEHOLDER: PUBLIC ACCOUNT-DELETION PAGE URL]. You may also contact [PLACEHOLDER: SUPPORT EMAIL]. We may need to verify that you control the account before completing a request.
+You may request deletion from the Game's account settings or through the Project HOTDROP account-deletion webpage: [PLACEHOLDER: PUBLIC ACCOUNT-DELETION PAGE URL]. You may also contact playhotdrop@proton.me. We may need to verify that you control the account before completing a request.
 
 After a verified deletion request, we will delete the account and personal data associated with it, except information that we must or are permitted to retain for legal, accounting, security, fraud-prevention, dispute-resolution, or enforcement purposes. Aggregated or de-identified information that can no longer reasonably identify you may remain.
 
-Depending on where you live, you may also have rights to access, correct, delete, restrict, object to, or receive a portable copy of your personal information, and to withdraw consent where processing relies on consent. You may lodge a complaint with your local data-protection authority. To exercise a right, contact [PLACEHOLDER: SUPPORT EMAIL]. We will not discriminate against you for exercising a privacy right.
+Depending on where you live, you may also have rights to access, correct, delete, restrict, object to, or receive a portable copy of your personal information, and to withdraw consent where processing relies on consent. You may lodge a complaint with your local data-protection authority. To exercise a right, contact playhotdrop@proton.me. We will not discriminate against you for exercising a privacy right.
 
 ## 6. Children and age eligibility
 
-Project HOTDROP is intended for players aged **16 or older**. We do not knowingly collect personal information from anyone under 16. If you believe a person under 16 has provided personal information, contact [PLACEHOLDER: SUPPORT EMAIL] so that we can investigate and delete it as appropriate.
+Project HOTDROP is intended for players aged **16 or older**. We do not knowingly collect personal information from anyone under 16. If you believe a person under 16 has provided personal information, contact playhotdrop@proton.me so that we can investigate and delete it as appropriate.
 
 ## 7. Security
 
@@ -104,7 +104,7 @@ We may update this policy as the Game or legal requirements change. We will post
 
 ## 9. Contact
 
-**Data controller / developer:** [PLACEHOLDER: COMPANY NAME]  
-**Support and privacy email:** [PLACEHOLDER: SUPPORT EMAIL]  
-**Mailing address:** [PLACEHOLDER: COMPANY POSTAL ADDRESS]  
-**Jurisdiction:** [PLACEHOLDER: JURISDICTION]
+**Data controller / developer:** Techspirex<br>
+**Support and privacy email:** playhotdrop@proton.me<br>
+**Mailing address:** [PLACEHOLDER: FULL STREET ADDRESS AND CITY], Pakistan 54302<br>
+**Jurisdiction:** Pakistan

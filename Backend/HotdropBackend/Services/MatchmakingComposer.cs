@@ -32,7 +32,9 @@ public sealed class MatchmakingOptions
 /// (3 vs 3, duo+solo vs duo+solo, solos vs solos) so a full party is never
 /// matched against solo players. The oldest group is always part of the next
 /// match so newer groups cannot starve it; after BotFillWaitSeconds it is
-/// matched with labeled bots instead.
+/// seated with as many other waiting groups as the team size allows and the
+/// remaining slots are filled with labeled bots, so one 3v3 still starts
+/// instead of one match per waiting player.
 /// </summary>
 public sealed class MatchmakingComposer(IServiceScopeFactory scopeFactory, MatchmakingOptions options)
 {
@@ -72,8 +74,11 @@ public sealed class MatchmakingComposer(IServiceScopeFactory scopeFactory, Match
 
             if (waited >= options.BotFillWaitSeconds)
             {
-                Assign([oldest], Guid.NewGuid(), "A", hasBots: true, now);
-                remaining.RemoveAt(0);
+                var (fillA, fillB) = BotFillTeams(oldest, pool);
+                var matchId = Guid.NewGuid();
+                foreach (var g in fillA) Assign([g], matchId, "A", hasBots: true, now);
+                foreach (var g in fillB) Assign([g], matchId, "B", hasBots: true, now);
+                foreach (var g in fillA.Concat(fillB)) remaining.Remove(g);
                 composed++;
                 continue;
             }
@@ -83,6 +88,27 @@ public sealed class MatchmakingComposer(IServiceScopeFactory scopeFactory, Match
 
         if (composed > 0) await db.SaveChangesAsync(cancellationToken);
         return composed;
+    }
+
+    /// <summary>
+    /// Bot fill keeps as many waiting humans in the lobby as the 3v3 allows, so a
+    /// four-player queue becomes 2v2 humans plus two bots rather than four separate
+    /// one-human-versus-five-bots matches. Groups are never split and the empty
+    /// seats are left to the match server, which spawns labeled bots for them.
+    /// </summary>
+    static (List<TicketGroup> TeamA, List<TicketGroup> TeamB) BotFillTeams(TicketGroup oldest, List<TicketGroup> pool)
+    {
+        var teamA = new List<TicketGroup> { oldest };
+        var teamB = new List<TicketGroup>();
+        // Nearest rating first, then longest waiting: the strongest available humans play.
+        foreach (var g in pool.OrderBy(g => Math.Abs(g.Rating - oldest.Rating)).ThenBy(g => g.EnqueuedAt))
+        {
+            int freeA = MatchmakingOptions.TeamSize - teamA.Sum(x => x.Size);
+            int freeB = MatchmakingOptions.TeamSize - teamB.Sum(x => x.Size);
+            if (freeA <= 0 && freeB <= 0) break;
+            if (freeA >= freeB ? freeA >= g.Size : freeB >= g.Size) (freeA >= freeB ? teamA : teamB).Add(g);
+        }
+        return (teamA, teamB);
     }
 
     static void Assign(IEnumerable<TicketGroup> groups, Guid matchId, string team, bool hasBots, DateTimeOffset now)

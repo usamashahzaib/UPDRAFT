@@ -12,7 +12,24 @@ Success gate: Milestone D playtests. Not opinions. Not hype.
 
 ## Spec
 
-See: `PROJECT_HOTDROP_SPEC.md` (the final master specification v1.0)
+See: `PROJECT_UPDRAFT_SPEC.md` (the final master specification v1.0) in this folder.
+Product amendments and change records live in `../docs/`.
+
+| Document | Path |
+|---|---|
+| Master spec v1.0 | `ProjectHotdrop/PROJECT_UPDRAFT_SPEC.md` |
+| Product amendment (2026-10-01) | `docs/HOTDROP_PRODUCT_AMENDMENT_2026-10-01.md` |
+| Implementation prompts | `docs/AI_IMPLEMENTATION_PROMPTS/` |
+| Progress / remaining work | `docs/PROGRESS_2026-09-28.md` |
+| Decisions log | `docs/DECISIONS.md` |
+| Milestone status | `ProjectHotdrop/MILESTONE_STATUS.md` |
+| Completion audit (2026-10-03) | `docs/audit/COMPLETION_AUDIT_2026-10-03.md` |
+
+**Historical path names.** This project was called *Updraft* and lived in `ProjectUpdraft/`
+with the spec as `PROJECT_HOTDROP_SPEC.md`. It was renamed to `ProjectHotdrop/` /
+`PROJECT_UPDRAFT_SPEC.md`. Older acceptance records, deployment checkpoints and progress
+notes still cite the old paths; they are kept verbatim as dated evidence of what was
+verified at the time. For current paths, use this table.
 
 Key pillars:
 - **Signature mechanic:** Launch pads — place, arm, launch, steer, anyone can use, enemies can destroy
@@ -52,36 +69,44 @@ Latest evidence and ordered remaining work: [`../docs/PROGRESS_2026-09-28.md`](.
 ### Setup
 ```bash
 # 1. Open in Unity Editor
-#    Unity Hub → Add project → Select ProjectUpdraft/ folder
+#    Unity Hub → Add project → Select the ProjectHotdrop/ folder (repository root)
 
 # 2. In Unity Editor, regenerate the slice:
-#    Tools/Updraft/Build Offline Slice Scene
+#    Tools/Hotdrop/Build Offline Slice Scene
 
 # 3. Mobile URP, landscape, original materials and prefabs are generated.
 
 # 4. Configure PlayerSettings for Android:
+#    Tools/Hotdrop/Configure Android Build
 #    - Minimum API: 28 (Android 9)
 #    - Target API: highest installed supported SDK (automatic)
 #    - Scripting Backend: IL2CPP
 #    - Architecture: ARM64
 #    - Build Format: AAB
 
-# 5. For a local device APK, run Build-AndroidDev.ps1 in PowerShell.
+# 5. For a local device APK:
+#    Tools/Hotdrop/Build Android Dev APK, or run Build-AndroidDev.ps1 in PowerShell.
 #    Store AAB/signing are a separate publisher-owned release workflow.
 ```
 
 ### Backend (for Milestone C+)
 ```bash
 cd Backend
-docker-compose up postgres
-# In another terminal:
-dotnet run --project UpdraftBackend/UpdraftBackend.csproj
+docker compose up postgres -d
+# In another terminal (paths are relative to the repository root):
+dotnet run --project Backend/HotdropBackend/HotdropBackend.csproj
 # API at http://localhost:8080
 ```
 
 ### Run Backend Tests
 ```bash
-dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj
+dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj
+```
+
+### Run Unity Tests
+```powershell
+# From the repository root:
+./ProjectHotdrop/Run-UnityTests.ps1
 ```
 
 ---
@@ -89,35 +114,42 @@ dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj
 ## Architecture
 
 ```
-ProjectUpdraft/
-├── Assets/Scripts/
-│   ├── Config/           # 12 ScriptableObject configs (never hardcode values)
-│   ├── Core/             # GameBootstrap, SceneSetup
-│   ├── Input/            # TouchInputManager (mobile controls)
-│   ├── Camera/           # ThirdPersonCamera (TPP shoulder)
-│   ├── Player/           # PlayerController (MB wrapper)
-│   ├── Pads/             # LaunchPad, PadPlacementValidator, PlayerPadManager, LaunchPadBehaviour
-│   ├── Weapons/          # ShotResolver (deterministic, server-authoritative)
-│   ├── Movement/         # PlayerMovementSimulator, PlayerHealthController (pure C#)
-│   ├── Match/            # MatchController, RelayScoringController, ZoneOccupancy, MatchFlowController
-│   ├── Bots/             # BotController, BotPerception, BotDecisionMaker
-│   ├── Map/              # SwitchyardGenerator (exact spec coordinates)
-│   ├── Tutorial/         # TutorialController, TutorialTarget, TutorialUI
-│   ├── UI/               # MatchHUD, TutorialUI
-│   ├── Editor/           # CreateConfigAssets, CreatePrefabs, CreateScene
-│   └── Tests/            # EditMode unit tests (NUnity)
+<repository root>/
+├── ProjectHotdrop/            # the Unity project opened in the Hub
+│   ├── PROJECT_UPDRAFT_SPEC.md
+│   ├── ASSET_LICENSE_REGISTER.md     # every asset + license (spec §16/33)
+│   ├── Build-AndroidDev.ps1          # device APK
+│   ├── Build-LinuxServer.ps1         # headless dedicated server (Gate C)
+│   ├── Run-UnityTests.ps1            # EditMode + PlayMode
+│   └── Assets/Scripts/
+│       ├── Config/           # ScriptableObject configs (never hardcode values)
+│       ├── Core/             # GameBootstrap, SceneSetup, OfflineHomeScreen, Telemetry
+│       ├── Input/            # TouchInputManager (mobile controls)
+│       ├── Camera/           # ThirdPersonCamera (TPP shoulder)
+│       ├── Player/           # PlayerController (MB wrapper), AvatarRigVisual
+│       ├── Pads/             # LaunchPad, PadPlacementValidator, PlayerPadManager, LaunchPadBehaviour
+│       ├── Weapons/          # ShotResolver (deterministic, server-authoritative)
+│       ├── Movement/         # PlayerMovementSimulator, PlayerHealthController (pure C#)
+│       ├── Match/            # MatchController, RelayScoringController, ZoneOccupancy, MatchFlowController
+│       ├── Bots/             # BotController, BotPerception, BotDecisionMaker
+│       ├── Map/              # SwitchyardGenerator (exact spec coordinates)
+│       ├── Network/          # Fusion host/client, DedicatedServer, NetMatch, NetPlayer
+│       ├── Tutorial/         # TutorialController, TutorialTarget, TutorialUI
+│       ├── UI/               # MatchHUD, TutorialUI, CosmeticLook, HomeCharacterPreview
+│       ├── Editor/           # CreateConfigAssets, CreatePrefabs, BuildOfflineSlice, BuildAndroidApk
+│       └── Tests/            # EditMode unit tests (NUnit)
 │
 ├── Backend/
-│   ├── UpdraftBackend/          # ASP.NET Core 10 Minimal API
-│   │   ├── Domain/              # Entities (PlayerAccount, CreditLedgerEntry, etc.)
-│   │   ├── Data/                # EF Core DbContext + Migrations
-│   │   └── Endpoints/           # Auth, Profile, Party, Matchmaking, Matches, Commerce, Support
-│   └── UpdraftBackend.Tests/    # xUnit tests (SQLite in-memory, tests unique constraint)
+│   ├── HotdropBackend/           # ASP.NET Core Minimal API
+│   │   ├── Domain/               # Entities (PlayerAccount, CreditLedgerEntry, etc.)
+│   │   ├── Data/                 # EF Core DbContext + Migrations
+│   │   ├── Services/             # MatchResultProcessor, MatchmakingComposer, SessionRules
+│   │   └── Endpoints/            # Auth, Profile, Party, Matchmaking, Matches, Analytics, Commerce, Support
+│   └── HotdropBackend.Tests/     # xUnit tests (SQLite in-memory)
 │
-├── ASSET_LICENSE_REGISTER.md    # Every asset + license (spec §16/33)
-├── MILESTONE_STATUS.md          # Implementation status per spec
-├── DECISIONS.md                 # Build log & decisions
-└── docker-compose.yml           # Postgres + Backend
+├── docs/                     # spec amendments, acceptance records, audits, decisions
+├── docker-compose.yml        # Postgres + API
+└── MILESTONE_STATUS.md       # implementation status per spec
 ```
 
 ---
@@ -141,7 +173,10 @@ All gameplay values live in `Assets/Resources/Config/*.asset` — **never hardco
 | `AdConfig` | 19 |
 | `KpiGateConfig` | 24 |
 
-Create via: `Tools/Updraft/Create Config Assets`
+Create via: `Tools/Hotdrop/Create Config Assets`
+
+AFK warn/remove windows, bot fill thresholds, matchmaking and progression values are also
+config-driven; the match server reads them from the same assets (`NetConfigs`), never from literals.
 
 ---
 
@@ -163,7 +198,7 @@ Create via: `Tools/Updraft/Create Config Assets`
 |------------|--------|--------|
 | Unity 6.3 LTS Editor | Building APK, running tests | Install via Unity Hub |
 | Photon Fusion 2 App ID | Milestone C networking | Create Photon account |
-| PostgreSQL 16 | Backend integration | `docker-compose up postgres` |
+| PostgreSQL 16 | Backend integration | `docker compose up postgres -d` (repository root) |
 | Google Play Console | Signing, store, billing (F+) | Publisher account + $25 |
 | AdMob Account | Rewarded ads (F+) | AdMob account |
 
@@ -181,7 +216,7 @@ See `ASSET_LICENSE_REGISTER.md` — every third-party asset tracked with license
 
 ## Decisions Log
 
-See `DECISIONS.md` — running log of spec interpretations, toolchain status, and standing decisions.
+See `../docs/DECISIONS.md` — running log of spec interpretations, toolchain status, and standing decisions.
 
 ---
 

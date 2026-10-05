@@ -25,7 +25,13 @@ namespace Hotdrop.Network
         [Networked] public int Slot { get; set; }
         [Networked] public int Team { get; set; }
         [Networked] public NetworkString<_32> Alias { get; set; }
-        [Networked] public NetworkString<_32> Cosmetic { get; set; } // QA-024: shown on this avatar to everyone
+        // C19: the alias this seat had while it was still a human. MarkBotSubstitution rewrites
+        // Alias to carry a "[BOT] " label (and trims it to fit), so Alias can no longer identify
+        // the account for support reports. This snapshot is written once, on the server, when the
+        // seat is a real player, and is never relabelled — moderation stays resolvable.
+        [Networked] public NetworkString<_32> HumanAliasAtJoin { get; set; }
+        // Amendment 3: body style | weapon wrap | badge | body rig. Never an account id.
+        [Networked] public NetworkString<_64> Cosmetic { get; set; } // QA-024: shown on this avatar to everyone
         // Server-only: the backend account behind this seat. Never replicated — clients have no
         // need for another player's internal id (data minimisation; reports resolve by match slot).
         public string AccountId { get; set; } = "";
@@ -64,6 +70,12 @@ namespace Hotdrop.Network
         [Networked] public int DeathCount { get; set; }
         [Networked] public int PadLaunchCount { get; set; }
         [Networked] public float ZoneSeconds { get; set; }
+        // C04: server-only progress facts. Never replicated — they feed only the
+        // authenticated result that advances contracts/mastery. UncontestedZoneSeconds is
+        // the time this player's team was the *sole* occupant of the scoring zone; the
+        // per-weapon map is the server's own record of time spent holding each weapon.
+        public float UncontestedZoneSeconds { get; set; }
+        readonly Dictionary<string, float> weaponSeconds = new Dictionary<string, float>();
         [Networked] public int LastKillerSlot { get; set; }
         [Networked] public int LastKillerWeapon { get; set; }
         [Networked] public byte LastKillerDirection { get; set; } // 0 unknown, 1 front, 2 right, 3 behind, 4 left
@@ -92,9 +104,25 @@ namespace Hotdrop.Network
         // ---- IMatchParticipant ----
         public int ParticipantId => Slot;
         public string DisplayName => Alias.ToString();
+        /// <summary>
+        /// C19: the alias a support report should use. After a bot substitution the displayed
+        /// alias is prefixed and may be trimmed, so fall back to the join-time snapshot. Returns
+        /// "" for a seat that was never a human (a real bot), which is not reportable.
+        /// </summary>
+        public string ReportAlias
+        {
+            get
+            {
+                string current = Alias.ToString();
+                if (!current.StartsWith("[BOT] ", System.StringComparison.Ordinal)) return current;
+                string human = HumanAliasAtJoin.ToString();
+                return string.IsNullOrEmpty(human) ? "" : human;
+            }
+        }
         public int TeamId => Team;
         public bool IsBot => BotControlled;
         public bool IsAlive => !Dead;
+        public bool IsConnected => Connected;
         public float HealthFraction => Health / M.maxHealth;
         public float RespawnRemaining => Dead ? RespawnTimer.RemainingTime(Runner) ?? 0f : 0f;
         public int Eliminations => EliminationCount;
@@ -141,6 +169,7 @@ namespace Hotdrop.Network
         // so these transitions are what make a fight legible online.
         int cueShotCounter = -1;
         string cueCosmetic;
+        string cueRig = "";
         bool cueReloading, cueLaunched, cueDead, cueAirborne;
         float cueHealth, cueFallSpeed, cueStepTimer;
 
@@ -148,7 +177,20 @@ namespace Hotdrop.Network
         {
             if (Application.isBatchMode && Runner.IsServer) return; // headless server plays nothing
             string cosmetic = Cosmetic.ToString(); // QA-024: everyone sees this player's equipped identity
-            if (cosmetic != cueCosmetic) { Hotdrop.UI.CosmeticLook.Apply(transform.Find("Visual"), cosmetic); cueCosmetic = cosmetic; }
+            if (cosmetic != cueCosmetic)
+            {
+                var visual = transform.Find("Visual");
+                var look = Hotdrop.UI.CosmeticLook.Parse(cosmetic);
+                // Amendment 3: the chosen body rig replicates too, so remote viewers see it.
+                if (visual != null && look.BodyRig != cueRig)
+                {
+                    cueRig = look.BodyRig;
+                    Hotdrop.Network.NetAvatarVisual.ApplyRig(visual,
+                        Hotdrop.Player.BodyRigs.FromStoredId(look.BodyRig), MatchView.IsFriendly(Team));
+                }
+                Hotdrop.UI.CosmeticLook.Apply(visual, look);
+                cueCosmetic = cosmetic;
+            }
             bool reloading = ReloadTimer.IsRunning && !ReloadTimer.Expired(Runner);
             bool grounded = Kcc != null && Kcc.IsGrounded;
             if (cueShotCounter < 0)
@@ -515,6 +557,25 @@ namespace Hotdrop.Network
                 Alias = "[BOT] " + alias.Substring(0, Mathf.Min(alias.Length, 25));
         }
 
+        /// <summary>C04: server-only. Accumulate time spent holding the current weapon.</summary>
+        public void RecordWeaponTime(float dt)
+        {
+            // Matches the goal catalog's weapon ids (ARC / ZIP / BRICK).
+            string id = Weapon.id.ToString().ToUpperInvariant();
+            weaponSeconds.TryGetValue(id, out var held);
+            weaponSeconds[id] = held + dt;
+        }
+
+        /// <summary>C04: server-only. The weapon this player held longest ("" when none).</summary>
+        public string MajorityWeaponId()
+        {
+            string best = "";
+            float bestTime = -1f;
+            foreach (var entry in weaponSeconds)
+                if (entry.Value > bestTime) { bestTime = entry.Value; best = entry.Key; }
+            return best;
+        }
+
         public void ServerRespawn(Pose spawn, bool matchStart)
         {
             if (PendingWeapon >= 0) EquipWeapon(PendingWeapon);
@@ -536,6 +597,8 @@ namespace Hotdrop.Network
                 ActivationLockout = TickTimer.None;
                 EliminationCount = DeathCount = PadLaunchCount = PadPlacements = 0;
                 ZoneSeconds = 0f;
+                UncontestedZoneSeconds = 0f;
+                weaponSeconds.Clear();
                 PresentTicks = 0;
             }
         }

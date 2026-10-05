@@ -1,7 +1,7 @@
 # STEP 0 ACCEPTANCE — SECTION 0: THE BET
 
 **Project:** HOTDROP  
-**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md` (v1.0 Final Master Specification)  
+**Specification:** `ProjectHotdrop/PROJECT_UPDRAFT_SPEC.md` (v1.0 Final Master Specification)  
 **Audit Date:** 2026-09-28  
 **Gate / Step:** Step 0 — SECTION 0: THE BET  
 **Source Revision Snapshot:** `bbb3d7e` (master branch, with recorded working tree state)  
@@ -37,7 +37,7 @@ Before executing builds or tests, active system processes were inspected to ensu
 ## 3. Automated Test Verification Results
 
 ### A. Backend Test Suite (.NET 10.0 xUnit)
-- **Command:** `dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj`
+- **Command:** `dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj`
 - **Result:** **71/71 Passed** (0 Failed, 0 Skipped, Duration: 19s)
 - **Coverage Highlights:**
   - Auth, Session Tokens & Revocation (8/8)

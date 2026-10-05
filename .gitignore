@@ -46,6 +46,12 @@ ProjectHotdrop/TestResults/
 ProjectHotdrop/*.log
 ProjectHotdrop/.utmp/
 
+# Local audit scratch - build/test logs, never source
+.audit_tmp/
+.audit_*.txt
+.tmp_*.txt
+__pycache__/
+
 # Secrets - never commit
 Oracle keys/
 deploy/.env

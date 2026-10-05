@@ -32,14 +32,14 @@ From the repo root (`E:/Usama/Game`), run **in order**:
 Get-Process | Where-Object { $_.Name -eq 'Unity' -or $_.Name -like 'Unity.Licensing.Client*' }
 
 # 2. Clear the stale project lock / UPM artifacts
-Remove-Item -Recurse -Force ProjectUpdraft/Temp
+Remove-Item -Recurse -Force ProjectHotdrop/Temp
 
 # 3. Run the suite synchronously (EditMode or PlayMode)
-powershell -ExecutionPolicy Bypass -File ProjectUpdraft/Run-UnityTests.ps1 -Platform EditMode
-powershell -ExecutionPolicy Bypass -File ProjectUpdraft/Run-UnityTests.ps1 -Platform PlayMode
+powershell -ExecutionPolicy Bypass -File ProjectHotdrop/Run-UnityTests.ps1 -Platform EditMode
+powershell -ExecutionPolicy Bypass -File ProjectHotdrop/Run-UnityTests.ps1 -Platform PlayMode
 
 # 4. Verify UPM IPC connects and results emit (Run-UnityTests.ps1 reports
-#    'EditMode total=142 passed=142' / 'PlayMode total=6 passed=6').
+#    'EditMode total=313 passed=313' / 'PlayMode total=18 passed=18').
 ```
 
 `Run-UnityTests.ps1` (commit `2f64920`) has pre-flight guards: it throws if a Unity editor is still running, warns on a stale licensing client/lockfile, and uses ASCII-only strings (PowerShell 5.1 parses the file as Windows-1252; UTF-8 em-dashes broke the first parse).

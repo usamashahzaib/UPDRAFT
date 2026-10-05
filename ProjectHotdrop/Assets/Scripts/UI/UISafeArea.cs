@@ -216,13 +216,56 @@ namespace Hotdrop.UI
         public SafeAreaInsets Applied => applied;
 
         /// <summary>Insets this root would use right now, without applying them.</summary>
-        public SafeAreaInsets Current()
+        public SafeAreaInsets Current() => CurrentInsets(edgeMarginDp, gestureInsetDp, topCutoutDp);
+
+        /// <summary>
+        /// Insets in canvas units, read from the simulated screen when a test or the gallery has
+        /// pinned one and from the real screen otherwise.
+        ///
+        /// <para>The single place screen size, density and OS intrusions are read, and therefore
+        /// the single place the safe-area arithmetic is invoked. Anything else that needs to know
+        /// where the usable screen is - a layout pass, or a marker that has to sit against the
+        /// screen edge - goes through here, so a second copy of "where the screen is" cannot drift
+        /// out of step with this one.</para>
+        /// </summary>
+        /// <summary>
+        /// The frame being composed for, in pixels: the simulated screen when a test or the gallery
+        /// has pinned one, the device's real resolution otherwise.
+        ///
+        /// <para>Use this rather than <c>Screen.width</c> for anything a player reads. A capture
+        /// renders a 1920x1080 frame inside whatever window the editor happens to own, so a label
+        /// reading <c>Screen</c> directly printed "640×480" on a frame that was 1920 wide; the two
+        /// disagree in exactly the frame the evidence publishes.</para>
+        /// </summary>
+        public static Vector2 ScreenSize => new Vector2(SimulatedScreen?.x ?? Screen.width,
+            SimulatedScreen?.y ?? Screen.height);
+
+        public static SafeAreaInsets CurrentInsets(float edgeMarginDp, float gestureInsetDp, float topCutoutDp)
         {
             float w = SimulatedScreen?.x ?? Screen.width;
             float h = SimulatedScreen?.y ?? Screen.height;
             float dpi = SimulatedScreen?.z ?? Screen.dpi;
             var os = SimulatedInsets ?? ReadOsInsets(w, h);
             return SafeAreaMath.Compute(w, h, dpi, os, edgeMarginDp, gestureInsetDp, topCutoutDp);
+        }
+
+        /// <summary>
+        /// The usable content rect for a canvas, in the canvas's own centred units - the space a
+        /// <see cref="RectTransform.rect"/> is expressed in - with the insets already applied.
+        ///
+        /// <para>Used by anything that has to sit against the safe edge rather than the raw screen
+        /// edge, such as an objective marker whose target is behind the player. It used to build
+        /// that edge from <c>Screen.safeArea</c> and convert back through screen units, which made
+        /// the edge marker the one HUD element that ignored the edge margin and the camera cutout.</para>
+        /// </summary>
+        public static Rect ContentRectFor(Rect canvasRect)
+        {
+            var insets = CurrentInsets(UIDesignTokens.EdgeMarginDp, UIDesignTokens.GestureInsetDp,
+                UIDesignTokens.TopCutoutInsetDp);
+            var content = SafeAreaMath.ContentRect(canvasRect.width, canvasRect.height, insets);
+            // SafeAreaMath works bottom-left-origin; a RectTransform's rect is centred.
+            return new Rect(content.x - canvasRect.width * 0.5f, content.y - canvasRect.height * 0.5f,
+                content.width, content.height);
         }
 
         void OnEnable()
@@ -254,12 +297,10 @@ namespace Hotdrop.UI
             if (target == null) target = content != null ? content : (RectTransform)transform;
             float w = SimulatedScreen?.x ?? Screen.width;
             float h = SimulatedScreen?.y ?? Screen.height;
-            float dpi = SimulatedScreen?.z ?? Screen.dpi;
             lastWidth = (int)w; lastHeight = (int)h;
             if (w <= 0f || h <= 0f) return;
 
-            var os = SimulatedInsets ?? ReadOsInsets(w, h);
-            var insets = SafeAreaMath.Compute(w, h, dpi, os, edgeMarginDp, gestureInsetDp, topCutoutDp);
+            var insets = CurrentInsets(edgeMarginDp, gestureInsetDp, topCutoutDp);
 
             applying = true;
             try

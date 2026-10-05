@@ -66,7 +66,7 @@ namespace Hotdrop.UI
 
                 var position = rt.anchoredPosition;
                 position.y = horizontal ? (i == 0 ? -inset - units * 0.5f : inset + units * 0.5f) : 0f;
-                position.x = horizontal ? 0f : (i == 2 ? -inset - units * 0.5f : inset + units * 0.5f);
+                position.x = horizontal ? 0f : (i == 2 ? inset + units * 0.5f : -inset - units * 0.5f);
                 rt.anchoredPosition = position;
             }
         }

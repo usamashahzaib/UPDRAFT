@@ -12,6 +12,7 @@ namespace Hotdrop.Match
         int TeamId { get; }
         bool IsBot { get; }
         bool IsAlive { get; }
+        bool IsConnected { get; }
         float HealthFraction { get; }
         float RespawnRemaining { get; }
         int Eliminations { get; }
@@ -37,6 +38,12 @@ namespace Hotdrop.Match
         IMatchParticipant LocalParticipant { get; }
         IReadOnlyList<IMatchParticipant> Participants { get; }
         IMatchParticipant SpectatedTeammate { get; }
+    }
+
+    /// <summary>Optional label for local drill objectives; Relay keeps its actual zone name.</summary>
+    public interface IObjectivePresentation
+    {
+        string ActiveObjectiveLabel { get; }
     }
 
     public static class MatchView

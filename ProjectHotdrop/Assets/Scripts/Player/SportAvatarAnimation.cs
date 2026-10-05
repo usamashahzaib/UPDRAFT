@@ -61,11 +61,10 @@ namespace Hotdrop.Player
             // Arms counter-swing against the legs; in the air they settle into a braced pose.
             firePulse = Mathf.MoveTowards(firePulse, 0f, dt * 6f);
             float armSwing = swing * armSwingRatio;
-            float armPitchL = -armSwing - airborne * 14f;
-            float armPitchR = armSwing - airborne * 14f - firePulse * 14f;
-            float armRoll = airborne * 8f;
-            if (leftArm != null) leftArm.localRotation = Quaternion.Euler(armPitchL, 0f, armRoll);
-            if (rightArm != null) rightArm.localRotation = Quaternion.Euler(armPitchR, 0f, -armRoll);
+            float armPitchL = -48f - armSwing * .25f - airborne * 8f;
+            float armPitchR = -58f + armSwing * .25f - airborne * 8f - firePulse * 14f;
+            if (leftArm != null) leftArm.localRotation = Quaternion.Euler(armPitchL, 0f, 24f);
+            if (rightArm != null) rightArm.localRotation = Quaternion.Euler(armPitchR, 0f, -8f);
 
             if (reloading && leftArm != null)
             {

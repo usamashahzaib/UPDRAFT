@@ -10,6 +10,18 @@ services:
       Jwt__Issuer: "${JWT_ISSUER}"
       Jwt__Audience: "${JWT_AUDIENCE}"
       Jwt__SigningKey: "${JWT_SIGNING_KEY}"
+      GameServer__ApiKey: "${GAME_SERVER_API_KEY}"
+      Allocator__FusionRegion: "${FUSION_REGION:-eu}"
+      Support__PublicBaseUrl: "${SUPPORT_PUBLIC_BASE_URL}"
+      Email__From: "${EMAIL_FROM}"
+      Email__OutboxDirectory: "/var/lib/hotdrop/email-outbox"
+      Email__Smtp__Host: "${SMTP_HOST}"
+      Email__Smtp__Port: "${SMTP_PORT:-587}"
+      Email__Smtp__EnableSsl: "${SMTP_ENABLE_SSL:-true}"
+      Email__Smtp__Username: "${SMTP_USERNAME}"
+      Email__Smtp__Password: "${SMTP_PASSWORD}"
+    volumes:
+      - email_outbox:/var/lib/hotdrop/email-outbox
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,3 +72,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  email_outbox:

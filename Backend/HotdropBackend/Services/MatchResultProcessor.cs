@@ -19,6 +19,8 @@ public sealed class ProgressionOptions
     public string[] StarterCosmetics { get; set; } = ["body_standard", "wrap_standard", "badge_rookie"];
     public int UnlockAfterEligibleMatches { get; set; } = 3;
     public string MatchCountUnlock { get; set; } = "body_teal_stripe";
+    // Amendment 1: one permanent badge after the first eligible public match, win or loss.
+    public string FirstMatchBadge { get; set; } = "badge_first_flight";
     public Dictionary<int, string> LevelUnlocks { get; set; } = new()
     {
         [3] = "wrap_hazard", [6] = "badge_pathfinder", [10] = "body_rooftop", [15] = "wrap_updraft", [20] = "badge_summit",
@@ -28,7 +30,8 @@ public sealed class ProgressionOptions
 }
 
 /// <param name="Slot">QA-025: the server-assigned in-match slot shown to other players (optional for older servers).</param>
-public sealed record ParticipantResult(Guid PlayerId, bool Won, bool Eligible, bool HadBotSubstitution, string? Team = null, int? Slot = null);
+public sealed record ParticipantResult(Guid PlayerId, bool Won, bool Eligible, bool HadBotSubstitution, string? Team = null, int? Slot = null,
+    bool IsHuman = true, AuthoritativeProgressFacts? ProgressFacts = null);
 
 public sealed record SubmitResultRequest(bool Draw, List<ParticipantResult> Participants, bool ServerFailed = false, bool HasBots = false);
 
@@ -40,9 +43,9 @@ public sealed record PlayerResultSummary(Guid PlayerId, int XpGained, int Credit
 /// and server-failed matches. Rewards go through the credit ledger, whose
 /// unique (player, reason, source) index rejects a replayed grant.
 /// </summary>
-public sealed class MatchResultProcessor(ProgressionOptions options)
+public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMasteryService contractsMastery)
 {
-    public async Task<List<PlayerResultSummary>> ApplyAsync(Guid matchId, SubmitResultRequest request, HotdropDbContext db, CancellationToken cancellationToken)
+    public async Task<List<PlayerResultSummary>> ApplyAsync(Guid matchId, SubmitResultRequest request, HotdropDbContext db, bool contractsMasteryEnabled, CancellationToken cancellationToken)
     {
         var ids = request.Participants.Select(p => p.PlayerId).Distinct().ToList();
         var recorded = (await db.MatchParticipations
@@ -103,6 +106,9 @@ public sealed class MatchResultProcessor(ProgressionOptions options)
 
             int priorEligible = await db.MatchParticipations.CountAsync(m => m.PlayerId == p.PlayerId && m.Eligible, cancellationToken);
             if (priorEligible + 1 == options.UnlockAfterEligibleMatches) unlocked.Add(options.MatchCountUnlock);
+            // Amendment 1: first eligible public completion (win or loss) grants the badge once.
+            if (priorEligible + 1 == 1 && !string.IsNullOrEmpty(options.FirstMatchBadge))
+                unlocked.Add(options.FirstMatchBadge);
             foreach (var cosmetic in unlocked) await GrantAsync(db, p.PlayerId, cosmetic, "unlock", cancellationToken);
 
             participation.XpGained = xp;
@@ -111,6 +117,7 @@ public sealed class MatchResultProcessor(ProgressionOptions options)
             summaries.Add(new PlayerResultSummary(p.PlayerId, xp, credits, newLevel, delta, unlocked));
         }
 
+        if (contractsMasteryEnabled) await contractsMastery.ApplyMatchAsync(matchId, request, fresh, db, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return summaries;
     }

@@ -84,6 +84,18 @@ namespace Hotdrop.UI
         /// <summary>The panel colour at <see cref="PanelOpacity"/>.</summary>
         public static Color PanelBg => WithAlpha(SurfacePanel, PanelOpacity);
 
+        /// <summary>
+        /// HUD glass: the floating panels that sit over the live 3D arena while a match runs.
+        /// Deliberately more transparent than <see cref="PanelBg"/> — the reference composition
+        /// reads the arena *through* the score bar, kill feed and health plate, and a player
+        /// tracking a target through glass loses far less peripheral awareness than one staring
+        /// at an opaque band. Dark enough to keep text legible over a bright sky.
+        /// </summary>
+        public const float HudGlassOpacity = 0.66f;
+
+        /// <summary>The in-match floating panel colour, floated over the live scene.</summary>
+        public static Color HudGlass => WithAlpha(SurfacePanel, HudGlassOpacity);
+
         // ---------------------------------------------------------------- typography
         // Roles mirror DESIGN.md's type scale. Sizes are dp, not canvas units.
 
@@ -109,10 +121,7 @@ namespace Hotdrop.UI
         public const float DataLargeDp = 18f;
         /// <summary>label-data-md - secondary telemetry.</summary>
         public const float DataMediumDp = 14f;
-        /// <summary>
-        /// label-data-sm - smallest data row. Raised from DESIGN.md's 11 px because the
-        /// ~12 dp floor in <see cref="UiMetrics.MinTextUnits"/> is a hard gate.
-        /// </summary>
+        /// <summary>label-data-sm - smallest data row at the legibility floor.</summary>
         public const float DataSmallDp = 12f;
 
         /// <summary>Wide tracking DESIGN.md asks for on short uppercase labels.</summary>

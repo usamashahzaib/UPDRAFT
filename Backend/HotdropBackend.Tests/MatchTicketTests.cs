@@ -50,8 +50,9 @@ public class MatchTicketTests : IClassFixture<HotdropWebApplicationFactory>
         Assert.Single(players);
         Assert.Equal("B", players[0].GetProperty("team").GetString());
         Assert.Equal("SwiftOtter-1234", players[0].GetProperty("alias").GetString());
-        // QA-024: the equipped cosmetic reaches the match server so every client can render it.
-        Assert.Equal("body_teal_stripe", players[0].GetProperty("cosmetic").GetString());
+        // QA-024/Amendment 3: the equipped identity reaches the match server so every client
+        // can render it. Format is body style | weapon wrap | badge | body rig.
+        Assert.Equal("body_teal_stripe|||", players[0].GetProperty("cosmetic").GetString());
 
         // Nothing else to host: a second server gets 204, never the same match.
         var second = await server.PostAsync("/api/matches/claim", null);

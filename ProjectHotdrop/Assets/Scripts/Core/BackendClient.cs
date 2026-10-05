@@ -33,8 +33,9 @@ namespace Hotdrop.Core
     [Serializable] public class MatchReceiptDto { public bool recorded; public bool eligible; public int xpGained; public int creditsGained; public int level; public string[] unlocked; }
     [Serializable] public class PartyMemberDto { public string playerId; public string alias; public bool isReady; }
     [Serializable] public class PartyDto { public string code; public string leaderId; public List<string> memberIds; public List<string> readyIds; public PartyMemberDto[] members; }
-    [Serializable] public class ProfileDto { public string id; public string alias; public int profileXp; public int level; public string equippedCosmeticId; public string linkedPlatformIdentity; public bool isGuest; }
+    [Serializable] public class ProfileDto { public string id; public string alias; public int profileXp; public int level; public string equippedCosmeticId; public string linkedPlatformIdentity; public bool isGuest; public string bodyStyleId; public string weaponWrapId; public string badgeId; public string bodyRigId; }
     [Serializable] public class WalletDto { public int credits; }
+    [Serializable] public class ProfileStatsDto { public int eligibleMatches; public int wins; public int draws; }
     [Serializable] public class ErrorDto { public string error; }
     [Serializable] public class InventoryItemDto { public long id; public string cosmeticId; public string acquiredVia; }
     [Serializable] public class InventoryDto { public InventoryItemDto[] items; }
@@ -43,6 +44,10 @@ namespace Hotdrop.Core
     [Serializable] public class ContactEmailDto { public string email; }
     [Serializable] public class EquipDto { public string equipped; }
     [Serializable] public class SupportResultDto { public bool submitted; public bool requested; public bool deleted; }
+    [Serializable] public class GoalTemplateDto { public string id; public int target; }
+    [Serializable] public class GoalInstanceDto { public string id; public string templateId; public string status; public int progress; public int target; }
+    [Serializable] public class MasteryProgressDto { public string trackId; public string weaponId; public int progress; }
+    [Serializable] public class GoalsDto { public string catalogVersion; public bool unlocked; public int eligiblePublicMatches; public GoalTemplateDto[] templates; public GoalInstanceDto[] goals; public int seals; public bool rewardCatalogComplete; public MasteryProgressDto[] mastery; public int[] relayThresholds; public int[] routeThresholds; public int[] weaponThresholds; }
 
     /// <summary>
     /// HTTPS client for the single modular backend (spec sections 20/22). Ownership
@@ -70,6 +75,8 @@ namespace Hotdrop.Core
 
         public bool IsConfigured => config != null && config.IsConfigured;
         public bool HasSession => !string.IsNullOrEmpty(accessToken) && DateTime.UtcNow < accessExpiresUtc;
+        /// <summary>An absolute page on the configured backend (for browser hand-offs), or null offline.</summary>
+        public string WebUrl(string path) => IsConfigured ? config.baseUrl.TrimEnd('/') + path : null;
 
         public static string Describe(BackendError error) => error switch
         {
@@ -136,6 +143,7 @@ namespace Hotdrop.Core
 
         public Task<BackendResult<ProfileDto>> GetProfileAsync() => AuthedAsync<ProfileDto>("GET", "/api/profile/");
         public Task<BackendResult<WalletDto>> GetWalletAsync() => AuthedAsync<WalletDto>("GET", "/api/profile/wallet");
+        public Task<BackendResult<ProfileStatsDto>> GetProfileStatsAsync() => AuthedAsync<ProfileStatsDto>("GET", "/api/profile/stats");
         public Task<BackendResult<InventoryDto>> GetInventoryAsync() => AuthedAsync<InventoryDto>("GET", "/api/profile/inventory");
         public Task<BackendResult<EquipDto>> EquipAsync(string cosmeticId) =>
             AuthedAsync<EquipDto>("POST", "/api/profile/equip/" + UnityWebRequest.EscapeURL(cosmeticId), "{}");
@@ -147,6 +155,9 @@ namespace Hotdrop.Core
             AuthedAsync<MatchReceiptDto>("GET", $"/api/matches/{UnityWebRequest.EscapeURL(matchId)}/receipt");
         public Task<BackendResult<ReconnectDto>> ReconnectAsync(string matchId) =>
             AuthedAsync<ReconnectDto>("POST", $"/api/matches/{UnityWebRequest.EscapeURL(matchId)}/reconnect", "{}");
+        public Task<BackendResult<GoalsDto>> GoalsAsync() => AuthedAsync<GoalsDto>("GET", "/api/goals/");
+        public Task<BackendResult<GoalInstanceDto>> SelectContractAsync(string templateId) =>
+            AuthedAsync<GoalInstanceDto>("POST", "/api/goals/contracts/" + UnityWebRequest.EscapeURL(templateId), "{}");
         public Task<BackendResult<PartyDto>> CreatePartyAsync() => AuthedAsync<PartyDto>("POST", "/api/party/create", "{}");
         public Task<BackendResult<PartyDto>> JoinPartyAsync(string code) => AuthedAsync<PartyDto>("POST", $"/api/party/{UnityWebRequest.EscapeURL(code)}/join", "{}");
         public Task<BackendResult<PartyDto>> LeavePartyAsync(string code) => AuthedAsync<PartyDto>("POST", $"/api/party/{UnityWebRequest.EscapeURL(code)}/leave", "{}");

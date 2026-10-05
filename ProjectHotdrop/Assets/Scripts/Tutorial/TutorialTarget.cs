@@ -16,6 +16,8 @@ namespace Hotdrop.Tutorial
         AudioSource audioSource;
 
         public System.Action OnDestroyed;
+        public System.Func<bool> CanTakeDamage;
+        bool destroyed;
 
         void Awake()
         {
@@ -26,6 +28,7 @@ namespace Hotdrop.Tutorial
 
         public void TakeDamage(float amount)
         {
+            if (destroyed || amount <= 0 || (CanTakeDamage != null && !CanTakeDamage())) return;
             health -= amount;
 
             if (hitSound != null)
@@ -39,6 +42,8 @@ namespace Hotdrop.Tutorial
 
         void Die()
         {
+            if (destroyed) return;
+            destroyed = true;
             if (destroySound != null)
                 audioSource.PlayOneShot(destroySound);
 

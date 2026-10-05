@@ -10,7 +10,13 @@ public class PlayerAccount
     public int ProfileXp { get; set; }
     public int Level { get; set; } = 1;
     public int HiddenMatchmakingRating { get; set; } = 1000;
+    // Amendment 3: independent validated appearance slots + rig. Body selection is free.
+    // The legacy single value is kept as a compatibility adapter until old clients retire.
     public string? EquippedCosmeticId { get; set; }
+    public string? BodyStyleId { get; set; }
+    public string? WeaponWrapId { get; set; }
+    public string? BadgeId { get; set; }
+    public string? BodyRigId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public bool IsGuest { get; set; } = true;
 
@@ -194,6 +200,24 @@ public class AnalyticsDailyPresence
 }
 
 /// <summary>
+/// One row per pseudonymous player per UTC day with the amendment's session
+/// definitions applied (see Services.SessionRules): how many playable sessions the
+/// player had that day, how many of them were same-day return visits, and how many
+/// were voluntary rather than incentive/task-driven. Aggregated like
+/// AnalyticsDailyPresence so the measure survives the 30-day raw window.
+/// </summary>
+public class AnalyticsDailySession
+{
+    public long Id { get; set; }
+    public DateOnly EventDate { get; set; }
+    public string PseudonymousId { get; set; } = string.Empty;
+    public int Sessions { get; set; }
+    public int SameDayReturns { get; set; }
+    public int VoluntarySessions { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
+}
+
+/// <summary>
 /// Spec section 14: one persistent queue entry per player. Party members share
 /// PartyId so the composer keeps them on the same team and never splits a party.
 /// </summary>
@@ -222,5 +246,39 @@ public class MatchAllocation
     public string ServerId { get; set; } = "";
     public DateTimeOffset ClaimedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? CompletedAt { get; set; }
+}
+
+/// <summary>Server-assigned, versioned contract instance. Template IDs are reusable; instance IDs are not.</summary>
+public class ContractGoalInstance
+{
+    public Guid Id { get; set; }
+    public Guid PlayerId { get; set; }
+    public string CatalogVersion { get; set; } = "v1";
+    public string TemplateId { get; set; } = string.Empty;
+    public string Status { get; set; } = "paused"; // active, paused, completed
+    public int Progress { get; set; }
+    public int Target { get; set; }
+    public DateTimeOffset AssignedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? CompletedAt { get; set; }
+}
+
+/// <summary>One non-purchasable Flight Seal per completed goal instance.</summary>
+public class FlightSealGrant
+{
+    public long Id { get; set; }
+    public Guid PlayerId { get; set; }
+    public Guid GoalInstanceId { get; set; }
+    public string SourceKey { get; set; } = string.Empty;
+    public DateTimeOffset GrantedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>Permanent, server-derived counters. Weapon is ARC, ZIP or BRICK for weapon familiarity.</summary>
+public class MasteryProgress
+{
+    public Guid PlayerId { get; set; }
+    public string TrackId { get; set; } = string.Empty;
+    public string WeaponId { get; set; } = string.Empty;
+    public int Progress { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 

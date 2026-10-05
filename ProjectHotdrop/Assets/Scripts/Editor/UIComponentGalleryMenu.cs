@@ -93,6 +93,7 @@ namespace Hotdrop.Editor
             int widthPx = Mathf.RoundToInt(heightPx * ratio);
             float scale = UiMetrics.ScaleFor(widthPx, heightPx, CaptureDpi);
             SafeAreaRoot.SimulatedScreen = new Vector4(widthPx, heightPx, CaptureDpi, 0f);
+            SafeAreaRoot.SimulatedInsets = ScreenInsets.None;
             Debug.Log($"[Diagnose] screenPx={widthPx}x{heightPx} scale={scale} canvasUnits={widthPx / scale}x{heightPx / scale}");
 
             var go = new GameObject("DiagCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
@@ -117,6 +118,7 @@ namespace Hotdrop.Editor
                 if (scroll != null) foreach (Transform c in scroll) Log("        " + c.name, c);
             }
             SafeAreaRoot.SimulatedScreen = null;
+            SafeAreaRoot.SimulatedInsets = null;
             Object.DestroyImmediate(go);
         }
 
@@ -144,6 +146,9 @@ namespace Hotdrop.Editor
             camera.nearClipPlane = 0.1f;
             camera.farClipPlane = 1000f;
 
+            var target = new RenderTexture(widthPx, heightPx, 24, RenderTextureFormat.ARGB32);
+            camera.targetTexture = target;
+
             float scale = UiMetrics.ScaleFor(widthPx, heightPx, CaptureDpi);
 
             var canvasGo = new GameObject("GalleryCaptureCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
@@ -154,19 +159,24 @@ namespace Hotdrop.Editor
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             scaler.scaleFactor = scale;
+            // Size the canvas before building nested layout groups. Building against Unity's
+            // initial zero-sized ScreenSpaceCamera rect caused rows to collapse in captures.
+            var canvasRect = canvasGo.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(widthPx / scale, heightPx / scale);
 
             // The gallery's safe-area maths needs a screen to read, so pin a simulated one.
             SafeAreaRoot.SimulatedScreen = new Vector4(widthPx, heightPx, CaptureDpi, 0f);
+            // A simulated screen must not be combined with Screen.safeArea from the headless
+            // editor host (often 1280x720). That mismatch fabricates hundreds of pixels of
+            // cutout on the right and top and invalidates the aspect-ratio evidence.
+            SafeAreaRoot.SimulatedInsets = ScreenInsets.None;
 
             var view = UIComponentGallery.Open(canvasGo.transform);
             if (view != null) view.SetAspect(aspect);
 
             Canvas.ForceUpdateCanvases();
-            var canvasRect = canvasGo.GetComponent<RectTransform>();
-            canvasRect.sizeDelta = new Vector2(widthPx / scale, heightPx / scale);
-
-            var target = new RenderTexture(widthPx, heightPx, 24, RenderTextureFormat.ARGB32);
-            camera.targetTexture = target;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+            Canvas.ForceUpdateCanvases();
             camera.Render();
             camera.targetTexture = null;
 
@@ -184,6 +194,7 @@ namespace Hotdrop.Editor
             Object.DestroyImmediate(canvasGo);
             Object.DestroyImmediate(cameraGo);
             SafeAreaRoot.SimulatedScreen = null;
+            SafeAreaRoot.SimulatedInsets = null;
         }
     }
 }

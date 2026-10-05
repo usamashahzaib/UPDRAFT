@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Hotdrop.Config;
 using Hotdrop.Core;
+using Hotdrop.UI;
 
 namespace Hotdrop.Network
 {
@@ -32,6 +33,7 @@ namespace Hotdrop.Network
         bool queueRequested;
         bool recovering;
         NetSession session;
+        PartyDto searchParty;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
@@ -54,6 +56,7 @@ namespace Hotdrop.Network
             game = bootstrap;
             cancelled = false;
             queueRequested = false;
+            searchParty = null;
             BuildPanel();
             panel.SetActive(true);
             var config = BackendConfig.Load();
@@ -77,6 +80,10 @@ namespace Hotdrop.Network
             var auth = await api.EnsureSessionAsync();
             if (cancelled) return;
             if (!auth.Ok) { Failed(auth.Message); return; }
+            // Show the real party roster during search. Solo search remains a single named seat.
+            var currentParty = await api.CurrentPartyAsync();
+            if (cancelled) return;
+            searchParty = currentParty.Ok ? currentParty.Value : null;
 
             // QA-014: party members never enqueue themselves — the leader's enqueue creates a
             // ticket for every member. Follow an existing ticket if there is one.
@@ -122,6 +129,8 @@ namespace Hotdrop.Network
                 string body = $"Searching {s / 60}:{s % 60:00}{region}\nFair matches first — empty seats fill with labeled bots after a short wait.";
                 if (s >= LongWaitSeconds) Show("FINDING A 3v3 MATCH", body, "CANCEL", Cancel, "PRACTICE INSTEAD", PracticeInstead);
                 else Show("FINDING A 3v3 MATCH", body, "CANCEL", Cancel);
+                MatchSearchView.Show(panel, s, queue.Value.region, searchParty, api.PlayerId,
+                    s >= LongWaitSeconds, Cancel, PracticeInstead);
                 await Task.Delay(2000);
             }
             if (cancelled) return;
@@ -377,6 +386,7 @@ namespace Hotdrop.Network
         {
             BuildPanel();
             panel.SetActive(true);
+            MatchSearchView.Clear(panel);
             title.text = heading;
             status.text = body;
             actionButton.gameObject.SetActive(action != null); // no action = a transient status, not a dead button

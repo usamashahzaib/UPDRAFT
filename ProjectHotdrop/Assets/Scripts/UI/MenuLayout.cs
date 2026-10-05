@@ -27,8 +27,8 @@ namespace Hotdrop.UI
         // palette. Existing screens keep reading MenuLayout.Background / ButtonFill unchanged.
         public static readonly Color Background = UIDesignTokens.Background;      // opaque: HUD must not show through
         public static readonly Color ButtonFill = UIDesignTokens.SurfacePanel;
-        public const float TopBarHeight = 92f;
-        public const float StatusHeight = 56f;
+        public const float TopBarHeight = 80f;
+        public const float StatusHeight = 52f;
         public const float ContentMaxWidth = 1120f;
         public const float Spacing = 14f;
 
@@ -47,24 +47,36 @@ namespace Hotdrop.UI
             var barRt = bar.GetComponent<RectTransform>();
             barRt.anchorMin = new Vector2(0, 1); barRt.anchorMax = new Vector2(1, 1); barRt.pivot = new Vector2(0.5f, 1);
             barRt.sizeDelta = new Vector2(0, TopBarHeight); barRt.anchoredPosition = Vector2.zero;
-            screen.Title = Text(bar.transform, "Nav_Title", title, 38, MatchHUD.MainText);
-            Stretch(screen.Title.rectTransform, 260, 0, 260, 0);
+            var barFill = UIKit.Bar(bar.transform, "Fill", UIDesignTokens.SurfacePanel);
+            Stretch(barFill.rectTransform);
+            var barRule = UIKit.Bar(bar.transform, "Rule", UIDesignTokens.BorderColor());
+            barRule.rectTransform.anchorMin = new Vector2(0, 0); barRule.rectTransform.anchorMax = new Vector2(1, 0);
+            barRule.rectTransform.sizeDelta = new Vector2(0, 2);
+            screen.Title = Text(bar.transform, "Nav_Title", title, 30, MatchHUD.MainText);
+            Stretch(screen.Title.rectTransform, back == null ? 30 : 190, 0, 24, 0);
+            screen.Title.alignment = TextAlignmentOptions.MidlineLeft;
             screen.Title.enableWordWrapping = false;
-            screen.Title.enableAutoSizing = true; screen.Title.fontSizeMin = UiMetrics.MinTextUnits + 6; screen.Title.fontSizeMax = 38 * UiMetrics.TextScale;
+            screen.Title.enableAutoSizing = true; screen.Title.fontSizeMin = UiMetrics.MinTextUnits; screen.Title.fontSizeMax = UiMetrics.TextSize(30);
             if (back != null)
             {
                 screen.Back = ButtonObject(bar.transform, "Nav_Back", "BACK", back);
                 var backRt = screen.Back.GetComponent<RectTransform>();
                 backRt.anchorMin = backRt.anchorMax = new Vector2(0, 0.5f); backRt.pivot = new Vector2(0, 0.5f);
-                backRt.anchoredPosition = new Vector2(24, 0); backRt.sizeDelta = new Vector2(220, UiMetrics.MinTouchUnits);
+                backRt.anchoredPosition = new Vector2(24, 0); backRt.sizeDelta = new Vector2(142, UiMetrics.MinTouchUnits);
             }
 
             // Status line pinned to the bottom.
-            screen.Status = Text(root.transform, "Nav_Status", "", 22, MatchHUD.SecondaryText);
+            screen.Status = Text(root.transform, "Nav_Status", "", 19, MatchHUD.SecondaryText);
+            screen.Status.alignment = TextAlignmentOptions.MidlineLeft;
             var statusRt = screen.Status.rectTransform;
             statusRt.anchorMin = new Vector2(0, 0); statusRt.anchorMax = new Vector2(1, 0); statusRt.pivot = new Vector2(0.5f, 0);
             statusRt.sizeDelta = new Vector2(-48, StatusHeight); statusRt.anchoredPosition = new Vector2(0, 4);
-            screen.Status.enableAutoSizing = true; screen.Status.fontSizeMin = UiMetrics.MinTextUnits; screen.Status.fontSizeMax = 22 * UiMetrics.TextScale;
+            screen.Status.enableAutoSizing = true; screen.Status.fontSizeMin = UiMetrics.MinTextUnits; screen.Status.fontSizeMax = UiMetrics.TextSize(19);
+            var statusFill = UIKit.Bar(root.transform, "StatusFill", UIDesignTokens.SurfacePanel);
+            statusFill.rectTransform.anchorMin = Vector2.zero; statusFill.rectTransform.anchorMax = new Vector2(1, 0);
+            statusFill.rectTransform.pivot = new Vector2(0.5f, 0);
+            statusFill.rectTransform.sizeDelta = new Vector2(0, StatusHeight + 8);
+            statusFill.transform.SetSiblingIndex(screen.Status.transform.GetSiblingIndex());
 
             // Scrolling content between the bar and the status line.
             var scroll = new GameObject("Nav_Scroll", typeof(RectTransform), typeof(ScrollRect));
@@ -105,14 +117,35 @@ namespace Hotdrop.UI
             return row.GetComponent<RectTransform>();
         }
 
-        public static Button AddButton(Transform parent, string caption, UnityAction action, string name = "Row_Button", float height = 84f)
+        public static Button AddButton(Transform parent, string caption, UnityAction action, string name = "Row_Button", float height = 84f,
+            ButtonVariant variant = ButtonVariant.Secondary)
         {
-            var obj = ButtonObject(parent, name, caption, action);
-            var element = obj.AddComponent<LayoutElement>();
+            var obj = ButtonObject(parent, name, caption, action, variant);
+            var element = obj.GetComponent<LayoutElement>();
             element.minHeight = UiMetrics.MinTouchUnits;
             element.preferredHeight = Mathf.Max(height, UiMetrics.MinTouchUnits);
             element.flexibleWidth = 1; element.preferredWidth = 0; // rows split evenly
             return obj.GetComponent<Button>();
+        }
+
+        /// <summary>A framed content card that participates in the menu's responsive layout.</summary>
+        public static RectTransform Card(Transform parent, string name = "Row_Card", float height = 0f)
+        {
+            var card = new GameObject(name, typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+            card.transform.SetParent(parent, false);
+            var element = card.GetComponent<LayoutElement>();
+            element.flexibleWidth = 1; element.preferredWidth = 0;
+            if (height > 0) element.preferredHeight = height;
+            var layout = card.GetComponent<VerticalLayoutGroup>();
+            layout.spacing = 8; layout.padding = new RectOffset(22, 22, 16, 16);
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
+            var fill = UIKit.Surface(card.transform, "Fill", UIDesignTokens.SurfacePanel);
+            Stretch(fill.rectTransform);
+            fill.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            var frame = UIKit.Border(card.transform, "Frame", UIDesignTokens.BorderColor());
+            frame.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            return card.GetComponent<RectTransform>();
         }
 
         public static TextMeshProUGUI AddText(Transform parent, string value, float size, Color color, string name = "Row_Text")
@@ -128,6 +161,9 @@ namespace Hotdrop.UI
             var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(TMP_InputField), typeof(LayoutElement));
             root.transform.SetParent(parent, false);
             root.GetComponent<Image>().color = ButtonFill;
+            root.GetComponent<Image>().sprite = UIRoundedSprites.RoundedRect(UIDesignTokens.Dp(UIDesignTokens.RadiusSmDp));
+            root.GetComponent<Image>().type = Image.Type.Sliced;
+            UIKit.Border(root.transform, "Frame", UIDesignTokens.BorderColor());
             var element = root.GetComponent<LayoutElement>();
             element.minHeight = UiMetrics.MinTouchUnits; element.preferredHeight = UiMetrics.MinTouchUnits + 4; element.flexibleWidth = 1; element.preferredWidth = 0;
             var area = new GameObject("TextArea", typeof(RectTransform), typeof(RectMask2D));
@@ -144,16 +180,20 @@ namespace Hotdrop.UI
             return input;
         }
 
-        static GameObject ButtonObject(Transform parent, string name, string caption, UnityAction action)
+        static GameObject ButtonObject(Transform parent, string name, string caption, UnityAction action,
+            ButtonVariant variant = ButtonVariant.Secondary)
         {
-            var obj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-            obj.transform.SetParent(parent, false);
-            var image = obj.GetComponent<Image>(); image.color = ButtonFill;
-            var button = obj.GetComponent<Button>(); button.targetGraphic = image;
-            if (action != null) button.onClick.AddListener(() => { Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.UiTap); action(); });
-            var label = Text(obj.transform, "Label", caption, 26, MatchHUD.Friendly);
-            Stretch(label.rectTransform, 12, 4, 12, 4);
+            var styled = UIKit.Button(parent, caption, variant, () =>
+            {
+                if (action == null) return;
+                Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.UiTap);
+                action();
+            }, name);
+            var obj = styled.gameObject;
+            var label = obj.GetComponentInChildren<TextMeshProUGUI>();
+            label.textWrappingMode = TextWrappingModes.Normal;
             label.enableAutoSizing = true; label.fontSizeMin = UiMetrics.MinTextUnits; label.fontSizeMax = 26 * UiMetrics.TextScale;
+            label.GetComponent<LayoutElement>().preferredHeight = caption.Contains("\n") ? 66f : 40f;
             return obj;
         }
 
@@ -163,7 +203,7 @@ namespace Hotdrop.UI
             obj.transform.SetParent(parent, false);
             var text = obj.GetComponent<TextMeshProUGUI>();
             text.text = value; text.fontSize = UiMetrics.TextSize(size);
-            text.alignment = TextAlignmentOptions.Center; text.color = color; text.raycastTarget = false;
+            text.alignment = TextAlignmentOptions.MidlineLeft; text.color = color; text.raycastTarget = false;
             return text;
         }
 
@@ -178,13 +218,14 @@ namespace Hotdrop.UI
     public class ContentWidthFitter : MonoBehaviour
     {
         RectTransform content, view;
+        public float MaxWidth = MenuLayout.ContentMaxWidth;
         public void Bind(RectTransform contentRect, RectTransform viewRect) { content = contentRect; view = viewRect; Fit(); }
         void OnRectTransformDimensionsChange() => Fit();
         void LateUpdate() => Fit();
         void Fit()
         {
             if (content == null || view == null) return;
-            float width = Mathf.Min(MenuLayout.ContentMaxWidth, view.rect.width - 48f);
+            float width = Mathf.Min(MaxWidth, view.rect.width - 48f);
             if (Mathf.Abs(content.sizeDelta.x - width) > 0.5f) content.sizeDelta = new Vector2(width, content.sizeDelta.y);
         }
     }

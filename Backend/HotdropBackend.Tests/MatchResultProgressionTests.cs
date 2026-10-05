@@ -115,6 +115,23 @@ public class MatchResultProgressionTests : IClassFixture<HotdropWebApplicationFa
     }
 
     [Fact]
+    public async Task FirstEligibleMatch_GrantsFirstFlightBadgeExactlyOnce_EvenOnALoss()
+    {
+        var ids = await SeedPlayers(6);
+        var first = Guid.NewGuid();
+        await Submit(first, ThreeVsThree(ids, teamAWins: false));      // loss still qualifies
+        await Submit(first, ThreeVsThree(ids, teamAWins: false));      // replayed result
+        await Submit(Guid.NewGuid(), ThreeVsThree(ids, teamAWins: true)); // second match must not re-grant
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+        var grants = await db.InventoryItems
+            .Where(i => i.PlayerId == ids[2] && i.CosmeticId == "badge_first_flight")
+            .ToListAsync();
+        Assert.Single(grants);
+    }
+
+    [Fact]
     public async Task ServerFailedMatch_IsIneligibleAndUnrated()
     {
         var ids = await SeedPlayers(6);

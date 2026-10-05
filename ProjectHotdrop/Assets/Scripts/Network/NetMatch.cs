@@ -38,7 +38,9 @@ namespace Hotdrop.Network
         [Networked] public NetworkBool ZoneAllyA { get; set; }
         [Networked] public NetworkBool ZoneAllyB { get; set; }
 
-        public struct PadEvent { public string name; public int slot; public int team; public int padTeam; public float matchTime; }
+        // ownerSlot (C04): the pad's owner, so the result can attribute a teammate's use
+        // of someone else's pad back to the player who built it.
+        public struct PadEvent { public string name; public int slot; public int team; public int padTeam; public int ownerSlot; public float matchTime; }
         public readonly List<PadEvent> ServerPadEvents = new List<PadEvent>();
         public System.Action<NetMatch> OnServerMatchEnded;
         public System.Action<NetMatch> OnServerMatchCancelled;
@@ -54,6 +56,10 @@ namespace Hotdrop.Network
         readonly Dictionary<NetPlayer, (int slot, int weapon)> lastAttacker = new Dictionary<NetPlayer, (int, int)>();
         readonly HashSet<NetPlayer> shootersWhoHit = new HashSet<NetPlayer>(); // QA-010
         readonly List<IMatchParticipant> participants = new List<IMatchParticipant>();
+        // C04: players physically inside each team's scoring zone this tick, so the
+        // match can credit uncontested occupation only to the sole occupying team.
+        readonly List<NetPlayer> presentA = new List<NetPlayer>();
+        readonly List<NetPlayer> presentB = new List<NetPlayer>();
         bool endReported;
 
         struct Shot { public NetPlayer shooter; public Vector3 origin; public Vector3 aim; public uint seed; public MovementState state; }
@@ -113,13 +119,22 @@ namespace Hotdrop.Network
             if (IsLive)
             {
                 Vector3 zone = Map.ZoneCenter(R.GetScoringZone(MatchClock));
-                bool a = TeamPresent(0, zone, dt), b = TeamPresent(1, zone, dt);
+                presentA.Clear(); presentB.Clear();
+                bool a = TeamPresent(0, zone, dt, presentA), b = TeamPresent(1, zone, dt, presentB);
                 ZoneAllyA = a; ZoneAllyB = b;
+                // C04: only the sole occupying team accrues *uncontested* occupation time
+                // (the 1 pt/s uncontested rule); it feeds the contracts/mastery facts.
+                if (a != b) foreach (var p in (a ? presentA : presentB)) p.UncontestedZoneSeconds += dt;
                 scoring.Tick(a, b, MatchClock, dt);
                 ScoreA = scoring.ScoreA; ScoreB = scoring.ScoreB;
                 if (scoring.IsInOvertime && flow.Phase == MatchPhase.InProgress) { flow.NotifyOvertimeStarted(); Overtime = true; }
                 foreach (var p in NetPlayer.All)
-                    if (p.Runner == Runner && p.Connected && !p.BotControlled) p.PresentTicks++;
+                    if (p.Runner == Runner && p.Connected && !p.BotControlled)
+                    {
+                        p.PresentTicks++;
+                        // C04: track which weapon this human actually held (majority fact).
+                        if (!p.Dead) p.RecordWeaponTime(dt);
+                    }
                 if (scoring.Outcome != MatchOutcome.InProgress) EndMatch(scoring.Outcome);
             }
         }
@@ -243,8 +258,12 @@ namespace Hotdrop.Network
         // Spec 10 (disconnect → labeled bot after 5 s) and 18 (AFK: warn at 30 s, bot after +15 s).
         void HandleAbsence()
         {
-            int afkWarnTicks = Mathf.RoundToInt(30f / Runner.DeltaTime);
-            int afkRemoveTicks = Mathf.RoundToInt(45f / Runner.DeltaTime);
+            // Spec 18 / C10: the warn/remove windows come from ProgressionConfig, not literals.
+            var progression = NetConfigs.Progression;
+            float warnSeconds = progression != null ? progression.afkWarningSeconds : 30f;
+            float removeSeconds = warnSeconds + (progression != null ? progression.afkRemovalAfterWarningSeconds : 15f);
+            int afkWarnTicks = Mathf.RoundToInt(warnSeconds / Runner.DeltaTime);
+            int afkRemoveTicks = Mathf.RoundToInt(removeSeconds / Runner.DeltaTime);
             foreach (var p in NetPlayer.All)
             {
                 if (p.Runner != Runner || p.BotControlled) continue;
@@ -260,19 +279,18 @@ namespace Hotdrop.Network
             }
         }
 
-        bool TeamPresent(int team, Vector3 zone, float dt)
+        bool TeamPresent(int team, Vector3 zone, float dt, List<NetPlayer> present)
         {
-            bool present = false;
             foreach (var p in NetPlayer.All)
             {
                 if (p.Runner != Runner || p.Team != team || p.Dead) continue;
                 if (ZoneOccupancy.IsValid(p.transform.position, zone, Map.groundLevelY, R, true, p.IsSpawnProtected))
                 {
                     p.ZoneSeconds += dt;
-                    present = true;
+                    present.Add(p);
                 }
             }
-            return present;
+            return present.Count > 0;
         }
 
         void EndMatch(MatchOutcome outcome)
@@ -300,14 +318,14 @@ namespace Hotdrop.Network
             if (PadPrefab == null) PadPrefab = Resources.Load<NetworkObject>("NetPrefabs/NetPad");
             Runner.Spawn(PadPrefab, position, Quaternion.LookRotation(forward), PlayerRef.None,
                 (runner, obj) => obj.GetComponent<NetPad>().Init(owner.Slot, owner.Team, forward));
-            ServerPadEvents.Add(new PadEvent { name = "pad_placed", slot = owner.Slot, team = owner.Team, padTeam = owner.Team, matchTime = MatchClock });
+            ServerPadEvents.Add(new PadEvent { name = "pad_placed", slot = owner.Slot, team = owner.Team, padTeam = owner.Team, ownerSlot = owner.Slot, matchTime = MatchClock });
         }
 
         public void RecordPadUse(NetPad pad, NetPlayer user) =>
-            ServerPadEvents.Add(new PadEvent { name = "pad_used", slot = user.Slot, team = user.Team, padTeam = pad.Team, matchTime = MatchClock });
+            ServerPadEvents.Add(new PadEvent { name = "pad_used", slot = user.Slot, team = user.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
 
         public void RecordPadDestroyed(NetPad pad) =>
-            ServerPadEvents.Add(new PadEvent { name = "pad_destroyed", slot = pad.OwnerSlot, team = pad.Team, padTeam = pad.Team, matchTime = MatchClock });
+            ServerPadEvents.Add(new PadEvent { name = "pad_destroyed", slot = pad.OwnerSlot, team = pad.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
 
         public void BroadcastPing(int senderSlot, int team, PingKind kind, Vector3 position) =>
             RPC_BroadcastPing(senderSlot, team, (int)kind, position);

@@ -13,6 +13,10 @@ namespace Hotdrop.Config
         [Range(0f, 1f)] public float minD1Retention = 0.35f;
         [Range(0f, 1f)] public float minD7Retention = 0.15f;
         [Range(0f, 1f)] public float minD30Retention = 0.05f;
+        // C13: the source for this is Google Play vitals (Android vitals crash + ANR rates),
+        // NOT the client_error event. A caught exception or a logged error is not a process
+        // death, and the absence of uploaded client_error events is not evidence of no crashes.
+        // Never derive this number from client telemetry.
         [Range(0f, 1f)] public float minCrashFreeSessionRate = 0.995f;
         [Range(0f, 1f)] public float minVoluntaryInstantRematchRate = 0.50f;
         public float maxMedianPublicQueueSeconds = 45f;

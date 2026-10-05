@@ -2,7 +2,7 @@
 
 **Effective date:** [PLACEHOLDER: EFFECTIVE DATE]
 
-These Terms of Service ("Terms") govern your access to and use of **Project HOTDROP** (the "Game"), provided by [PLACEHOLDER: COMPANY NAME] ("we," "us," or "our"). By downloading, accessing, or playing the Game, you agree to these Terms. If you do not agree, do not use the Game.
+These Terms of Service ("Terms") govern your access to and use of **Project HOTDROP** (the "Game"), provided by **Techspirex** ("we," "us," or "our"). By downloading, accessing, or playing the Game, you agree to these Terms. If you do not agree, do not use the Game.
 
 This document is a draft and should be reviewed by qualified counsel before publication.
 
@@ -22,7 +22,7 @@ The Game, including its software, artwork, audio, characters, names, features, a
 
 You may play as a guest or optionally use Google Play Games sign-in. You are responsible for activity through your account and for keeping access to your device and sign-in credentials secure. Guest progress may be lost if you remove the Game, clear its data, change devices, or lose access before linking an available sign-in method.
 
-Do not sell, share, transfer, or provide unauthorized access to an account. Contact [PLACEHOLDER: SUPPORT EMAIL] promptly if you believe an account has been compromised.
+Do not sell, share, transfer, or provide unauthorized access to an account. Contact playhotdrop@proton.me promptly if you believe an account has been compromised.
 
 ## 4. Acceptable use
 
@@ -43,7 +43,7 @@ We may investigate suspected violations and use reasonable anti-cheat and securi
 
 The Game is free to download and may offer optional cosmetic digital items through Google Play Billing. Cosmetic items do not grant ownership of any Game content and have no cash value. They are a limited, revocable license for use within the Game, subject to these Terms.
 
-Prices, taxes, payment processing, and purchase authorization are handled through Google Play. Cosmetic purchases are final and non-refundable except where a refund is required by applicable law or available under Google Play's refund policy. Refund requests may be made through Google Play or by contacting [PLACEHOLDER: SUPPORT EMAIL], as applicable.
+Prices, taxes, payment processing, and purchase authorization are handled through Google Play. Cosmetic purchases are final and non-refundable except where a refund is required by applicable law or available under Google Play's refund policy. Refund requests may be made through Google Play or by contacting playhotdrop@proton.me, as applicable.
 
 We may change or discontinue cosmetic items or Game features. Where required by law, we will provide an appropriate remedy for paid items materially affected by such a change. You may not sell, trade, transfer, or exchange cosmetic items outside features we expressly provide.
 
@@ -73,7 +73,7 @@ We do not warrant that the Game will be uninterrupted, secure, error-free, compa
 
 ## 10. Limitation of liability
 
-To the fullest extent permitted by law, [PLACEHOLDER: COMPANY NAME] and its affiliates, officers, employees, contractors, licensors, and service providers will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for loss of data, profits, goodwill, or business opportunity, arising from or related to the Game or these Terms.
+To the fullest extent permitted by law, Techspirex and its affiliates, partners, officers, employees, contractors, licensors, and service providers will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for loss of data, profits, goodwill, or business opportunity, arising from or related to the Game or these Terms.
 
 To the fullest extent permitted by law, our total liability arising from or related to the Game or these Terms will not exceed the greater of (a) the amount you paid us through the Game during the 12 months before the event giving rise to the claim or (b) [PLACEHOLDER: LIABILITY CAP AMOUNT AND CURRENCY].
 
@@ -81,9 +81,9 @@ These limitations do not apply to liability that cannot be limited or excluded u
 
 ## 11. Governing law and disputes
 
-These Terms are governed by the laws of [PLACEHOLDER: JURISDICTION], without regard to conflict-of-law rules. Any dispute will be brought in the courts located in [PLACEHOLDER: COURT LOCATION AND JURISDICTION], unless applicable consumer law gives you the right to bring a claim elsewhere.
+These Terms are governed by the laws of Pakistan, without regard to conflict-of-law rules. Any dispute will be brought in the courts located in [PLACEHOLDER: COURT LOCATION IN PAKISTAN], unless applicable consumer law gives you the right to bring a claim elsewhere.
 
-Before filing a claim, you and we agree to make a good-faith effort to resolve the dispute informally by contacting [PLACEHOLDER: SUPPORT EMAIL]. Nothing in this section prevents either party from seeking urgent injunctive relief or using a small-claims process where available.
+Before filing a claim, you and we agree to make a good-faith effort to resolve the dispute informally by contacting playhotdrop@proton.me. Nothing in this section prevents either party from seeking urgent injunctive relief or using a small-claims process where available.
 
 ## 12. Changes to these Terms
 
@@ -95,7 +95,7 @@ If any provision is held unenforceable, it will be modified only to the extent n
 
 ## 14. Contact
 
-**Developer:** [PLACEHOLDER: COMPANY NAME]  
-**Support email:** [PLACEHOLDER: SUPPORT EMAIL]  
-**Mailing address:** [PLACEHOLDER: COMPANY POSTAL ADDRESS]  
-**Jurisdiction:** [PLACEHOLDER: JURISDICTION]
+**Developer:** Techspirex<br>
+**Support email:** playhotdrop@proton.me<br>
+**Mailing address:** [PLACEHOLDER: FULL STREET ADDRESS AND CITY], Pakistan 54302<br>
+**Jurisdiction:** Pakistan

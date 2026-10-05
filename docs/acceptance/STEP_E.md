@@ -47,7 +47,7 @@ Art production for either rig stays gated to Gate G (spec §15); the approved gr
 
 ## Automated results
 
-- **Backend:** `dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore --logger 'console;verbosity=minimal'` — **79 passed, 0 failed, 0 skipped**, .NET 10.0, 2026-09-28. Includes regressions for untrusted caller-supplied Google IDs and party queue readiness/leadership. Warnings remain: NU1903 for `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 and existing nullable warnings in auth/party tests.
+- **Backend:** `dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj --no-restore --logger 'console;verbosity=minimal'` — **79 passed, 0 failed, 0 skipped**, .NET 10.0, 2026-09-28. Includes regressions for untrusted caller-supplied Google IDs and party queue readiness/leadership. Warnings remain: NU1903 for `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 and existing nullable warnings in auth/party tests.
 - **Unity EditMode/PlayMode:** not run. Gate E UI/integration changes were not made to Unity; prior Gate B/C evidence remains as recorded in those gate files and does not count as Gate E evidence.
 - **Android/Google Play Games:** no Gate E APK/AAB built, installed, linked, reinstalled, or tested. No artifact hash is available.
 - **PostgreSQL migration/runtime:** migration source added; it was not applied to a real PostgreSQL instance.
@@ -58,7 +58,7 @@ Art production for either rig stays gated to Gate G (spec §15); the approved gr
 Backend test suite:
 
 ```powershell
-dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore --logger 'console;verbosity=minimal'
+dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj --no-restore --logger 'console;verbosity=minimal'
 ```
 
 Unity suites (after resolving the previously documented Package Manager/licensing startup issue and confirming no Editor owns the project):

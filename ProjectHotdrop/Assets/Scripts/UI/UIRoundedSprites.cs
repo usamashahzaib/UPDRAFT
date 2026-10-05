@@ -44,6 +44,11 @@ namespace Hotdrop.UI
             return sprite;
         }
 
+        /// <summary>A nine-sliced rounded outline, <paramref name="widthUnits"/> thick, to sit over
+        /// a <see cref="RoundedRect"/> of the same radius.</summary>
+        public static Sprite RoundedOutline(float radiusUnits, float widthUnits = 1f) =>
+            RoundedRect(Mathf.Max(radiusUnits, widthUnits + 1f), 1f, Mathf.Max(1, Mathf.RoundToInt(widthUnits)));
+
         static Sprite Build(int radius, int size, int border)
         {
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
@@ -61,7 +66,10 @@ namespace Hotdrop.UI
                 for (int x = 0; x < size; x++)
                 {
                     float coverage = Coverage(x + 0.5f, y + 0.5f, size, radius);
-                    float hole = inner <= 0.5f ? 0f : 1f - Coverage(x + 0.5f, y + 0.5f, size, inner);
+                    // The hole is the same rounded rect inset by the border on every side.
+                    float hole = border <= 0 ? 0f
+                        : Coverage(x + 0.5f - border, y + 0.5f - border, size - 2 * border, inner);
+                    if (border > 0 && (x < border || y < border || x >= size - border || y >= size - border)) hole = 0f;
                     float alpha = Mathf.Clamp01(coverage - hole);
                     pixels[y * size + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255f));
                 }
@@ -85,8 +93,9 @@ namespace Hotdrop.UI
             float inset = radius;
             float cx = Mathf.Clamp(x, inset, size - inset);
             float cy = Mathf.Clamp(y, inset, size - inset);
-            float distance = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cy));
+            if (x < 0f || y < 0f || x > size || y > size) return 0f;
             if (radius <= 0f) return 1f;
+            float distance = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cy));
             return Mathf.Clamp01(radius - distance + 0.5f);
         }
     }

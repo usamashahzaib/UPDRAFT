@@ -12,7 +12,7 @@ namespace Hotdrop.Core
     {
         public string challengeId;
         public bool isCompleted;
-        public ChallengeMedal medal = ChallengeMedal.None;
+        public ChallengeMedal medal;
         public float personalBestTimeSeconds;
         public float personalBestScore;
         public int challengeVersion = 1;
@@ -25,10 +25,15 @@ namespace Hotdrop.Core
     public class LocalChallengeSaveSnapshot
     {
         public string challengeId;
+        public int challengeVersion = 1;
+        public string controlPreset = "Classic";
+        public string difficulty = "Standard";
         public int stepIndex;
         public float elapsedTime;
         public float score;
         public int targetsCompleted;
+        public int shotsFired;
+        public int shotsHit;
         public string customStateJson;
         public long timestampTicks;
     }
@@ -36,243 +41,199 @@ namespace Hotdrop.Core
     [Serializable]
     public class LocalChallengeSaveData
     {
-        public int version = 1;
+        public int version = 2;
         public List<ChallengeRecord> records = new List<ChallengeRecord>();
         public LocalChallengeSaveSnapshot activeSnapshot;
         public string checksum;
     }
 
-    /// <summary>
-    /// Requirement 3: Versioned atomic local save for completion, medal, personal best,
-    /// challenge version, control preset, and difficulty.
-    /// Corrupt/missing data recovers safely without granting false medals or crashing.
-    /// Local progress is strictly isolated from online wallets, seals, contracts, and mastery.
-    /// </summary>
+    /// <summary>Device-only progress. Checksum detects accidental corruption, not cheating.
+    /// No backend, wallet, inventory or online-reward dependency.</summary>
     public sealed class LocalChallengeSave
     {
-        public const int CurrentSaveVersion = 1;
+        public const int CurrentSaveVersion = 2;
         readonly string saveFilePath;
         LocalChallengeSaveData cacheData;
-
+        bool newerVersion;
         public LocalChallengeSaveData Data => cacheData;
+        public bool LastSaveSucceeded { get; private set; } = true;
+        public string RecoveryMessage { get; private set; }
 
         public LocalChallengeSave(string customSaveFilePath = null)
         {
-            if (!string.IsNullOrEmpty(customSaveFilePath))
-            {
-                saveFilePath = customSaveFilePath;
-            }
-            else
-            {
-                saveFilePath = Path.Combine(Application.persistentDataPath, "offline_challenges_save.json");
-            }
-
+            saveFilePath = string.IsNullOrEmpty(customSaveFilePath)
+                ? Path.Combine(Application.persistentDataPath, "offline_challenges_save.json") : customSaveFilePath;
             Load();
         }
 
         public bool Load()
         {
-            if (!File.Exists(saveFilePath))
-            {
-                // File absent: initialize clean in-memory state only.
-                // No disk write here — first actual Save happens on SaveRecord/SaveSnapshot.
-                cacheData = new LocalChallengeSaveData
-                {
-                    version = CurrentSaveVersion,
-                    records = new List<ChallengeRecord>(),
-                    activeSnapshot = null
-                };
-                cacheData.checksum = ComputeChecksum(cacheData);
-                return false;
-            }
-
+            cacheData = new LocalChallengeSaveData();
+            newerVersion = false;
+            RecoveryMessage = null;
+            if (!File.Exists(saveFilePath)) return false;
             try
             {
-                string json = File.ReadAllText(saveFilePath);
-                if (string.IsNullOrWhiteSpace(json))
+                var data = ReadValid(saveFilePath);
+                if (data != null) { cacheData = data; return true; }
+                if (!newerVersion && File.Exists(saveFilePath + ".bak"))
                 {
-                    Debug.LogWarning("[LocalChallengeSave] Save file empty; resetting cleanly.");
-                    ResetToDefaults();
-                    return false;
+                    data = ReadValid(saveFilePath + ".bak");
+                    if (data != null)
+                    {
+                        cacheData = data;
+                        RecoveryMessage = "Recovered the previous local save. The latest attempt may need restarting.";
+                        return true;
+                    }
                 }
-
-                var loaded = JsonUtility.FromJson<LocalChallengeSaveData>(json);
-                if (loaded == null || loaded.records == null)
-                {
-                    Debug.LogWarning("[LocalChallengeSave] Save file deserialization produced null; resetting cleanly.");
-                    ResetToDefaults();
-                    return false;
-                }
-
-                // Verify integrity checksum
-                string expectedChecksum = ComputeChecksum(loaded);
-                if (!string.Equals(loaded.checksum, expectedChecksum, StringComparison.Ordinal))
-                {
-                    Debug.LogWarning("[LocalChallengeSave] Corrupt save file detected (checksum mismatch); resetting safely without granting medals.");
-                    ResetToDefaults();
-                    return false;
-                }
-
-                cacheData = loaded;
-                return true;
+                RecoveryMessage = newerVersion ? "This save needs a newer game version. Existing data has not been overwritten."
+                    : "Local save could not be recovered. Start a new attempt; no medals were added.";
+                Debug.LogWarning("[LocalChallengeSave] " + RecoveryMessage);
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[LocalChallengeSave] Exception loading save file ({ex.Message}); recovering safely to default state.");
-                ResetToDefaults();
-                return false;
+                RecoveryMessage = "Local save is unavailable. No medals were added.";
+                Debug.LogWarning("[LocalChallengeSave] " + ex.Message);
             }
+            return false;
         }
+
+        LocalChallengeSaveData ReadValid(string path)
+        {
+            try
+            {
+                var data = JsonUtility.FromJson<LocalChallengeSaveData>(File.ReadAllText(path));
+                if (data == null) return null;
+                if (data.version > CurrentSaveVersion) { newerVersion = true; return null; }
+                if (data.version < 1 || data.records == null || data.records.Count > 1000) return null;
+                // Unity serializes inline null classes as empty objects on some versions.
+                if (data.activeSnapshot != null && string.IsNullOrEmpty(data.activeSnapshot.challengeId)) data.activeSnapshot = null;
+                var expected = data.version == 1 ? LegacyChecksum(data) : ComputeChecksum(data);
+                if (!string.Equals(data.checksum, expected, StringComparison.Ordinal)) return null;
+                var keys = new HashSet<string>();
+                foreach (var r in data.records)
+                {
+                    if (r == null || string.IsNullOrEmpty(r.challengeId) || r.challengeVersion < 1 ||
+                        !FinitePositive(r.personalBestTimeSeconds) || !FinitePositive(r.personalBestScore) ||
+                        r.medal < ChallengeMedal.None || r.medal > ChallengeMedal.Gold ||
+                        (!r.isCompleted && r.medal != ChallengeMedal.None) || !keys.Add(RecordKey(r))) return null;
+                }
+                var s = data.activeSnapshot;
+                if (s != null && (string.IsNullOrEmpty(s.challengeId) || s.challengeVersion < 1 ||
+                    !FinitePositive(s.elapsedTime) || !FinitePositive(s.score) || s.targetsCompleted < 0 ||
+                    s.stepIndex < 0 || s.shotsFired < 0 || s.shotsHit < 0 || s.shotsHit > s.shotsFired)) return null;
+                if (data.version == 1)
+                {
+                    // Legacy checksum did not protect world/elapsed state. Keep validated
+                    // records; never pretend its interrupted attempt can safely resume.
+                    data.activeSnapshot = null;
+                    RecoveryMessage = "Local records migrated. Restart any interrupted drill.";
+                }
+                data.version = CurrentSaveVersion;
+                return data;
+            }
+            catch { return null; }
+        }
+
+        static bool FinitePositive(float value) => !float.IsNaN(value) && !float.IsInfinity(value) && value >= 0;
 
         public void Save()
         {
+            LastSaveSucceeded = false;
+            if (newerVersion) return;
             try
             {
-                if (cacheData == null)
-                {
-                    cacheData = new LocalChallengeSaveData();
-                }
-
                 cacheData.version = CurrentSaveVersion;
                 cacheData.checksum = ComputeChecksum(cacheData);
-
-                string json = JsonUtility.ToJson(cacheData, true);
-
-                string dir = Path.GetDirectoryName(saveFilePath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                var dir = Path.GetDirectoryName(saveFilePath);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                var temp = saveFilePath + ".tmp";
+                var bytes = Encoding.UTF8.GetBytes(JsonUtility.ToJson(cacheData, true));
+                using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    Directory.CreateDirectory(dir);
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(true);
                 }
-
-                string tempPath = saveFilePath + ".tmp";
-                File.WriteAllText(tempPath, json);
-
-                if (File.Exists(saveFilePath))
-                {
-                    File.Delete(saveFilePath);
-                }
-                File.Move(tempPath, saveFilePath);
+                // Never delete the live file before replacement. A filesystem failure
+                // preserves the last committed save and surfaces an honest warning.
+                if (File.Exists(saveFilePath)) File.Replace(temp, saveFilePath, saveFilePath + ".bak");
+                else File.Move(temp, saveFilePath);
+                LastSaveSucceeded = true;
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[LocalChallengeSave] Failed to save atomically: {ex.Message}");
-            }
+            catch (Exception ex) { Debug.LogWarning("[LocalChallengeSave] Local progress was not saved: " + ex.Message); }
         }
 
-        public ChallengeRecord GetRecord(string challengeId)
-        {
-            if (cacheData == null || cacheData.records == null) return null;
-            return cacheData.records.Find(r => r.challengeId == challengeId);
-        }
-
+        static string RecordKey(ChallengeRecord r) => r.challengeId + "|" + r.challengeVersion + "|" + r.controlPreset + "|" + r.difficulty;
+        public ChallengeRecord GetRecord(string id) => cacheData.records.FindLast(r => r.challengeId == id);
+        public ChallengeRecord GetRecord(string id, int version, string preset, string difficulty) =>
+            cacheData.records.Find(r => r.challengeId == id && r.challengeVersion == version && r.controlPreset == preset && r.difficulty == difficulty);
         public void SaveRecord(ChallengeRecord record)
         {
             if (record == null || string.IsNullOrEmpty(record.challengeId)) return;
-
-            if (cacheData == null) cacheData = new LocalChallengeSaveData();
-            if (cacheData.records == null) cacheData.records = new List<ChallengeRecord>();
-
             record.lastUpdatedTicks = DateTime.UtcNow.Ticks;
-
-            int index = cacheData.records.FindIndex(r => r.challengeId == record.challengeId);
-            if (index >= 0)
-            {
-                cacheData.records[index] = record;
-            }
-            else
-            {
-                cacheData.records.Add(record);
-            }
-
+            int index = cacheData.records.FindIndex(r => RecordKey(r) == RecordKey(record));
+            if (index < 0) cacheData.records.Add(record); else cacheData.records[index] = record;
             Save();
         }
-
         public void SaveSnapshot(LocalChallengeSaveSnapshot snapshot)
         {
-            if (cacheData == null) cacheData = new LocalChallengeSaveData();
             cacheData.activeSnapshot = snapshot;
-            if (snapshot != null)
-            {
-                snapshot.timestampTicks = DateTime.UtcNow.Ticks;
-            }
+            if (snapshot != null) snapshot.timestampTicks = DateTime.UtcNow.Ticks;
             Save();
         }
+        public LocalChallengeSaveSnapshot GetSnapshot(string id) => cacheData.activeSnapshot?.challengeId == id ? cacheData.activeSnapshot : null;
+        public void ClearSnapshot() { cacheData.activeSnapshot = null; Save(); }
+        public void ResetToDefaults() { cacheData = new LocalChallengeSaveData(); Save(); }
 
-        public LocalChallengeSaveSnapshot GetSnapshot(string challengeId)
-        {
-            if (cacheData == null || cacheData.activeSnapshot == null) return null;
-            if (cacheData.activeSnapshot.challengeId == challengeId)
-            {
-                return cacheData.activeSnapshot;
-            }
-            return null;
-        }
-
-        public void ClearSnapshot()
-        {
-            if (cacheData != null)
-            {
-                cacheData.activeSnapshot = null;
-                Save();
-            }
-        }
-
-        public void ResetToDefaults()
-        {
-            cacheData = new LocalChallengeSaveData
-            {
-                version = CurrentSaveVersion,
-                records = new List<ChallengeRecord>(),
-                activeSnapshot = null
-            };
-            cacheData.checksum = ComputeChecksum(cacheData);
-            Save();
-        }
-
-        /// <summary>
-        /// Computes a deterministic FNV-1a 64-bit checksum for corruption detection.
-        /// Portable across all Unity target platforms without System.Security.Cryptography.
-        /// </summary>
         public static string ComputeChecksum(LocalChallengeSaveData data)
         {
-            if (data == null) return string.Empty;
-
-            var sb = new StringBuilder();
-            sb.Append(data.version);
-            if (data.records != null)
+            if (data == null) return "";
+            // Explicit canonical fields: no JSON null/inline-object ambiguity, no ambiguous
+            // concatenation or rounded floats, and every record/snapshot field is protected.
+            byte[] payload;
+            using (var stream = new MemoryStream())
             {
-                foreach (var r in data.records)
+                using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
                 {
-                    sb.Append(r.challengeId ?? string.Empty);
-                    sb.Append(r.isCompleted ? "1" : "0");
-                    sb.Append((int)r.medal);
-                    sb.Append(r.personalBestTimeSeconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
-                    sb.Append(r.personalBestScore.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
-                    sb.Append(r.challengeVersion);
+                    writer.Write(data.version); writer.Write(data.records?.Count ?? 0);
+                    if (data.records != null) foreach (var r in data.records)
+                    {
+                        if (r == null) { writer.Write(false); continue; }
+                        writer.Write(true); writer.Write(r.challengeId ?? ""); writer.Write(r.isCompleted); writer.Write((int)r.medal);
+                        writer.Write(r.personalBestTimeSeconds); writer.Write(r.personalBestScore); writer.Write(r.challengeVersion);
+                        writer.Write(r.controlPreset ?? ""); writer.Write(r.difficulty ?? ""); writer.Write(r.lastUpdatedTicks);
+                    }
+                    var s = data.activeSnapshot;
+                    bool present = !string.IsNullOrEmpty(s?.challengeId); writer.Write(present);
+                    if (present)
+                    {
+                        writer.Write(s.challengeId); writer.Write(s.challengeVersion); writer.Write(s.controlPreset ?? "");
+                        writer.Write(s.difficulty ?? ""); writer.Write(s.stepIndex); writer.Write(s.elapsedTime); writer.Write(s.score);
+                        writer.Write(s.targetsCompleted); writer.Write(s.shotsFired); writer.Write(s.shotsHit);
+                        writer.Write(s.customStateJson ?? ""); writer.Write(s.timestampTicks);
+                    }
                 }
+                payload = stream.ToArray();
             }
-            if (data.activeSnapshot != null && !string.IsNullOrEmpty(data.activeSnapshot.challengeId))
-            {
-                sb.Append(data.activeSnapshot.challengeId);
-                sb.Append(data.activeSnapshot.stepIndex);
-            }
-
-            // FNV-1a 64-bit hash — portable, deterministic, no external dependencies
             ulong hash = 14695981039346656037UL;
-            foreach (char c in sb.ToString())
-            {
-                hash ^= (byte)c;
-                hash *= 1099511628211UL;
-            }
+            foreach (byte b in payload) { hash ^= b; hash *= 1099511628211UL; }
             return hash.ToString("X16", System.Globalization.CultureInfo.InvariantCulture);
         }
-
-        /// <summary>
-        /// Explicit guard validating that local challenge progress cannot alter online backend state.
-        /// </summary>
-        public static bool VerifyIsIsolatedOfflineState()
+        static string LegacyChecksum(LocalChallengeSaveData data)
         {
-            return true;
+            var sb = new StringBuilder(); sb.Append(data.version);
+            foreach (var r in data.records)
+            {
+                if (r == null) return "";
+                sb.Append(r.challengeId ?? ""); sb.Append(r.isCompleted ? "1" : "0"); sb.Append((int)r.medal);
+                sb.Append(r.personalBestTimeSeconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+                sb.Append(r.personalBestScore.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)); sb.Append(r.challengeVersion);
+            }
+            if (!string.IsNullOrEmpty(data.activeSnapshot?.challengeId))
+            { sb.Append(data.activeSnapshot.challengeId); sb.Append(data.activeSnapshot.stepIndex); }
+            ulong hash = 14695981039346656037UL;
+            foreach (char c in sb.ToString()) { hash ^= (byte)c; hash *= 1099511628211UL; }
+            return hash.ToString("X16", System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 }

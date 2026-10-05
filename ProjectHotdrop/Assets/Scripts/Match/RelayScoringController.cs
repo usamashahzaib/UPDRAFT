@@ -5,6 +5,9 @@ namespace Hotdrop.Match
     public enum TeamId { TeamA, TeamB }
     public enum MatchOutcome { InProgress, TeamAWins, TeamBWins, Draw }
 
+    /// <summary>How a finished match ended. Presentation uses this instead of guessing from scores (C14).</summary>
+    public enum MatchEndReason { None, ScoreLimit, TimeExpired, OvertimeHold, OvertimeDraw }
+
     /// <summary>
     /// Pure, engine-agnostic implementation of spec section 4 (Relay mode).
     /// Runs on the authoritative server tick (see spec section 22, step 6:
@@ -18,6 +21,7 @@ namespace Hotdrop.Match
         public int ScoreA { get; private set; }
         public int ScoreB { get; private set; }
         public MatchOutcome Outcome { get; private set; } = MatchOutcome.InProgress;
+        public MatchEndReason EndReason { get; private set; } = MatchEndReason.None;
         public bool IsInOvertime => _inOvertime;
 
         // Continuous occupation timer, reset whenever occupation becomes invalid,
@@ -49,13 +53,13 @@ namespace Hotdrop.Match
             {
                 TickRegulationScoring(teamAPresent, teamBPresent, deltaTime);
 
-                if (ScoreA >= _rules.scoreToWin) { Outcome = MatchOutcome.TeamAWins; return; }
-                if (ScoreB >= _rules.scoreToWin) { Outcome = MatchOutcome.TeamBWins; return; }
+                if (ScoreA >= _rules.scoreToWin) { Outcome = MatchOutcome.TeamAWins; EndReason = MatchEndReason.ScoreLimit; return; }
+                if (ScoreB >= _rules.scoreToWin) { Outcome = MatchOutcome.TeamBWins; EndReason = MatchEndReason.ScoreLimit; return; }
 
                 if (matchTime >= _rules.regulationDurationSeconds)
                 {
-                    if (ScoreA > ScoreB) Outcome = MatchOutcome.TeamAWins;
-                    else if (ScoreB > ScoreA) Outcome = MatchOutcome.TeamBWins;
+                    if (ScoreA > ScoreB) { Outcome = MatchOutcome.TeamAWins; EndReason = MatchEndReason.TimeExpired; }
+                    else if (ScoreB > ScoreA) { Outcome = MatchOutcome.TeamBWins; EndReason = MatchEndReason.TimeExpired; }
                     else StartOvertime();
                 }
             }
@@ -119,12 +123,16 @@ namespace Hotdrop.Match
                 if (_overtimeHoldSeconds >= _rules.overtimeHoldSeconds)
                 {
                     Outcome = current == TeamId.TeamA ? MatchOutcome.TeamAWins : MatchOutcome.TeamBWins;
+                    EndReason = MatchEndReason.OvertimeHold;
                     return;
                 }
             }
 
             if (_overtimeElapsed >= _rules.maxOvertimeSeconds)
+            {
                 Outcome = MatchOutcome.Draw;
+                EndReason = MatchEndReason.OvertimeDraw;
+            }
         }
     }
 }

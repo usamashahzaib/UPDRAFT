@@ -14,12 +14,12 @@ namespace Hotdrop.Core
         const string Key = "RecentMatchRoster";
 
         [Serializable] public class Entry { public string alias; public int slot; public int team; }
-        [Serializable] class Roster { public string matchId; public string endedUtc; public List<Entry> players = new List<Entry>(); }
+        [Serializable] class Roster { public string matchId; public string endedUtc; public int localTeam = -1; public List<Entry> players = new List<Entry>(); }
 
-        public static void Remember(string matchId, IEnumerable<Entry> others)
+        public static void Remember(string matchId, IEnumerable<Entry> others, int localTeam = -1)
         {
             if (string.IsNullOrEmpty(matchId)) return;
-            var roster = new Roster { matchId = matchId, endedUtc = DateTime.UtcNow.ToString("o") };
+            var roster = new Roster { matchId = matchId, endedUtc = DateTime.UtcNow.ToString("o"), localTeam = localTeam };
             foreach (var e in others)
                 if (e != null && !string.IsNullOrEmpty(e.alias) && !e.alias.StartsWith("[BOT]")) roster.players.Add(e);
             PlayerPrefs.SetString(Key, JsonUtility.ToJson(roster));
@@ -35,6 +35,15 @@ namespace Hotdrop.Core
             if (roster == null || string.IsNullOrEmpty(roster.matchId) || roster.players == null || roster.players.Count == 0) return false;
             matchId = roster.matchId; players = roster.players;
             return true;
+        }
+
+        /// <summary>The reporting player's own team in the remembered match, or -1 when unknown.</summary>
+        public static int LocalTeam()
+        {
+            string json = PlayerPrefs.GetString(Key, "");
+            if (string.IsNullOrEmpty(json)) return -1;
+            var roster = JsonUtility.FromJson<Roster>(json);
+            return roster != null ? roster.localTeam : -1;
         }
 
         public static void Forget() { PlayerPrefs.DeleteKey(Key); PlayerPrefs.Save(); }

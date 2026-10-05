@@ -39,7 +39,110 @@ namespace Hotdrop.Tests
             return host;
         }
 
+        // ============================================================ progress + status strip
+
+        [Test]
+        public void ProgressBar_FillTracksTheFractionAndStaysClamped()
+        {
+            var host = NewHost();
+            var bar = UIKit.ProgressBar(host.transform, 0.5f, UIDesignTokens.ObjectiveGold);
+            var fill = (RectTransform)bar.Find("Fill");
+            Assert.AreEqual(0.5f, fill.anchorMax.x, 0.001f, "half-filled bar");
+
+            UIKit.SetProgress(bar, 1f);
+            Assert.AreEqual(1f, fill.anchorMax.x, 0.001f, "full bar must reach the right edge");
+
+            // Out-of-range input clamps instead of drawing outside the track.
+            UIKit.SetProgress(bar, 4f);
+            Assert.AreEqual(1f, fill.anchorMax.x, 0.001f, "clamped high");
+            UIKit.SetProgress(bar, -2f);
+            Assert.AreEqual(0f, fill.anchorMax.x, 0.001f, "clamped low");
+            Assert.AreEqual(0f, fill.anchorMin.x, 0.001f, "fill always starts at the left edge");
+        }
+
+        [Test]
+        public void ProgressBar_HasATrackAndItsFillIsNeverTheWholeBar()
+        {
+            var host = NewHost();
+            var bar = UIKit.ProgressBar(host.transform, 1f);
+            Assert.IsNotNull(bar.Find("Track"), "a visible track behind the fill");
+            var fill = (RectTransform)bar.Find("Fill");
+            Assert.AreEqual(Vector2.zero, fill.anchorMin, "fill is anchored to the left edge");
+            Assert.AreEqual(0f, fill.anchorMin.y, 0.001f, "fill is anchored to the bottom");
+            Assert.AreEqual(1f, fill.anchorMax.y, 0.001f, "fill spans the full track height");
+        }
+
+        [Test]
+        public void ProgressBar_FillIsADriverSoCallersCanUpdateIt()
+        {
+            var host = NewHost();
+            var bar = UIKit.ProgressBar(host.transform, 0f);
+            var driver = bar.GetComponent<UiProgressBar>();
+            Assert.IsNotNull(driver, "a bar can be updated without rebuilding the rect");
+            driver.Fraction = 0.25f;
+            Assert.AreEqual(0.25f, ((RectTransform)bar.Find("Fill")).anchorMax.x, 0.001f);
+            Assert.AreEqual(0.25f, driver.Fraction, 0.001f, "the reported value matches the pixels");
+        }
+
+        [Test]
+        public void StatusStrip_ShowsIdentityAndOmitsEmptySections()
+        {
+            var host = NewHost();
+            var strip = UIKit.StatusStrip(host.transform, "VividSwift", "LV 14", "7 SEALS", "EU · 24 ms",
+                () => { }, "Strip");
+
+            // The identity role is TitleMedium, which DESIGN.md renders in caps.
+            Assert.AreEqual("VIVIDSWIFT", strip.Find("Row/Identity").GetComponent<TMPro.TextMeshProUGUI>().text);
+            Assert.AreEqual("LV 14", strip.Find("Row/Level").GetComponent<TMPro.TextMeshProUGUI>().text);
+            Assert.AreEqual("7 SEALS", strip.Find("Row/Seals").GetComponent<TMPro.TextMeshProUGUI>().text);
+            Assert.IsNotNull(strip.Find("Row/Settings"), "settings stays reachable from Home");
+        }
+
+        [Test]
+        public void StatusStrip_WithoutSealsOrRegion_BuildsWithoutThoseRows()
+        {
+            // An offline guest build must not show an empty "0 SEALS" or a fabricated region.
+            var host = NewHost();
+            var strip = UIKit.StatusStrip(host.transform, "GUEST", "", "", "");
+            Assert.AreEqual("GUEST", strip.Find("Row/Identity").GetComponent<TMPro.TextMeshProUGUI>().text);
+            Assert.IsNull(strip.Find("Row/Seals"), "no empty seals row");
+            Assert.IsNull(strip.Find("Row/Region"), "no fabricated region row");
+            Assert.IsNull(strip.Find("Row/Settings"), "no settings control when none was supplied");
+        }
+
+        [Test]
+        public void StatusStrip_KeepsIdentityLeftAndSettingsRight()
+        {
+            var host = NewHost();
+            var strip = UIKit.StatusStrip(host.transform, "VividSwift", "LV 14", "7 SEALS", "EU · 24 ms", () => { });
+            var group = strip.Find("Row").GetComponent<HorizontalLayoutGroup>();
+            Assert.AreEqual(TextAnchor.MiddleLeft, group.childAlignment, "identity reads from the left");
+            Assert.IsTrue(group.spacing > 0f, "sections are separated");
+        }
+
         // ============================================================ tokens
+
+        [Test]
+        public void StructuralBorder_StretchesToHostAndUsesFourDistinctEdges()
+        {
+            var host = NewHost();
+            var border = UIKit.Border(host.transform, "Frame", UIDesignTokens.ActionCyan, 2, 3);
+            Assert.AreEqual(Vector2.zero, border.anchorMin);
+            Assert.AreEqual(Vector2.one, border.anchorMax);
+            var top = (RectTransform)border.Find("Top");
+            var bottom = (RectTransform)border.Find("Bottom");
+            var left = (RectTransform)border.Find("Left");
+            var right = (RectTransform)border.Find("Right");
+            Assert.AreEqual(1, top.anchorMin.y);
+            Assert.AreEqual(0, bottom.anchorMin.y);
+            Assert.AreEqual(0, left.anchorMin.x);
+            Assert.AreEqual(1, right.anchorMin.x);
+            UIKit.FrameOf(border).SetWeight(4);
+            Assert.Greater(left.anchoredPosition.x, 0);
+            Assert.Less(right.anchoredPosition.x, 0);
+            Assert.Less(top.anchoredPosition.y, 0);
+            Assert.Greater(bottom.anchoredPosition.y, 0);
+        }
 
         [Test]
         public void Palette_MatchesTheShippingDesignLanguage()

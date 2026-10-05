@@ -22,6 +22,14 @@ namespace Hotdrop.UI
         public const string MuteKey = "PingsMuted";
         const int MaxVisible = 8;
 
+        /// <summary>
+        /// Pings and the objective marker share one exclusion policy, owned by
+        /// <see cref="HudMarkerLayer"/>. This method is kept as a thin alias so existing callers
+        /// and tests read naturally, but there is no second copy of the numbers here.
+        /// </summary>
+        public static Vector2 ClampToReadableBand(Vector2 point, Rect canvasRect) =>
+            HudMarkerLayer.ClampToReadableBand(point, canvasRect);
+
         public struct Ping
         {
             public PingKind kind;
@@ -42,6 +50,17 @@ namespace Hotdrop.UI
         readonly List<Ping> active = new List<Ping>();
         readonly Dictionary<int, float> lastPingAt = new Dictionary<int, float>();
         readonly List<(RectTransform root, Image icon, TextMeshProUGUI label)> markers = new List<(RectTransform, Image, TextMeshProUGUI)>();
+
+        /// <summary>
+        /// Where each visible ping landed this frame, in canvas-local units. <see cref="MatchHUD"/>
+        /// reads this to keep the objective caption off the ping captions; it is reset by every
+        /// <see cref="RefreshMarkers"/> call, so a stale entry can never outlive a frame.
+        /// </summary>
+        readonly List<Vector2> placed = new List<Vector2>();
+        public IReadOnlyList<Vector2> PlacedMarkers => placed;
+
+        /// <summary>Panels on screen right now, measured by the HUD that owns them. See MatchHUD.ActivePanelRects.</summary>
+        readonly List<Rect> panelExclusions = new List<Rect>();
         readonly RaycastHit[] hits = new RaycastHit[16];
         RectTransform canvasRect;
 
@@ -54,15 +73,28 @@ namespace Hotdrop.UI
             canvasRect = GetComponent<RectTransform>();
             for (int i = 0; i < MaxVisible; i++)
             {
-                var root = Ui.Rect("Ping", transform, new Vector2(200, 80));
-                var icon = Ui.Rect("Icon", root, new Vector2(26, 26));
+                // Icon and caption share one row inside HudMarkerLayer.MarkerFootprintSize, for the same
+                // reason as the objective marker: stacked, a ping is 60 units tall and the only free
+                // gap inside the readable band on the preparation screen is 40.
+                var root = Ui.Rect("Ping", transform, HudMarkerLayer.MarkerFootprintSize);
+                // 22, not 26: rotated 45 degrees the drawn box is 22 x sqrt(2) = 31.1 tall.
+                var icon = Ui.Rect("Icon", root, new Vector2(22, 22));
                 icon.localRotation = Quaternion.Euler(0, 0, 45);
-                icon.anchoredPosition = new Vector2(0, 16);
+                icon.anchoredPosition = new Vector2(HudMarkerLayer.MarkerIconCenterX, 0);
                 var image = icon.gameObject.AddComponent<Image>();
                 image.raycastTarget = false;
                 var label = Ui.Text("Label", root, "", 20, Color.white);
-                label.rectTransform.anchoredPosition = new Vector2(0, -16);
-                label.rectTransform.sizeDelta = new Vector2(200, 28);
+                label.rectTransform.anchoredPosition = new Vector2(HudMarkerLayer.MarkerCaptionCenterX, 0);
+                label.rectTransform.sizeDelta = HudMarkerLayer.MarkerCaptionSize;
+                // A world-projected label lands on arbitrary scene pixels: over a bright wall it
+                // vanished, over the dark HUD it was fine. A translucent plate behind the text
+                // makes the same caption legible against either, without hiding what it points at.
+                var plate = Ui.Rect("Plate", root, HudMarkerLayer.MarkerCaptionSize);
+                plate.anchoredPosition = new Vector2(HudMarkerLayer.MarkerCaptionCenterX, 0);
+                var plateImage = plate.gameObject.AddComponent<UnityEngine.UI.Image>();
+                plateImage.color = HudAppearance.MarkerPlateColor();
+                plateImage.raycastTarget = false;
+                plate.SetSiblingIndex(label.rectTransform.GetSiblingIndex());
                 root.gameObject.SetActive(false);
                 markers.Add((root, image, label));
             }
@@ -123,9 +155,20 @@ namespace Hotdrop.UI
                 Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.Ping, 0.6f);
         }
 
-        void LateUpdate()
+        void LateUpdate() => RefreshMarkers();
+
+        /// <summary>
+        /// Re-places live ping markers against the canvas as it is right now. Public because a
+        /// caller that changes canvas geometry mid-frame (the capture harness) must be able to
+        /// ask for the same placement a device would perform on its next LateUpdate, rather
+        /// than rendering markers clamped against a stale canvas rect.
+        /// </summary>
+        public void RefreshMarkers()
         {
             active.RemoveAll(p => Time.time >= p.expiresAt);
+            placed.Clear();
+            var hud = GetComponent<MatchHUD>();
+            if (hud != null) hud.ActivePanelRects(panelExclusions); else panelExclusions.Clear();
             var local = Hotdrop.Match.MatchView.Current?.LocalParticipant;
             var cam = UnityEngine.Camera.main;
             int shown = 0;
@@ -142,10 +185,25 @@ namespace Hotdrop.UI
                     var marker = markers[shown++];
                     marker.root.gameObject.SetActive(true);
                     RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, null, out var localPoint);
-                    marker.root.localPosition = localPoint;
+                    // Observed in the 1920x1080 gameplay capture: a distant ping projected over
+                    // the score bar and made both the ping and the zone status unreadable.
+                    // Observed in the 1920x1080 capture: two pings whose world points project a
+                    // few pixels apart print their captions through each other, and a ping printed
+                    // across whatever HUD panel was up. Clamp into the readable band, hold the
+                    // caption off the panels that are on screen, then off the captions already
+                    // placed - last one wins, because a marker-marker smear is the worse of the two.
+                    var slot = HudMarkerLayer.ClampToReadableBand(localPoint, canvasRect.rect);
+                    slot = HudMarkerLayer.AvoidPanels(slot, panelExclusions, canvasRect.rect,
+                        HudMarkerLayer.MarkerRowHeight, placed);
+                    slot = HudMarkerLayer.SeparateFromPlaced(slot, placed, canvasRect.rect,
+                        HudMarkerLayer.MarkerRowHeight, panelExclusions);
+                    placed.Add(slot);
+                    marker.root.localPosition = slot;
                     Color color = ping.kind == PingKind.EnemyHere ? MatchHUD.Enemy : ping.kind == PingKind.PadReady ? MatchHUD.Objective : MatchHUD.Friendly;
                     marker.icon.color = color;
                     marker.label.color = color;
+                    var plate = marker.root.Find("Plate")?.GetComponent<UnityEngine.UI.Image>();
+                    if (plate != null) plate.enabled = true;
                     float distance = Vector3.Distance(local.Position, ping.position);
                     marker.label.text = $"{Label(ping.kind)} {distance:0}m";
                 }

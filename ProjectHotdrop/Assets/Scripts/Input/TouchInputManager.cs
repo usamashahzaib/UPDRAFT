@@ -7,15 +7,49 @@ using UnityEngine.InputSystem.Users;
 using UnityEngine.InputSystem.EnhancedTouch;
 using RecordedTouch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 using Hotdrop.Config;
+using Hotdrop.UI;
 
 namespace Hotdrop.Input
 {
     /// <summary>Shared spec limits for the slowdown-only aim assist in offline and online play.</summary>
     public static class AimAssistRules
     {
+        // Spec 8: "slowdown only, <=3 degree cone, <=25m, sensitivity drops to 70% inside
+        // region, no snap, no tracking through cover, no magnetism, no auto-fire, off switch."
+        // These are spec-pinned accessibility limits, not balance values, so they are
+        // named constants here rather than balance config. The behaviour they describe
+        // lives in Qualifies/SensitivityScale below so it can be tested once and reused
+        // by both the offline and online aim paths.
         public const float ConeDegrees = 3f;
         public const float MaxDistance = 25f;
         public const float SensitivityMultiplier = 0.7f;
+
+        /// <summary>Normal aim speed when no assist region is active.</summary>
+        public const float FullSensitivityScale = 1f;
+
+        /// <summary>
+        /// True when a target point sits inside the assist region: within the cone, within
+        /// range, and with nothing in the way. Cover never grants assist ("no tracking
+        /// through cover"), which is why line of sight is a required input rather than an
+        /// optional refinement.
+        /// </summary>
+        public static bool Qualifies(Vector3 eye, Vector3 forward, Vector3 targetPoint, bool lineOfSightClear)
+        {
+            if (!lineOfSightClear) return false;
+            Vector3 toTarget = targetPoint - eye;
+            float distance = toTarget.magnitude;
+            // Below a centimetre the direction is numerically meaningless.
+            if (distance < 0.01f || distance > MaxDistance) return false;
+            return Vector3.Angle(forward, toTarget) <= ConeDegrees;
+        }
+
+        /// <summary>
+        /// The only effect aim assist has: aim sensitivity drops to 70% inside the region
+        /// and is untouched everywhere else. There is no snap, magnetism or auto-fire —
+        /// returning one of two scales makes that structural rather than a promise.
+        /// </summary>
+        public static float SensitivityScale(bool insideAssistRegion) =>
+            insideAssistRegion ? SensitivityMultiplier : FullSensitivityScale;
     }
 
     /// <summary>
@@ -69,6 +103,11 @@ namespace Hotdrop.Input
         public bool PadAvailable { get; set; } = true;
         public float PadCooldown { get; set; }
         public string AmmoLabel { get; set; } = "";
+        /// <summary>Short weapon name and magazine (e.g. "ARC 24") for the reload control.</summary>
+        public string WeaponLabel { get; set; } = "";
+        /// <summary>False in training: there are no teammates to ping, so the control is removed.</summary>
+        public bool PingEnabled { get; set; } = true;
+        public string PadStatusLabel { get; set; } = "";
 
         // Spec section 6: hold the pad button > 180 ms to preview; drag off it to cancel.
         public const float PadHoldPreviewSeconds = 0.18f;
@@ -101,6 +140,8 @@ namespace Hotdrop.Input
 
         bool leftHandedMode = false;
         float dpiScale = 1f;
+        /// <summary>Screen 08's bottom inset for the action cluster: 24 px margin + 8 px padding.</summary>
+        const float safeBottomDesign = 32f;
         readonly float[] buttonScale = { 1f, 1f, 1f, 1f, 1f, 1f };
         readonly float[] buttonOpacity = { 0.65f, 0.65f, 0.65f, 0.65f, 0.65f, 0.65f };
         readonly Vector2[] buttonOffsetDp = new Vector2[6];
@@ -109,10 +150,68 @@ namespace Hotdrop.Input
         readonly System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult> uiHits = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
         UnityEngine.EventSystems.PointerEventData pointerData;
         int lastWidth, lastHeight;
-        Texture2D controlDisc;
-        GUIStyle controlLabel;
+        Hotdrop.UI.TouchControlsView view;
 
         public enum ControlButton { Fire, Jump, Pad, Reload, Ping, Pause }
+
+        // ---------------------------------------------------------------- read-only view surface
+        //
+        // The controls are drawn by Hotdrop.UI.TouchControlsView as real Unity UI. It needs to
+        // read the same rectangles and labels this class already computes, and nothing else: the
+        // view never hit-tests, so a tap still reaches ProcessTouch against these exact rects and
+        // moving the pixels onto a canvas cannot change what a touch does.
+
+        /// <summary>Screen-space rect (pixels, bottom-left origin) of a control.</summary>
+        public Rect RectOf(ControlButton button) => ButtonRect(button);
+
+        /// <summary>Draw opacity the player set for a control.</summary>
+        public float OpacityOf(ControlButton button) => buttonOpacity[(int)button];
+
+        public Rect FireRect => fireButtonRect;
+        public Rect JumpRect => jumpButtonRect;
+        public Rect PadRect => padButtonRect;
+        public Rect ReloadRect => reloadButtonRect;
+        public Rect PingRect => pingButtonRect;
+        public Rect PauseRect => pauseButtonRect;
+        public Rect SelectedRect => ButtonRect(SelectedButton);
+        public float FireOpacity => buttonOpacity[(int)ControlButton.Fire];
+        public float JumpOpacity => buttonOpacity[(int)ControlButton.Jump];
+        public float PadOpacity => buttonOpacity[(int)ControlButton.Pad];
+        public float ReloadOpacity => buttonOpacity[(int)ControlButton.Reload];
+        public float PingOpacity => buttonOpacity[(int)ControlButton.Ping];
+        public float PauseOpacity => buttonOpacity[(int)ControlButton.Pause];
+
+        /// <summary>The PAD button's live caption: its cooldown, or its lifecycle state.</summary>
+        public string PadDisplayLabel => PadCaptionForFrame();
+
+        /// <summary>Whether the PAD control belongs on screen at all.</summary>
+        public bool PadVisible => Hotdrop.Core.StudySettings.PadsEnabled || EditingLayout;
+
+        /// <summary>The pad-placement preview line shown while the PAD button is held.</summary>
+        public string PadPreviewCaption => PadPreviewReason == null ? "RELEASE TO PLACE PAD" : "CAN'T PLACE - " + PadPreviewReason;
+
+        /// <summary>Whether a centre reticle is drawn.</summary>
+        public bool ShowCrosshair => true;
+
+        /// <summary>Whether a movement joystick is being dragged right now.</summary>
+        public bool JoystickActive => moveTouchId != -1;
+
+        /// <summary>Centre of the live movement joystick, in screen pixels.</summary>
+        public Vector2 JoystickCenter => moveStartPos;
+
+        /// <summary>Stick offset from the joystick centre, clamped to its radius, in screen pixels.</summary>
+        public Vector2 JoystickOffset => Vector2.ClampMagnitude(moveCurrentPos - moveStartPos, JoystickRadiusPx);
+
+        /// <summary>The captions on the layout-editor action strip, in order.</summary>
+        public static string[] EditActionCaptions => EditActions;
+
+        /// <summary>Screen-space rect of one layout-editor action button.</summary>
+        public Rect EditActionRectFor(int index) => EditActionRect(index);
+
+        /// <summary>The line under the layout-editor strip describing the selected control.</summary>
+        public string EditHintText =>
+            $"DRAG A BUTTON TO MOVE IT  |  SELECTED: {SelectedButton.ToString().ToUpperInvariant()}  " +
+            $"SIZE {buttonScale[(int)SelectedButton]:0.0}x  OPACITY {buttonOpacity[(int)SelectedButton] * 100:0}%";
 
         // Events
         public System.Action<Vector2> OnPingWorldPositionRequested;
@@ -129,6 +228,7 @@ namespace Hotdrop.Input
             // Record transitions: direct Touchscreen polling can lose Began
             // when several native events arrive before the same render frame.
             EnhancedTouchSupport.Enable();
+            EnsureView();
         }
 
         void OnDisable()
@@ -174,6 +274,10 @@ namespace Hotdrop.Input
             PingPressed = false;
             PausePressed = false;
             AimDelta = Vector2.zero;
+
+            // A view attached at OnEnable can be destroyed with its canvas (a scene change, or a
+            // test tearing the HUD down), so re-attach rather than silently drawing nothing.
+            if (view == null) EnsureView();
 
             if (Screen.width != lastWidth || Screen.height != lastHeight)
             {
@@ -417,7 +521,8 @@ namespace Hotdrop.Input
             }
         }
 
-        float JoystickRadiusPx => maxJoystickDistance * dpiScale;
+        // Throw stays in physical dp so movement feel does not depend on the HUD's layout scale.
+        float JoystickRadiusPx => maxJoystickDistance * ComposedDpiScale();
 
         Vector2 ScaleAimDelta(Vector2 delta)
         {
@@ -428,52 +533,99 @@ namespace Hotdrop.Input
             return scaled;
         }
 
+        /// <summary>
+        /// The safe rect, in pixels with a bottom-left origin, that the controls lay out against.
+        ///
+        /// <para>This is the single place in this file that answers "where is the screen". It asks
+        /// <see cref="SafeAreaRoot.ScreenSize"/> - the frame actually being composed for - rather
+        /// than <c>Screen</c>. A capture renders 1920x1080 inside whatever window the editor
+        /// happens to own, and in batch mode <c>Screen.safeArea</c> is 640x480, so laying the
+        /// controls out against that put the entire cluster inside one eighth of the published
+        /// frame. This is the same disagreement the startup frame label had, which is why it goes
+        /// through the same source. When nothing is simulated - a real device - the branch below
+        /// reads the real screen, exactly as before.</para>
+        /// </summary>
+        /// <summary>
+        /// The density scale the controls are sized by, in canvas/dp terms.
+        ///
+        /// <para>Reads the composed frame's dpi, not <c>Screen.dpi</c>, for the same reason
+        /// <see cref="ComposedSafeRect"/> reads the composed frame rather than the screen. A
+        /// capture composes a 400 dpi frame inside a window that reports 96, so the controls were
+        /// sized as if for an mdpi device while every other element on the frame was sized for the
+        /// density it claims: the discs came out 2.5x too small and their captions could not fit
+        /// inside them at the project's 12 dp legibility floor. On a device nothing is simulated and
+        /// this returns exactly what it returned before.</para>
+        /// </summary>
+        static float ComposedDpiScale()
+        {
+            float dpi = SafeAreaRoot.SimulatedScreen?.z ?? Screen.dpi;
+            return dpi > 0f ? Mathf.Max(1f, dpi / 160f) : 1f;
+        }
+
+        static Rect ComposedSafeRect()
+        {
+            var frame = SafeAreaRoot.ScreenSize;
+            if (SafeAreaRoot.SimulatedScreen.HasValue)
+            {
+                var insets = SafeAreaRoot.SimulatedInsets ?? ScreenInsets.None;
+                return new Rect(insets.left, insets.bottom,
+                    Mathf.Max(0f, frame.x - insets.left - insets.right),
+                    Mathf.Max(0f, frame.y - insets.top - insets.bottom));
+            }
+            var safe = Screen.safeArea;
+            // In batch mode / headless environments Screen.safeArea can be zero. Fall back to the
+            // full frame so the controls still lay out somewhere sane rather than at zero size.
+            if (safe.width <= 0f || safe.height <= 0f) safe = new Rect(0f, 0f, frame.x, frame.y);
+            return safe;
+        }
+
         void RecalculateButtonRects()
         {
-            float fireSize = Mathf.Max(48f, fireButtonSize * buttonScale[(int)ControlButton.Fire]) * dpiScale;
-            float jumpSize = Mathf.Max(48f, jumpButtonSize * buttonScale[(int)ControlButton.Jump]) * dpiScale;
-            float padSize = Mathf.Max(48f, padButtonSize * buttonScale[(int)ControlButton.Pad]) * dpiScale;
-            float reloadSize = Mathf.Max(48f, reloadButtonSize * buttonScale[(int)ControlButton.Reload]) * dpiScale;
-            float pingSize = Mathf.Max(48f, pingButtonSize * buttonScale[(int)ControlButton.Ping]) * dpiScale;
-            float pauseSize = Mathf.Max(48f, pauseButtonSize * buttonScale[(int)ControlButton.Pause]) * dpiScale;
-            float padding = 20f * dpiScale;
+            // Re-read every frame this is called, so a newly pinned frame resizes the controls with
+            // it rather than only moving them.
+            // UIUX screen 08 (classic preset) in its own CSS px, converted with the canvas scale so
+            // the controls land exactly where the HUD draws them: FIRE 80, LAUNCH 64, PAD and
+            // RELOAD 56 stacked, all bottom-aligned 32 px up and 24 px in; ping and menu 40 in the
+            // top-right row. Hit rects never drop under 48 px; the drawn control stays its design size.
+            var frame = SafeAreaRoot.ScreenSize;
+            float u = Hotdrop.UI.UiMetrics.ScaleFor(frame.x, frame.y, 0f);
+            dpiScale = u;
+            float S(ControlButton b, float design) => design * buttonScale[(int)b] * u;
+            float fireSize = S(ControlButton.Fire, 80f);
+            float jumpSize = S(ControlButton.Jump, 64f);
+            float padSize = S(ControlButton.Pad, 56f);
+            float reloadSize = S(ControlButton.Reload, 56f);
+            float pingSize = Mathf.Max(48f * u, S(ControlButton.Ping, 40f));
+            float pauseSize = Mathf.Max(48f * u, S(ControlButton.Pause, 40f));
+            float margin = 24f * u, bottom = safeBottomDesign * u;
 
-            // In batch mode / headless environments, Screen.safeArea can be zero.
-            // Fall back to full screen rect based on Screen.width/height (which use the
-            // default game view resolution in batch mode).
-            Rect safe = Screen.safeArea;
-            if (safe.width <= 0f || safe.height <= 0f)
+            Rect safe = ComposedSafeRect();
+            // Laid out right-handed from the right edge, then mirrored for left-handed play.
+            float right = safe.xMax - margin;
+            fireButtonRect = new Rect(right - fireSize, safe.yMin + bottom, fireSize, fireSize);
+            jumpButtonRect = new Rect(fireButtonRect.x - 12f * u - jumpSize, safe.yMin + bottom, jumpSize, jumpSize);
+            reloadButtonRect = new Rect(jumpButtonRect.x - 8f * u - reloadSize, safe.yMin + bottom, reloadSize, reloadSize);
+            padButtonRect = new Rect(reloadButtonRect.center.x - padSize * .5f, reloadButtonRect.yMax + 4f * u, padSize, padSize);
+            // The 40 px drawn controls centre in their (possibly larger) hit rects.
+            float top = safe.yMax - margin - 20f * u;
+            pauseButtonRect = new Rect(right - 20f * u - pauseSize * .5f, top - pauseSize * .5f, pauseSize, pauseSize);
+            pingButtonRect = new Rect(right - 64f * u - pingSize * .5f, top - pingSize * .5f, pingSize, pingSize);
+            if (!PingEnabled) pingButtonRect = Rect.zero;
+            if (leftHandedMode)
             {
-                float w = Screen.width > 0 ? Screen.width : 1920f;  // Landscape default
-                float h = Screen.height > 0 ? Screen.height : 1080f;
-                safe = new Rect(0f, 0f, w, h);
+                Rect Mirror(Rect r) => new Rect(safe.xMin + (safe.xMax - r.xMax), r.y, r.width, r.height);
+                fireButtonRect = Mirror(fireButtonRect);
+                jumpButtonRect = Mirror(jumpButtonRect);
+                reloadButtonRect = Mirror(reloadButtonRect);
+                padButtonRect = Mirror(padButtonRect);
             }
 
-            if (!leftHandedMode)
-            {
-                fireButtonRect = new Rect(safe.xMax - fireSize - padding, safe.yMin + padding, fireSize, fireSize);
-                jumpButtonRect = new Rect(safe.xMax - jumpSize - padding, fireButtonRect.yMax + 10f * dpiScale, jumpSize, jumpSize);
-                padButtonRect = new Rect(fireButtonRect.x - padSize - 10f * dpiScale, fireButtonRect.y, padSize, padSize);
-                reloadButtonRect = new Rect(padButtonRect.x, padButtonRect.yMax + 10f * dpiScale, reloadSize, reloadSize);
-                pingButtonRect = new Rect(safe.xMax - pingSize - padding, safe.yMax - pingSize - padding, pingSize, pingSize);
-                pauseButtonRect = new Rect(safe.xMin + padding, safe.yMax - pauseSize - padding, pauseSize, pauseSize);
-            }
-            else
-            {
-                fireButtonRect = new Rect(safe.xMin + padding, safe.yMin + padding, fireSize, fireSize);
-                jumpButtonRect = new Rect(safe.xMin + padding, fireButtonRect.yMax + 10f * dpiScale, jumpSize, jumpSize);
-                padButtonRect = new Rect(fireButtonRect.xMax + 10f * dpiScale, fireButtonRect.y, padSize, padSize);
-                reloadButtonRect = new Rect(padButtonRect.x, padButtonRect.yMax + 10f * dpiScale, reloadSize, reloadSize);
-                pingButtonRect = new Rect(safe.xMin + padding, safe.yMax - pingSize - padding, pingSize, pingSize);
-                pauseButtonRect = new Rect(safe.xMax - pauseSize - padding, safe.yMax - pauseSize - padding, pauseSize, pauseSize);
-            }
-
-            fireButtonRect.position += buttonOffsetDp[(int)ControlButton.Fire] * dpiScale;
-            jumpButtonRect.position += buttonOffsetDp[(int)ControlButton.Jump] * dpiScale;
-            padButtonRect.position += buttonOffsetDp[(int)ControlButton.Pad] * dpiScale;
-            reloadButtonRect.position += buttonOffsetDp[(int)ControlButton.Reload] * dpiScale;
-            pingButtonRect.position += buttonOffsetDp[(int)ControlButton.Ping] * dpiScale;
-            pauseButtonRect.position += buttonOffsetDp[(int)ControlButton.Pause] * dpiScale;
+            fireButtonRect.position += buttonOffsetDp[(int)ControlButton.Fire] * u;
+            jumpButtonRect.position += buttonOffsetDp[(int)ControlButton.Jump] * u;
+            padButtonRect.position += buttonOffsetDp[(int)ControlButton.Pad] * u;
+            reloadButtonRect.position += buttonOffsetDp[(int)ControlButton.Reload] * u;
+            pingButtonRect.position += buttonOffsetDp[(int)ControlButton.Ping] * u;
+            pauseButtonRect.position += buttonOffsetDp[(int)ControlButton.Pause] * u;
         }
 
         public void SetLeftHanded(bool enabled)
@@ -583,11 +735,15 @@ namespace Hotdrop.Input
             done?.Invoke();
         }
 
+        /// <summary>
+        /// Screen-space rect of one layout-editor action button. The strip's geometry lives here
+        /// with the rest of the control geometry; the view draws it.
+        /// </summary>
         Rect EditActionRect(int index)
         {
             float w = 130f * dpiScale * 0.6f, h = 48f * dpiScale, gap = 8f * dpiScale;
             float total = EditActions.Length * w + (EditActions.Length - 1) * gap;
-            Rect safe = Screen.safeArea;
+            Rect safe = ComposedSafeRect();
             // Bottom-left origin, top-centre of the screen.
             return new Rect(safe.center.x - total * 0.5f + index * (w + gap), safe.yMax - h - 12f * dpiScale, w, h);
         }
@@ -639,7 +795,7 @@ namespace Hotdrop.Input
 
         void KeepOnScreen(ControlButton button)
         {
-            Rect r = ButtonRect(button), safe = Screen.safeArea;
+            Rect r = ButtonRect(button), safe = ComposedSafeRect();
             Vector2 shift = Vector2.zero;
             if (r.xMin < safe.xMin) shift.x = safe.xMin - r.xMin;
             if (r.xMax > safe.xMax) shift.x = safe.xMax - r.xMax;
@@ -664,33 +820,6 @@ namespace Hotdrop.Input
             }
             RecalculateButtonRects();
             KeepOnScreen(SelectedButton);
-        }
-
-        void DrawLayoutEditor()
-        {
-            GUI.color = new Color(0.063f, 0.094f, 0.153f, 0.55f);
-            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
-            for (int a = 0; a < EditActions.Length; a++)
-            {
-                Rect r = EditActionRect(a);
-                Rect g = new Rect(r.x, Screen.height - r.yMax, r.width, r.height);
-                GUI.color = a == 5 ? new Color(0.188f, 0.835f, 0.91f, 0.95f) : new Color(0.106f, 0.161f, 0.251f, 0.95f);
-                GUI.DrawTexture(g, Texture2D.whiteTexture);
-                GUI.color = Color.white;
-                GUI.Label(g, EditActions[a], controlLabel);
-            }
-            Rect sel = ButtonRect(SelectedButton);
-            GUI.color = new Color(1f, 0.82f, 0.4f, 1f);
-            float t = 3f;
-            Rect s = new Rect(sel.x - t, Screen.height - sel.yMax - t, sel.width + 2 * t, sel.height + 2 * t);
-            GUI.DrawTexture(new Rect(s.x, s.y, s.width, t), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(s.x, s.yMax - t, s.width, t), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(s.x, s.y, t, s.height), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(s.xMax - t, s.y, t, s.height), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-            var hint = new Rect(0, Screen.height - EditActionRect(0).yMin + 8f * dpiScale, Screen.width, 30f * dpiScale);
-            GUI.Label(hint, $"DRAG A BUTTON TO MOVE IT  ·  SELECTED: {SelectedButton.ToString().ToUpperInvariant()}  " +
-                $"SIZE {buttonScale[(int)SelectedButton]:0.0}x  OPACITY {buttonOpacity[(int)SelectedButton] * 100:0}%", controlLabel);
         }
 
         void Vibrate()
@@ -742,102 +871,67 @@ namespace Hotdrop.Input
             RecalculateButtonRects();
         }
 
-        void OnGUI()
+        /// <summary>
+        /// Recomputes the control geometry against the frame currently being composed for.
+        ///
+        /// <para>Public so a synchronous exporter can pin a frame and then ask for the layout of
+        /// that same frame. A capture renders 1920x1080 inside whatever window the editor owns and
+        /// changes nothing about <c>Screen</c>, so the screen-change check in <c>Update</c> never
+        /// fires and the geometry would otherwise still describe the editor's window when the
+        /// evidence frame is written. Same reason <c>StartupConnectionScreen.RefreshFrameLabel</c>
+        /// exists.</para>
+        /// </summary>
+        public void RecalculateForComposedFrame()
         {
-            if (controlDisc == null)
-            {
-                controlDisc = new Texture2D(64, 64, TextureFormat.RGBA32, false);
-                var pixels = new Color[64 * 64];
-                for (int y = 0; y < 64; y++)
-                    for (int x = 0; x < 64; x++)
-                    {
-                        float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(32, 32));
-                        float alpha = Mathf.Clamp01(32 - distance);
-                        pixels[y * 64 + x] = new Color(1, 1, 1, alpha * (distance > 29 ? 1f : 0.35f));
-                    }
-                controlDisc.SetPixels(pixels); controlDisc.Apply();
-                controlLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-            }
-            GUI.color = Color.white;
-            if (EditingLayout)
-            {
-                controlLabel.fontSize = Mathf.RoundToInt(13 * dpiScale);
-                DrawLayoutEditor();
-            }
-            GUI.DrawTexture(new Rect(Screen.width * 0.5f - 8, Screen.height * 0.5f - 1, 16, 2), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(Screen.width * 0.5f - 1, Screen.height * 0.5f - 8, 2, 16), Texture2D.whiteTexture);
-            DrawButton(fireButtonRect, string.IsNullOrEmpty(AmmoLabel) ? "FIRE" : $"FIRE\n{AmmoLabel}", ControlButton.Fire);
-            DrawButton(jumpButtonRect, LaunchAvailable ? "LAUNCH" : "JUMP", ControlButton.Jump);
+            RecalculateButtonRects();
+        }
+
+        /// <summary>
+        /// Makes sure the controls have a real Unity UI view to draw into, once, on first enable.
+        ///
+        /// The controls used to be painted from <c>OnGUI</c>. Immediate-mode drawing happens in
+        /// the game view's own pass, so it never appears in a frame captured by rendering the HUD
+        /// canvas into a RenderTexture - which is how this project's screen evidence is produced -
+        /// and it cannot be scaled by the canvas or styled from a design token. Attaching the view
+        /// here keeps the wiring in one place: the input class still owns every rectangle, and the
+        /// view only reads them.
+        /// </summary>
+        void EnsureView()
+        {
+            if (view != null) return;
+            var canvas = GetComponentInParent<Canvas>();
+            if (canvas == null) canvas = Object.FindFirstObjectByType<Canvas>();
+            if (canvas == null) return;
+            view = Hotdrop.UI.TouchControlsView.Ensure(canvas, this);
+        }        /// <summary>Radius of the live movement joystick, in screen pixels.</summary>
+        public float JoystickReachPx => JoystickRadiusPx;
+
+        /// <summary>
+        /// Keeps the PAD control's caption current. This used to be computed inside the
+        /// immediate-mode drawing pass, which no longer runs; the state still has to advance on
+        /// its own clock because <see cref="PadDisplayLabel"/> is read by the view each frame.
+        /// </summary>
+        void UpdatePadLabel()
+        {
             int padSeconds = PadAvailable ? 0 : Mathf.CeilToInt(PadCooldown);
-            if (padSeconds != lastPadSeconds)
-            {
-                lastPadSeconds = padSeconds;
-                padLabel = padSeconds == 0 ? "PAD" : $"{padSeconds}s";
-            }
-            if (Hotdrop.Core.StudySettings.PadsEnabled || EditingLayout)
-                DrawButton(padButtonRect, PadCancelled && padTouchId != -1 ? "CANCEL" : padLabel, ControlButton.Pad);
-            DrawButton(reloadButtonRect, "RELOAD", ControlButton.Reload);
-            DrawButton(pingButtonRect, "PING", ControlButton.Ping);
-            DrawButton(pauseButtonRect, "PAUSE", ControlButton.Pause);
-            if (PadPreviewActive && !EditingLayout) DrawPadPreviewCaption();
-#if DEVELOPMENT_BUILD
-            // Device diagnostics (development builds only; audit U03): proves the game loop is
-            // live and which fingers the input system sees and who owns them.
-            if (Event.current.type == EventType.Repaint) diagFrames++;
-            controlLabel.fontSize = Mathf.RoundToInt(10 * dpiScale);
-            controlLabel.normal.textColor = Color.yellow;
-            GUI.Label(new Rect(Screen.width - 420 * dpiScale, Screen.height - 18 * dpiScale, 400 * dpiScale, 16 * dpiScale),
-                $"f{diagFrames} touches {RecordedTouch.activeTouches.Count} last {diagLastEvent} move {moveTouchId} aim {aimTouchId} fire {fireTouchId}", controlLabel);
-#endif
-
-            // Joystick visualization
-            if (moveTouchId != -1)
-            {
-                float maxJoystickDistance = JoystickRadiusPx;
-                GUI.color = new Color(0.188f, 0.835f, 0.91f, 0.5f);
-                GUI.DrawTexture(new Rect(moveStartPos.x - maxJoystickDistance, Screen.height - moveStartPos.y - maxJoystickDistance, maxJoystickDistance * 2, maxJoystickDistance * 2), controlDisc);
-                var stick = moveStartPos + Vector2.ClampMagnitude(moveCurrentPos - moveStartPos, maxJoystickDistance);
-                GUI.color = new Color(0.188f, 0.835f, 0.91f, 0.9f);
-                GUI.DrawTexture(new Rect(stick.x - 20, Screen.height - stick.y - 20, 40, 40), controlDisc);
-            }
-            GUI.color = Color.white;
+            if (padSeconds == lastPadSeconds) return;
+            lastPadSeconds = padSeconds;
+            padLabel = padSeconds == 0 ? "PAD" : $"{padSeconds}s";
         }
 
-        /// <summary>QA-006: while previewing, say why the spot is invalid (or that release places it).</summary>
-        void DrawPadPreviewCaption()
+        /// <summary>
+        /// The full PAD caption for the current frame: cancellation, cooldown, or the pad's
+        /// real lifecycle state. Kept here rather than in the view because it is input state.
+        /// </summary>
+        string PadCaptionForFrame()
         {
-            string text = PadPreviewReason == null ? "RELEASE TO PLACE PAD" : "CAN'T PLACE — " + PadPreviewReason;
-            controlLabel.fontSize = Mathf.RoundToInt(16 * dpiScale);
-            Vector2 size = controlLabel.CalcSize(new GUIContent(text));
-            var box = new Rect(Screen.width * 0.5f - size.x * 0.5f - 12 * dpiScale, Screen.height * 0.5f + 28 * dpiScale,
-                size.x + 24 * dpiScale, size.y + 10 * dpiScale);
-            GUI.color = new Color(0.063f, 0.094f, 0.153f, 0.85f);
-            GUI.DrawTexture(box, Texture2D.whiteTexture);
-            GUI.color = Color.white;
-            controlLabel.normal.textColor = PadPreviewReason == null ? new Color(0.4f, 1f, 0.55f) : new Color(1f, 0.39f, 0.46f);
-            GUI.Label(box, text, controlLabel);
-        }
-
-        void DrawButton(Rect rect, string label, ControlButton button)
-        {
-            Rect guiRect = new Rect(rect.x, Screen.height - rect.yMax, rect.width, rect.height);
-            GUI.color = button == ControlButton.Pad ? new Color(1f, 0.82f, 0.4f, buttonOpacity[(int)button])
-                : new Color(0.188f, 0.835f, 0.91f, buttonOpacity[(int)button]);
-            GUI.DrawTexture(guiRect, controlDisc);
-            // Shrink long labels (RELOAD, CANCEL) so they stay inside the disc's inner 80%.
-            int longest = 1;
-            int lineLength = 0;
-            for (int i = 0; i <= label.Length; i++)
-            {
-                if (i < label.Length && label[i] != '\n') { lineLength++; continue; }
-                longest = Mathf.Max(longest, lineLength);
-                lineLength = 0;
-            }
-            float fit = rect.width * 0.8f / (longest * 0.68f);
-            controlLabel.fontSize = Mathf.RoundToInt(Mathf.Min(13 * dpiScale, fit));
-            controlLabel.normal.textColor = new Color(0.957f, 0.969f, 0.984f);
-            GUI.color = Color.white;
-            GUI.Label(guiRect, label, controlLabel);
+            UpdatePadLabel();
+            string display = PadCancelled && padTouchId != -1 ? "CANCEL" : padLabel;
+            // Keep the control short enough to remain tappable, while exposing the real
+            // lifecycle state (the full identity/health readout stays in the HUD).
+            if (!PadPreviewActive && PadAvailable && PadStatusLabel.Contains("ARMING")) display = "PAD\nARMING";
+            else if (!PadPreviewActive && PadAvailable && PadStatusLabel.Contains("ARMED")) display = "PAD\nARMED";
+            return display;
         }
     }
 }

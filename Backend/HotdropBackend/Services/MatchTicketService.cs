@@ -94,5 +94,7 @@ public sealed class FeatureFlags
 {
     public bool MatchmakingEnabled { get; set; } = true;
     public bool PurchasesEnabled { get; set; } = false;
+    // Retention systems remain dark until online results and staging evidence are approved.
+    public bool ContractsMasteryEnabled { get; set; } = false;
 }
 

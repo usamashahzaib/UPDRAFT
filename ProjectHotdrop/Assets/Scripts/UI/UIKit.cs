@@ -83,14 +83,14 @@ namespace Hotdrop.UI
         public static RectTransform Border(Transform parent, string name, Color color, float weightUnits = UIDesignTokens.BorderNormalUnits, float inset = 0f)
         {
             var root = Rect(parent, name, Vector2.zero);
-            Stretch(root, "Bars", 0, 0, 0, 0);
+            Stretch(root);
             float w = Mathf.Max(1f, weightUnits);
             var bars = new[]
             {
                 AddBorderBar(root, "Top", new Vector2(0f, -inset - w * 0.5f), new Vector2(0f, w), color, true),
                 AddBorderBar(root, "Bottom", new Vector2(0f, inset + w * 0.5f), new Vector2(0f, w), color, true),
-                AddBorderBar(root, "Left", new Vector2(-inset - w * 0.5f, 0f), new Vector2(w, 0f), color, false),
-                AddBorderBar(root, "Right", new Vector2(inset + w * 0.5f, 0f), new Vector2(w, 0f), color, false),
+                AddBorderBar(root, "Left", new Vector2(inset + w * 0.5f, 0f), new Vector2(w, 0f), color, false),
+                AddBorderBar(root, "Right", new Vector2(-inset - w * 0.5f, 0f), new Vector2(w, 0f), color, false),
             };
             var frame = root.gameObject.AddComponent<UiBorder>();
             frame.Configure(bars, w, inset);
@@ -108,12 +108,14 @@ namespace Hotdrop.UI
             rt.pivot = new Vector2(0.5f, 0.5f);
             if (horizontal)
             {
-                rt.anchorMin = new Vector2(0f, 0.5f); rt.anchorMax = new Vector2(1f, 0.5f);
+                float edge = name == "Top" ? 1f : 0f;
+                rt.anchorMin = new Vector2(0f, edge); rt.anchorMax = new Vector2(1f, edge);
                 rt.sizeDelta = new Vector2(0f, sizeDelta.y);
             }
             else
             {
-                rt.anchorMin = new Vector2(0.5f, 0f); rt.anchorMax = new Vector2(0.5f, 1f);
+                float edge = name == "Left" ? 0f : 1f;
+                rt.anchorMin = new Vector2(edge, 0f); rt.anchorMax = new Vector2(edge, 1f);
                 rt.sizeDelta = new Vector2(sizeDelta.x, 0f);
             }
             rt.anchoredPosition = position;
@@ -325,6 +327,94 @@ namespace Hotdrop.UI
             return root;
         }
 
+        // ------------------------------------------------------------ progress
+
+        /// <summary>
+        /// A determinate progress track with a filled portion, as the Home contract card and the
+        /// challenge detail screen use. The fill is a plain anchored rect, so no sprite atlas
+        /// and no third-party art is involved.
+        ///
+        /// <paramref name="fraction"/> is clamped to 0..1 and also drives the track's accessibility
+        /// value, so a screen reader never announces a bar as empty while it is full.
+        /// </summary>
+        public static RectTransform ProgressBar(Transform parent, float fraction, Color? fillColor = null,
+            string name = "ProgressBar", float heightDp = 8f)
+        {
+            var root = Rect(parent, name, new Vector2(UIDesignTokens.Dp(320f), UIDesignTokens.Dp(heightDp)));
+            var track = Surface(root, "Track", UIDesignTokens.SurfaceSelected, UIDesignTokens.RadiusSmDp);
+            Stretch(track.rectTransform);
+
+            var fill = Surface(root, "Fill", fillColor ?? UIDesignTokens.ActionCyan, UIDesignTokens.RadiusSmDp);
+            var fillRt = fill.rectTransform;
+            fillRt.anchorMin = new Vector2(0f, 0f);
+            fillRt.anchorMax = new Vector2(1f, 1f);
+            fillRt.pivot = new Vector2(0f, 0.5f);
+            // A full bar must not vanish: keep a visible sliver at 0 and at 1.
+            fillRt.offsetMin = new Vector2(0f, 0f);
+            fillRt.offsetMax = new Vector2(0f, 0f);
+            root.gameObject.AddComponent<UiProgressBar>().Bind(fillRt, root.GetComponent<RectTransform>());
+            SetProgress(root, fraction, fillColor);
+            return root;
+        }
+
+        /// <summary>Sets a bar built by <see cref="ProgressBar"/> to a clamped fraction.</summary>
+        public static void SetProgress(RectTransform bar, float fraction, Color? fillColor = null)
+        {
+            if (bar == null) return;
+            var driver = bar.GetComponent<UiProgressBar>();
+            if (driver != null) { driver.Fraction = fraction; if (fillColor.HasValue) driver.FillColor = fillColor.Value; return; }
+
+            var fill = bar.Find("Fill") as RectTransform;
+            if (fill == null) return;
+            float value = Mathf.Clamp01(fraction);
+            fill.anchorMin = new Vector2(0f, 0f);
+            fill.anchorMax = new Vector2(value, 1f);
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+            if (fillColor.HasValue && fill.TryGetComponent(out Image image)) image.color = fillColor.Value;
+        }
+
+        /// <summary>
+        /// The Home identity strip: alias and level on the left, seals and region on the right,
+        /// with the settings control at the far right. Every value shown is real state the
+        /// player already earned; nothing here is decorative or invented.
+        /// </summary>
+        public static RectTransform StatusStrip(Transform parent, string alias, string level, string seals,
+            string region, Action onSettings = null, string name = "StatusStrip")
+        {
+            var root = Rect(parent, name, new Vector2(0f, UIDesignTokens.Dp(48f)));
+            var fill = Surface(root, "Fill", UIDesignTokens.WithAlpha(UIDesignTokens.Background, UIDesignTokens.PanelOpacity), UIDesignTokens.RadiusSmDp);
+            Stretch(fill.rectTransform);
+
+            var row = Row(root, "Row", UIDesignTokens.SpaceSmDp);
+            Stretch(row);
+            var group = row.GetComponent<HorizontalLayoutGroup>();
+            group.childAlignment = TextAnchor.MiddleLeft;
+            group.childForceExpandWidth = false;
+            group.childForceExpandHeight = true;
+
+            var identity = Label(row, "Identity", alias, UiTextRole.TitleMedium, UiTone.Friendly);
+            identity.rectTransform.sizeDelta = new Vector2(UIDesignTokens.Dp(200f), UIDesignTokens.Dp(48f));
+
+            var levelText = Label(row, "Level", level, UiTextRole.Caption, UiTone.Neutral);
+            levelText.rectTransform.sizeDelta = new Vector2(UIDesignTokens.Dp(90f), UIDesignTokens.Dp(48f));
+
+            Spacer(row, "Elastic", 1f);
+
+            if (!string.IsNullOrEmpty(seals))
+            {
+                var sealsText = Label(row, "Seals", seals, UiTextRole.Caption, UiTone.Objective);
+                sealsText.rectTransform.sizeDelta = new Vector2(UIDesignTokens.Dp(120f), UIDesignTokens.Dp(48f));
+            }
+            if (!string.IsNullOrEmpty(region))
+            {
+                var regionText = Label(row, "Region", region, UiTextRole.Caption, UiTone.Neutral);
+                regionText.rectTransform.sizeDelta = new Vector2(UIDesignTokens.Dp(140f), UIDesignTokens.Dp(48f));
+            }
+            if (onSettings != null) IconButton(row, "Settings", UiGlyph.Settings, ButtonVariant.Secondary, onSettings, "Settings");
+            return root;
+        }
+
         // ------------------------------------------------------------ buttons
 
         /// <summary>
@@ -343,7 +433,13 @@ namespace Hotdrop.UI
                 UIDesignTokens.Dp(UIDesignTokens.SpaceGutterDp), UIDesignTokens.Dp(UIDesignTokens.SpaceXsDp),
                 UIDesignTokens.Dp(UIDesignTokens.SpaceGutterDp), UIDesignTokens.Dp(UIDesignTokens.SpaceXsDp));
             var group = content.gameObject.AddComponent<CanvasGroup>();
-            content.gameObject.AddComponent<HorizontalLayoutGroup>().spacing = UIDesignTokens.Dp(UIDesignTokens.SpaceSmDp);
+            var contentLayout = content.gameObject.AddComponent<HorizontalLayoutGroup>();
+            contentLayout.spacing = UIDesignTokens.Dp(UIDesignTokens.SpaceSmDp);
+            contentLayout.childAlignment = TextAnchor.MiddleCenter;
+            contentLayout.childControlWidth = true;
+            contentLayout.childControlHeight = true;
+            contentLayout.childForceExpandWidth = true;
+            contentLayout.childForceExpandHeight = true;
 
             var iconSlot = Rect(content, "Icon", new Vector2(UIDesignTokens.Dp(24f), UIDesignTokens.Dp(24f)));
             var iconElement = iconSlot.gameObject.AddComponent<LayoutElement>();
@@ -355,6 +451,11 @@ namespace Hotdrop.UI
             var label = CenteredLabel(content, "Label", caption, UiTextRole.TitleMedium, UiTone.Friendly);
             label.textWrappingMode = TextWrappingModes.NoWrap;
             var labelElement = label.gameObject.AddComponent<LayoutElement>();
+            // TMP reports its unbounded natural width to a HorizontalLayoutGroup. Without an
+            // explicit zero-width basis a long caption can force itself outside the button even
+            // though the label is flexible, overlapping the next specimen in narrow rows.
+            labelElement.minWidth = 0f;
+            labelElement.preferredWidth = 0f;
             labelElement.flexibleWidth = 1f;
             // Without an explicit height the horizontal layout group hands the caption zero
             // height, and an auto-sizing TMP label with no box renders nothing at all.
@@ -369,6 +470,9 @@ namespace Hotdrop.UI
 
             var button = root.gameObject.AddComponent<Button>();
             button.targetGraphic = background;
+            // Surface artwork is non-interactive by default. The button's own fill must
+            // receive pointer rays or a rendered menu control can never be tapped.
+            background.raycastTarget = true;
             var element = root.gameObject.AddComponent<LayoutElement>();
             element.minHeight = UiMetrics.MinTouchUnits;
             element.minWidth = UiMetrics.MinTouchUnits;
@@ -418,10 +522,10 @@ namespace Hotdrop.UI
             switch (glyph)
             {
                 case UiGlyph.Back:
-                    GlyphBars(root, sizeUnits, weight, color, new[] { -50f, 50f }, new[] { 0f, 0f });
+                    Chevron(root, sizeUnits, weight, color, false);
                     break;
                 case UiGlyph.ChevronRight:
-                    GlyphBars(root, sizeUnits, weight, color, new[] { -50f, 50f }, new[] { 0f, 0f }, mirror: true);
+                    Chevron(root, sizeUnits, weight, color, true);
                     break;
                 case UiGlyph.Close:
                     GlyphBars(root, sizeUnits, weight, color, new[] { 45f, -45f }, new[] { 0f, 0f });
@@ -436,10 +540,36 @@ namespace Hotdrop.UI
                     GlyphBars(root, sizeUnits, weight, color, new[] { 0f, 0f, 0f }, new[] { -sizeUnits * 0.28f, 0f, sizeUnits * 0.28f });
                     break;
                 case UiGlyph.Settings:
-                    Ring(root, sizeUnits * 0.5f, weight, color);
+                    // A cog, not a ring. Four bars laid along the square's edges read as an empty
+                    // box at button size, which is what the Home capture showed next to the
+                    // player name - an unrecognisable square where the reference draws a gear.
+                    Gear(root, sizeUnits, weight, color);
                     break;
             }
             return root;
+        }
+
+        static void Chevron(RectTransform root, float sizeUnits, float weight, Color color, bool right)
+        {
+            float length = sizeUnits * 0.58f;
+            float direction = right ? -1f : 1f;
+            float centerX = direction * sizeUnits * 0.19f;
+            float centerY = sizeUnits * 0.19f;
+            AddGlyphBar(root, "Upper", color, new Vector2(centerX, centerY), length, weight,
+                right ? 135f : 45f);
+            AddGlyphBar(root, "Lower", color, new Vector2(centerX, -centerY), length, weight,
+                right ? -135f : -45f);
+        }
+
+        static void AddGlyphBar(RectTransform root, string name, Color color, Vector2 position,
+            float length, float weight, float angle)
+        {
+            var bar = Bar(root, name, color);
+            var rt = bar.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(length, weight);
+            rt.localRotation = Quaternion.Euler(0f, 0f, angle);
+            rt.anchoredPosition = position;
         }
 
         static void GlyphBars(RectTransform root, float sizeUnits, float weight, Color color, float[] angles, float[] offsets, bool mirror = false)
@@ -458,23 +588,37 @@ namespace Hotdrop.UI
             }
         }
 
-        static void Ring(RectTransform root, float radius, float weight, Color color)
+        /// <summary>
+        /// A cog: a hub disc with eight radial teeth. Built from bars and the shared rounded-rect
+        /// sprite, so it needs no font glyph and scales to any button size.
+        /// </summary>
+        static void Gear(RectTransform root, float sizeUnits, float weight, Color color)
         {
-            float diameter = radius * 2f;
-            AddRingBar(root, new Vector2(0f, radius - weight * 0.5f), new Vector2(diameter, weight), 0f, color);
-            AddRingBar(root, new Vector2(0f, -radius + weight * 0.5f), new Vector2(diameter, weight), 0f, color);
-            AddRingBar(root, new Vector2(-radius + weight * 0.5f, 0f), new Vector2(diameter, weight), 90f, color);
-            AddRingBar(root, new Vector2(radius - weight * 0.5f, 0f), new Vector2(diameter, weight), 90f, color);
-        }
+            var hub = Bar(root, "Hub", color);
+            hub.sprite = UIRoundedSprites.RoundedRect(sizeUnits * 0.40f);
+            hub.type = Image.Type.Simple;
+            hub.rectTransform.anchorMin = hub.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            hub.rectTransform.sizeDelta = new Vector2(sizeUnits * 0.52f, sizeUnits * 0.52f);
+            hub.rectTransform.anchoredPosition = Vector2.zero;
+            hub.raycastTarget = false;
 
-        static void AddRingBar(RectTransform root, Vector2 position, Vector2 size, float rotation, Color color)
-        {
-            var bar = Bar(root, "RingBar", color);
-            var rt = bar.rectTransform;
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = size;
-            rt.anchoredPosition = position;
-            rt.localRotation = Quaternion.Euler(0f, 0f, rotation);
+            // Teeth are short wide stubs sitting on the hub's edge. The two shapes that were tried
+            // first both failed visibly: teeth of the hub's own width at a smaller radius merged
+            // into a solid octagon, and long thin ones at a wider radius read as an asterisk.
+            float toothWidth = Mathf.Max(3f, sizeUnits * 0.26f);
+            float toothLength = Mathf.Max(2f, sizeUnits * 0.15f);
+            for (int i = 0; i < 8; i++)
+            {
+                float degrees = i * 45f;
+                var tooth = Bar(root, "Tooth" + i, color);
+                var rt = tooth.rectTransform;
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(toothWidth, toothLength);
+                float radians = degrees * Mathf.Deg2Rad;
+                rt.anchoredPosition = new Vector2(Mathf.Sin(radians), Mathf.Cos(radians)) * (sizeUnits * 0.31f);
+                rt.localRotation = Quaternion.Euler(0f, 0f, -degrees);
+                tooth.raycastTarget = false;
+            }
         }
 
         /// <summary>The friendly/enemy/objective shape cue, with its word alongside.</summary>
@@ -499,6 +643,61 @@ namespace Hotdrop.UI
                 rt.anchoredPosition = new Vector2(size + UIDesignTokens.Dp(UIDesignTokens.SpaceSmDp), 0f);
             }
             return row;
+        }
+    }
+
+    /// <summary>
+    /// Drives a progress fill's width. Kept as a component so a caller can update a bar every
+    /// frame without rebuilding the rect, and so the accessibility value tracks the same number
+    /// the pixels do.
+    /// </summary>
+    [ExecuteAlways]
+    public class UiProgressBar : MonoBehaviour
+    {
+        RectTransform fill, track;
+        float fraction;
+
+        /// <summary>Completed fraction, clamped to 0..1.</summary>
+        public float Fraction
+        {
+            get { return fraction; }
+            set
+            {
+                fraction = Mathf.Clamp01(value);
+                Apply();
+            }
+        }
+
+        /// <summary>The fill colour; also used for the accessibility description.</summary>
+        public Color FillColor
+        {
+            get
+            {
+                var image = fill != null ? fill.GetComponent<Image>() : null;
+                return image != null ? image.color : UIDesignTokens.ActionCyan;
+            }
+            set
+            {
+                var image = fill != null ? fill.GetComponent<Image>() : null;
+                if (image != null) image.color = value;
+            }
+        }
+
+        /// <summary>The bar this driver fills, for callers that only hold the parent.</summary>
+        public RectTransform Root => track;
+
+        internal void Bind(RectTransform fillRect, RectTransform root) { fill = fillRect; track = root; }
+
+        void OnEnable() => Apply();
+        void OnRectTransformDimensionsChange() => Apply();
+
+        void Apply()
+        {
+            if (fill == null) return;
+            fill.anchorMin = new Vector2(0f, 0f);
+            fill.anchorMax = new Vector2(fraction, 1f);
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
         }
     }
 

@@ -11,7 +11,7 @@ Authoritative sources for every rule below:
 - `ProjectUpdraft/MASTER_PLAN_V2.md` (phase gates, exclusions).
 - Threshold values mirrored in `ProjectUpdraft/Assets/Scripts/Config/KpiGateConfig.cs` / `Assets/Resources/Config/KpiGateConfig.asset`.
 - Telemetry schema: `ProjectUpdraft/Assets/Scripts/Core/Telemetry.cs` (`schemaVersion` 1, queue file `analytics_queue.jsonl`, `source` ∈ `client` | `offline_sim`).
-- Backend ingestion contract: `Backend/UpdraftBackend/Endpoints/AnalyticsEndpoints.cs`.
+- Backend ingestion contract: `Backend/HotdropBackend/Endpoints/AnalyticsEndpoints.cs`.
 
 ## 1. Data intake contract (what must arrive before any analysis)
 
@@ -39,7 +39,7 @@ Cohort anchor: **first `first_open` event per pseudonymousId** (UTC). Day D1/D7/
 
 - Tutorial completion: `tutorial_completed` (payload `skipped=false`) ÷ unique ids with `tutorial_started`, per cohort. Separately report step-level drop-off from `tutorial_step` (worst step named with its denominator).
 - D1/D7/D30 retention: survivors ÷ ids reaching anchor, **separately** for tutorial completers vs non-completers, practice-only vs public-match users, and incentivized vs organic. Minimum denominators before a rate is treated as a gate signal: **n ≥ 30 per cohort cell** (Wilson interval reported regardless).
-- Crash-free session rate: sessions (bounded by `match_started`/app foreground boundaries and `startup_budget` heartbeats) with no `client_error` type crash ÷ all sessions, per device tier. ANRs from the device manifest count as crashes.
+- Crash-free session rate: sessions without a process death ÷ all sessions, per device tier, sourced from **Google Play vitals** (`users-crashed`, `users-ANR`) with explicit metric definitions. `client_error` is an *error* event only — a caught exception or logged error is not a crash, and absence of uploaded events is never read as absence of crashes. `client_error` is reported separately as an error-rate signal.
 - Voluntary instant rematch: `results_play_again_clicked` ÷ `match_completed` views where the results screen was shown, per cohort, excluding bot-substituted matches.
 - Median queue time: server-side enqueue→matched spans for public queue during scheduled test windows only; reported as median + IQR, with the fraction waiting >45 s and >60 s (the `showStillSearchingAfterSeconds` mark).
 - **Hard rule: D7/D30 are never estimated from a cohort younger than the window.** Until the calendar reaches it, the KPI line reads "not yet measurable — earliest date X".

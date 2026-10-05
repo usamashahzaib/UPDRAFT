@@ -42,7 +42,7 @@
 ## Verification & Artifacts
 
 1. **Backend Tests:**
-   - `dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj` — **77 passed, 0 failed**.
+   - `dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj` — **77 passed, 0 failed**.
 2. **Telemetry Schema Verification:**
    - Pseudonymous ID generation, cohort tracking, `incentivizedTester` boolean flag, and `botSubstituted` / `botCount` verified in `Telemetry.cs` JSON output.
 3. **Asset License Register:**
@@ -54,7 +54,7 @@
 
 1. Run backend verification:
    ```powershell
-   dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj
+   dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj
    ```
 2. Run Unity EditMode & PlayMode tests via batch mode:
    ```powershell

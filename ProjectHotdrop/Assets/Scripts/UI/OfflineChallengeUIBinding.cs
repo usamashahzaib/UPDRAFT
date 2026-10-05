@@ -8,10 +8,7 @@ namespace Hotdrop.UI
 {
     /// <summary>
     /// UI binding interface for the Offline Travel Challenge system.
-    /// Prompt 07 PARALLEL SCOPE OVERRIDE:
-    /// Visual screens are not built directly in Prompt 07.
-    /// This binding interface decouples presentation logic from core controllers,
-    /// allowing UI screens implemented after Prompt 01 to bind effortlessly.
+    /// Decouples the installed library/detail/tracker/results views from local progress.
     /// </summary>
     public interface IOfflineChallengeView
     {
@@ -43,10 +40,7 @@ namespace Hotdrop.UI
             if (controller != null)
             {
                 controller.OnStateChanged += HandleStateChanged;
-                controller.OnDetailOpened += HandleDetailOpened;
                 controller.OnGameplayUpdated += HandleGameplayUpdated;
-                controller.OnResultCompleted += HandleResultCompleted;
-                controller.OnPauseStateChanged += HandlePauseStateChanged;
 
                 // Sync current state
                 HandleStateChanged(controller.CurrentState);
@@ -125,10 +119,10 @@ namespace Hotdrop.UI
             switch (state)
             {
                 case ChallengeFlowState.Library:
-                    activeView.ShowLibraryView(controller.config.entries, controller.SaveSystem.GetRecord);
+                    activeView.ShowLibraryView(controller.config.entries, controller.RecordForCurrentContext);
                     break;
                 case ChallengeFlowState.Detail:
-                    bool hasSnapshot = controller.SaveSystem.GetSnapshot(controller.SelectedEntry?.id) != null;
+                    bool hasSnapshot = controller.CanResumeSelected;
                     activeView.ShowDetailView(controller.SelectedEntry, controller.SelectedRecord, hasSnapshot);
                     break;
                 case ChallengeFlowState.Gameplay:
@@ -146,6 +140,9 @@ namespace Hotdrop.UI
                     {
                         activeView.ShowPauseMenuView(controller.SelectedEntry, canResume: true);
                     }
+                    break;
+                case ChallengeFlowState.Result:
+                    activeView.ShowResultView(controller.LastResult);
                     break;
             }
         }

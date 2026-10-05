@@ -1,5 +1,6 @@
 using System.Reflection;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Hotdrop.Core;
@@ -19,6 +20,7 @@ namespace Hotdrop.Tests
         [SetUp]
         public void SetUp()
         {
+            RecentMatch.Forget();
             root = new GameObject("TestCanvas", typeof(RectTransform), typeof(Canvas));
             home = new GameObject("Home");
             home.SetActive(false);
@@ -85,12 +87,112 @@ namespace Hotdrop.Tests
         }
 
         [Test]
+        public void LocalAppearance_HasRealPreviewAndFreeRunnerAction_WithoutInventoryResponse()
+        {
+            PlayerProductScreens.Open(root.transform, home, "Support");
+            Invoke("ClearRows");
+            Invoke("BuildLocalAppearance");
+            AssertBackUsable();
+            var preview = Panel.GetComponentInChildren<RawImage>();
+            Assert.IsNotNull(preview);
+            Assert.IsNotNull(preview.texture, "Appearance must render the actual model before a backend reply.");
+            Assert.IsNotNull(Panel.Find("Nav_Scroll/Viewport/Content/Row_AppearanceRunnerChoice"));
+            Invoke("ClearRows");
+            Assert.IsNull(Panel.Find("Nav_Scroll/Viewport/Content/Row_AppearanceRunnerChoice"), "Retry rebuilds must not leave duplicate runner actions.");
+        }
+
+        [Test]
+        public void Appearance_CategoryTabsShowOnlyOwnedItemsInSelectedCategory()
+        {
+            PlayerProductScreens.Open(root.transform, home, "Support");
+            Invoke("ClearRows");
+            Invoke("BuildLocalAppearance");
+            var items = new[]
+            {
+                new InventoryItemDto { id = 1, cosmeticId = "body_standard", acquiredVia = "starter" },
+                new InventoryItemDto { id = 2, cosmeticId = "wrap_hazard", acquiredVia = "unlock" }
+            };
+            var render = typeof(PlayerProductScreens).GetMethod("RenderAppearanceInventory", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(render);
+            render.Invoke(null, new object[] { items, "body_standard", "wrap_hazard", "" });
+            var content = Panel.Find("Nav_Scroll/Viewport/Content");
+            var inventory = content.Find("Row_AppearanceHero/AppearanceInformation");
+            Assert.IsNotNull(inventory.Find("Row_InventoryItem_1"));
+            Assert.IsNull(inventory.Find("Row_InventoryItem_2"));
+
+            Assert.IsNotNull(inventory.Find("Row_InventoryTabs/InventoryTab_WRAPS").GetComponent<Button>());
+            var selected = typeof(PlayerProductScreens).GetField("appearanceCategory", BindingFlags.NonPublic | BindingFlags.Static);
+            selected.SetValue(null, "Weapon Wrap");
+            render.Invoke(null, new object[] { items, "body_standard", "wrap_hazard", "" });
+            Assert.IsNull(inventory.Find("Row_InventoryItem_1"));
+            Assert.IsNotNull(inventory.Find("Row_InventoryItem_2"));
+            AssertBackUsable();
+            selected.SetValue(null, "Body Presentation");
+        }
+
+        [Test]
         public void Close_ReturnsHome()
         {
             PlayerProductScreens.Open(root.transform, home, "Support");
             Invoke("Close");
             Assert.IsNull(Panel, "panel must be removed on BACK");
             Assert.IsTrue(home.activeSelf, "Home must be shown again on BACK");
+        }
+
+        [Test]
+        public void Stale_Response_IsRejectedAfterScreenCloses()
+        {
+            PlayerProductScreens.Open(root.transform, home, "Support");
+            var version = (int)typeof(PlayerProductScreens).GetField("screenVersion", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            Invoke("Close");
+            var stale = (bool)typeof(PlayerProductScreens).GetMethod("Stale", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { version });
+            Assert.IsTrue(stale, "a reply from a closed page must not paint UI");
+        }
+
+        [TestCase("body_standard", "Body Presentation")]
+        [TestCase("body_teal_stripe", "Body Style")]
+        [TestCase("wrap_hazard", "Weapon Wrap")]
+        [TestCase("badge_rookie", "Badge")]
+        public void Appearance_MapsItemsToTruthfulCategories(string cosmeticId, string expected)
+        {
+            var category = (string)typeof(PlayerProductScreens).GetMethod("CosmeticCategory", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { cosmeticId });
+            Assert.AreEqual(expected, category);
+        }
+
+        [TestCase(true, "GUEST ACCOUNT")]
+        [TestCase(false, "LINKED ACCOUNT")]
+        public void Account_SeparatesGuestAndLinkedStates(bool isGuest, string expected)
+        {
+            var label = (string)typeof(PlayerProductScreens).GetMethod("AccountStateLabel", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { isGuest });
+            Assert.AreEqual(expected, label);
+        }
+
+        [Test]
+        public void ReportTarget_UsesVisibleAliasAndSlot()
+        {
+            var selected = new RecentMatch.Entry { alias = "Skyline", slot = 2 };
+            var message = (string)typeof(PlayerProductScreens).GetMethod("ReportTargetMessage", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { selected });
+            StringAssert.Contains("Skyline", message);
+            StringAssert.Contains("slot 3", message);
+            StringAssert.DoesNotContain("ID", message);
+        }
+
+        [Test]
+        public void DeleteAccount_UsesTwoDeliberateSteps_AndKeepsBack()
+        {
+            PlayerProductScreens.Open(root.transform, home, "Support");
+            var initial = Panel.GetComponentsInChildren<TextMeshProUGUI>(true);
+            Assert.IsTrue(System.Array.Exists(initial, t => t.text == "PRESS & HOLD TO UNLOCK"), "deletion starts behind the 3-second hold gate");
+
+            Invoke("ConfirmDelete");
+            AssertBackUsable();
+            var confirm = Panel.GetComponentsInChildren<TextMeshProUGUI>(true);
+            Assert.IsTrue(System.Array.Exists(confirm, t => t.text.Contains("This deletes your profile")));
+            Assert.IsTrue(System.Array.Exists(confirm, t => t.text == "CANCEL"));
         }
     }
 }

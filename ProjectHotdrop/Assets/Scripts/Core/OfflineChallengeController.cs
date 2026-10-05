@@ -25,6 +25,7 @@ namespace Hotdrop.Core
         public float accuracyPercent;
         public ChallengeMedal medal;
         public bool isNewPersonalBest;
+        public bool saveSucceeded;
         public string resultLabel; // Always "LOCAL RECORD" per Spec
     }
 
@@ -44,6 +45,7 @@ namespace Hotdrop.Core
         ChallengeFlowState currentState = ChallengeFlowState.Library;
         OfflineChallengeEntry selectedEntry;
         ChallengeRecord selectedRecord;
+        bool ownsConfig;
 
         // Gameplay Active State
         bool isGameplayActive;
@@ -52,6 +54,15 @@ namespace Hotdrop.Core
         int currentShotsFired;
         int currentShotsHit;
         float currentScore;
+        int lastHitShot;
+        string attemptPreset;
+        public string ControlPreset => PlayerPrefs.GetInt("LeftHandedMode", 0) == 1 ? "Classic Left" : "Classic";
+        public string Difficulty => selectedEntry?.difficulty ?? "Standard";
+        public Func<OfflineChallengeEntry, bool> BeginWorld;
+        public Func<LocalChallengeSaveSnapshot, bool> RestoreWorld;
+        public Func<LocalChallengeSaveSnapshot, bool> CanRestoreWorld;
+        public Func<string> CaptureWorld;
+        public ChallengeResultData LastResult { get; private set; }
 
         // Public Properties
         public ChallengeFlowState CurrentState => currentState;
@@ -60,6 +71,23 @@ namespace Hotdrop.Core
         public LocalChallengeSave SaveSystem => saveSystem;
         public float CurrentElapsedTime => currentElapsedTime;
         public int CurrentTargetsCompleted => currentTargetsCompleted;
+        public bool IsAttemptActive => isGameplayActive;
+        public bool CanResumeSelected
+        {
+            get
+            {
+                var s = saveSystem?.GetSnapshot(selectedEntry?.id);
+                return s != null && s.challengeVersion == selectedEntry.version &&
+                    s.controlPreset == ControlPreset && s.difficulty == Difficulty &&
+                    s.targetsCompleted < selectedEntry.targetCount && (CanRestoreWorld == null || CanRestoreWorld(s));
+            }
+        }
+
+        public ChallengeRecord RecordForCurrentContext(string id)
+        {
+            var entry = config?.GetChallengeById(id);
+            return entry == null ? null : saveSystem.GetRecord(id, entry.version, ControlPreset, entry.difficulty);
+        }
 
         // Events
         public event Action<ChallengeFlowState> OnStateChanged;
@@ -81,6 +109,7 @@ namespace Hotdrop.Core
                 if (config == null)
                 {
                     config = OfflineChallengeConfig.CreateDefaultAuthoredConfig();
+                    ownsConfig = true;
                 }
             }
 
@@ -90,6 +119,7 @@ namespace Hotdrop.Core
 
         public void OpenLibrary()
         {
+            isGameplayActive = false;
             selectedEntry = null;
             selectedRecord = null;
             SetState(ChallengeFlowState.Library);
@@ -101,12 +131,17 @@ namespace Hotdrop.Core
             var entry = config.GetChallengeById(challengeId);
             if (entry == null)
             {
+                selectedEntry = null;
+                selectedRecord = null;
+                isGameplayActive = false;
+                SetState(ChallengeFlowState.Library);
                 Debug.LogWarning($"[OfflineChallengeController] Unknown challenge ID: {challengeId}");
                 return;
             }
 
             selectedEntry = entry;
-            selectedRecord = saveSystem.GetRecord(challengeId);
+            isGameplayActive = false;
+            selectedRecord = RecordForCurrentContext(challengeId);
             SetState(ChallengeFlowState.Detail);
             OnDetailOpened?.Invoke(selectedEntry, selectedRecord);
         }
@@ -120,12 +155,17 @@ namespace Hotdrop.Core
             currentTargetsCompleted = 0;
             currentShotsFired = 0;
             currentShotsHit = 0;
+            lastHitShot = 0;
             currentScore = 0f;
+            attemptPreset = ControlPreset;
+
+            if (BeginWorld != null && !BeginWorld(selectedEntry)) return false;
             isGameplayActive = true;
 
             saveSystem.ClearSnapshot();
             SetState(ChallengeFlowState.Gameplay);
             SaveCurrentSnapshot();
+            Telemetry.Track("offline_challenge_started", ("challenge", selectedEntry.id), ("chapter", selectedEntry.chapter.ToString()));
 
             return true;
         }
@@ -135,7 +175,7 @@ namespace Hotdrop.Core
             if (selectedEntry == null) return false;
 
             var snapshot = saveSystem.GetSnapshot(selectedEntry.id);
-            if (snapshot == null)
+            if (snapshot == null || !CanResumeSelected)
             {
                 Debug.LogWarning($"[OfflineChallengeController] No valid snapshot for {selectedEntry.id}; forcing clean restart.");
                 return CleanRestartChallenge();
@@ -143,9 +183,14 @@ namespace Hotdrop.Core
 
             try
             {
+                if (RestoreWorld != null && !RestoreWorld(snapshot)) return false;
                 currentElapsedTime = snapshot.elapsedTime;
                 currentTargetsCompleted = snapshot.targetsCompleted;
                 currentScore = snapshot.score;
+                currentShotsFired = snapshot.shotsFired;
+                currentShotsHit = snapshot.shotsHit;
+                lastHitShot = currentShotsFired;
+                attemptPreset = snapshot.controlPreset;
                 isGameplayActive = true;
                 SetState(ChallengeFlowState.Gameplay);
                 return true;
@@ -168,10 +213,14 @@ namespace Hotdrop.Core
         {
             if (currentState != ChallengeFlowState.Gameplay || !isGameplayActive) return;
 
+            if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime < 0) return;
+            if (attemptPreset != ControlPreset) attemptPreset = "Mixed controls";
             currentElapsedTime += deltaTime;
 
             if (shotFired) currentShotsFired++;
-            if (shotHit) currentShotsHit++;
+            // Scatter can confirm several pellets from one shot; accuracy counts shots, not pellets.
+            if (shotHit && currentShotsFired > lastHitShot)
+            { currentShotsHit++; lastHitShot = currentShotsFired; }
 
             // Time limit check
             if (selectedEntry.timeLimitSeconds > 0f && currentElapsedTime >= selectedEntry.timeLimitSeconds)
@@ -186,6 +235,9 @@ namespace Hotdrop.Core
         public void RegisterTargetCompleted(int count = 1)
         {
             if (currentState != ChallengeFlowState.Gameplay || !isGameplayActive) return;
+
+            if (count <= 0) return;
+            count = Mathf.Min(count, selectedEntry.targetCount - currentTargetsCompleted);
 
             currentTargetsCompleted += count;
             currentScore += 100f * count;
@@ -224,10 +276,11 @@ namespace Hotdrop.Core
             if (!isGameplayActive) return;
             isGameplayActive = false;
 
-            float accuracy = currentShotsFired > 0 ? ((float)currentShotsHit / currentShotsFired) * 100f : 100f;
+            float accuracy = currentShotsFired > 0 ? ((float)currentShotsHit / currentShotsFired) * 100f : 0f;
+            isSuccess &= selectedEntry.requiredAccuracy <= 0 || accuracy >= selectedEntry.requiredAccuracy;
             ChallengeMedal medal = isSuccess ? selectedEntry.CalculateMedal(currentElapsedTime, accuracy, currentScore) : ChallengeMedal.None;
 
-            var oldRecord = saveSystem.GetRecord(selectedEntry.id);
+            var oldRecord = saveSystem.GetRecord(selectedEntry.id, selectedEntry.version, attemptPreset, Difficulty);
             bool isNewPersonalBest = false;
 
             ChallengeRecord newRecord = new ChallengeRecord
@@ -235,22 +288,23 @@ namespace Hotdrop.Core
                 challengeId = selectedEntry.id,
                 isCompleted = isSuccess || (oldRecord != null && oldRecord.isCompleted),
                 medal = (oldRecord != null && oldRecord.medal > medal) ? oldRecord.medal : medal,
-                personalBestTimeSeconds = (oldRecord == null || oldRecord.personalBestTimeSeconds <= 0f || currentElapsedTime < oldRecord.personalBestTimeSeconds)
-                    ? currentElapsedTime : oldRecord.personalBestTimeSeconds,
-                personalBestScore = (oldRecord == null || currentScore > oldRecord.personalBestScore)
-                    ? currentScore : oldRecord.personalBestScore,
+                personalBestTimeSeconds = isSuccess && (oldRecord == null || !oldRecord.isCompleted || currentElapsedTime < oldRecord.personalBestTimeSeconds)
+                    ? currentElapsedTime : oldRecord?.personalBestTimeSeconds ?? 0,
+                personalBestScore = isSuccess && (oldRecord == null || currentScore > oldRecord.personalBestScore)
+                    ? currentScore : oldRecord?.personalBestScore ?? 0,
                 challengeVersion = selectedEntry.version,
-                controlPreset = "Classic",
-                difficulty = "Standard"
+                controlPreset = attemptPreset,
+                difficulty = Difficulty
             };
 
-            if (oldRecord == null || newRecord.personalBestTimeSeconds < oldRecord.personalBestTimeSeconds || newRecord.medal > oldRecord.medal)
+            if (isSuccess && (oldRecord == null || !oldRecord.isCompleted || newRecord.personalBestTimeSeconds < oldRecord.personalBestTimeSeconds || newRecord.medal > oldRecord.medal || newRecord.personalBestScore > oldRecord.personalBestScore))
             {
                 isNewPersonalBest = true;
             }
 
             // Save record atomically
-            saveSystem.SaveRecord(newRecord);
+            if (isSuccess) saveSystem.SaveRecord(newRecord);
+            bool recordSaved = saveSystem.LastSaveSucceeded;
             saveSystem.ClearSnapshot();
 
             selectedRecord = newRecord;
@@ -266,8 +320,14 @@ namespace Hotdrop.Core
                 accuracyPercent = accuracy,
                 medal = medal,
                 isNewPersonalBest = isNewPersonalBest,
+                saveSucceeded = recordSaved && saveSystem.LastSaveSucceeded,
                 resultLabel = "LOCAL RECORD" // Requirement 6: Label results LOCAL RECORD
             };
+            LastResult = result;
+            // Amendment 4C: challenge attempts/completions are client-owned UI facts; the
+            // local save remains the only record of offline progress (never an online grant).
+            Telemetry.Track("offline_challenge_completed", ("challenge", selectedEntry.id), ("success", isSuccess),
+                ("medal", medal.ToString()), ("seconds", currentElapsedTime), ("accuracy", accuracy));
 
             SetState(ChallengeFlowState.Result);
             OnResultCompleted?.Invoke(result);
@@ -313,10 +373,16 @@ namespace Hotdrop.Core
             LocalChallengeSaveSnapshot snapshot = new LocalChallengeSaveSnapshot
             {
                 challengeId = selectedEntry.id,
+                challengeVersion = selectedEntry.version,
+                controlPreset = attemptPreset,
+                difficulty = Difficulty,
                 elapsedTime = currentElapsedTime,
                 targetsCompleted = currentTargetsCompleted,
                 score = currentScore,
-                stepIndex = currentTargetsCompleted
+                stepIndex = currentTargetsCompleted,
+                shotsFired = currentShotsFired,
+                shotsHit = currentShotsHit,
+                customStateJson = CaptureWorld?.Invoke()
             };
 
             saveSystem.SaveSnapshot(snapshot);
@@ -337,6 +403,14 @@ namespace Hotdrop.Core
             {
                 PauseChallenge();
             }
+        }
+
+        void OnApplicationQuit() => SaveCurrentSnapshot();
+
+        void OnDestroy()
+        {
+            if (!ownsConfig || config == null) return;
+            if (Application.isPlaying) Destroy(config); else DestroyImmediate(config);
         }
 
         void SetState(ChallengeFlowState newState)

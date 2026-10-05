@@ -19,6 +19,7 @@ namespace Hotdrop.Tests
             {
                 File.Delete(testSavePath);
             }
+            if (File.Exists(testSavePath + ".bak")) File.Delete(testSavePath + ".bak");
         }
 
         [TearDown]
@@ -32,6 +33,7 @@ namespace Hotdrop.Tests
             {
                 File.Delete(testSavePath + ".tmp");
             }
+            if (File.Exists(testSavePath + ".bak")) File.Delete(testSavePath + ".bak");
         }
 
         [Test]
@@ -149,7 +151,113 @@ namespace Hotdrop.Tests
         [Test]
         public void LocalChallengeSave_IsolatedFromOnlineState()
         {
-            Assert.IsTrue(LocalChallengeSave.VerifyIsIsolatedOfflineState());
+            var save = new LocalChallengeSave(testSavePath);
+            // Local completion serializes a ChallengeRecord, never a server receipt,
+            // account/entitlement identifier or online wallet grant.
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", isCompleted = true, medal = ChallengeMedal.Bronze });
+            var json = File.ReadAllText(testSavePath);
+            StringAssert.DoesNotContain("accountId", json);
+            StringAssert.DoesNotContain("entitlement", json);
+            StringAssert.DoesNotContain("wallet", json);
+            Assert.AreEqual(1, new LocalChallengeSave(testSavePath).Data.records.Count);
+        }
+
+        [Test]
+        public void Checksum_ProtectsSnapshotAndRecordContext_NotJustCompletedCount()
+        {
+            var data = new LocalChallengeSaveData();
+            data.records.Add(new ChallengeRecord { challengeId = "ch_basic_route", controlPreset = "Classic", difficulty = "Standard" });
+            data.activeSnapshot = new LocalChallengeSaveSnapshot { challengeId = "ch_basic_route", customStateJson = "{\"recoverable\":true}" };
+            string original = LocalChallengeSave.ComputeChecksum(data);
+            data.activeSnapshot.elapsedTime = 12.3456f;
+            Assert.AreNotEqual(original, LocalChallengeSave.ComputeChecksum(data));
+            data.activeSnapshot.elapsedTime = 0;
+            data.activeSnapshot.customStateJson = "{\"recoverable\":false}";
+            Assert.AreNotEqual(original, LocalChallengeSave.ComputeChecksum(data));
+            data.activeSnapshot.customStateJson = "{\"recoverable\":true}";
+            data.records[0].controlPreset = "Classic Left";
+            Assert.AreNotEqual(original, LocalChallengeSave.ComputeChecksum(data));
+        }
+
+        [Test]
+        public void Records_AreSeparatedByChallengeVersionControlsAndDifficulty()
+        {
+            var save = new LocalChallengeSave(testSavePath);
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", challengeVersion = 1 });
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", challengeVersion = 2 });
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", challengeVersion = 2, controlPreset = "Classic Left" });
+            var loaded = new LocalChallengeSave(testSavePath);
+            Assert.AreEqual(3, loaded.Data.records.Count);
+            Assert.IsNotNull(loaded.GetRecord("ch_basic_route", 2, "Classic Left", "Standard"));
+        }
+
+        [Test]
+        public void AtomicReplacement_KeepsLastCommittedBackup_AndRecoversCorruptPrimary()
+        {
+            var save = new LocalChallengeSave(testSavePath);
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", isCompleted = true, medal = ChallengeMedal.Bronze, personalBestTimeSeconds = 20 });
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", isCompleted = true, medal = ChallengeMedal.Bronze, personalBestTimeSeconds = 10 });
+            Assert.IsTrue(save.LastSaveSucceeded);
+            Assert.IsTrue(File.Exists(testSavePath + ".bak"));
+            File.WriteAllText(testSavePath, "interrupted or corrupt write");
+            var recovered = new LocalChallengeSave(testSavePath);
+            Assert.AreEqual(20, recovered.GetRecord("ch_basic_route").personalBestTimeSeconds);
+            Assert.IsNotEmpty(recovered.RecoveryMessage);
+        }
+
+        [Test]
+        public void FutureSchema_IsNotLoadedOrOverwritten()
+        {
+            string future = "{\"version\":999,\"records\":[],\"checksum\":\"future\"}";
+            File.WriteAllText(testSavePath, future);
+            var save = new LocalChallengeSave(testSavePath);
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route" });
+            Assert.IsFalse(save.LastSaveSucceeded);
+            Assert.AreEqual(future, File.ReadAllText(testSavePath));
+        }
+
+        [Test]
+        public void FailedReplacement_DoesNotDeletePreviousCommittedSave()
+        {
+            if (Application.platform != RuntimePlatform.WindowsEditor) Assert.Ignore("Windows sharing-lock failure injection.");
+            var save = new LocalChallengeSave(testSavePath);
+            save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", isCompleted = true, medal = ChallengeMedal.Bronze, personalBestTimeSeconds = 20 });
+            using (var locked = new FileStream(testSavePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                save.SaveRecord(new ChallengeRecord { challengeId = "ch_basic_route", isCompleted = true, medal = ChallengeMedal.Bronze, personalBestTimeSeconds = 10 });
+                Assert.IsFalse(save.LastSaveSucceeded);
+            }
+            Assert.AreEqual(20, new LocalChallengeSave(testSavePath).GetRecord("ch_basic_route").personalBestTimeSeconds);
+        }
+
+        [Test]
+        public void AuthoredEntries_ExposeReachableSilverAndGold()
+        {
+            var config = OfflineChallengeConfig.CreateDefaultAuthoredConfig();
+            foreach (var entry in config.entries)
+            {
+                // Every shipped challenge must offer a real Silver/Gold path, not Bronze-only.
+                Assert.IsTrue(entry.medalThresholds.thresholdsValidated, entry.id + " thresholds must be validated");
+                var thresholds = entry.medalThresholds;
+                Assert.IsTrue(thresholds.goldTimeSeconds > 0 || thresholds.goldScore > 0 || thresholds.goldAccuracy > 0,
+                    entry.id + " must have an authored Gold condition");
+                Assert.IsTrue(thresholds.silverTimeSeconds > 0 || thresholds.silverScore > 0 || thresholds.silverAccuracy > 0,
+                    entry.id + " must have an authored Silver condition");
+            }
+            var route = config.GetChallengeById("ch_basic_route");
+            Assert.AreEqual(ChallengeMedal.Gold, route.CalculateMedal(20f, 100f, 500f));
+            Assert.AreEqual(ChallengeMedal.Silver, route.CalculateMedal(40f, 100f, 300f));
+            Assert.AreEqual(ChallengeMedal.Bronze, route.CalculateMedal(70f, 100f, 100f));
+        }
+
+        [Test]
+        public void ValidatedMedal_RequiresEveryConfiguredConditionIncludingAccuracy()
+        {
+            var entry = new OfflineChallengeEntry { isTuned = true, medalThresholds = new ChallengeMedalThresholds
+            { thresholdsValidated = true, goldTimeSeconds = 10, goldScore = 200, goldAccuracy = 90 } };
+            Assert.AreEqual(ChallengeMedal.Bronze, entry.CalculateMedal(5, 80, 300));
+            Assert.AreEqual(ChallengeMedal.Bronze, entry.CalculateMedal(5, 100, 100));
+            Assert.AreEqual(ChallengeMedal.Gold, entry.CalculateMedal(5, 100, 300));
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Hotdrop.UI;
 
@@ -45,7 +46,7 @@ namespace Hotdrop.Core
             status = screen.Status;
             content = screen.Content;
             rowTarget = null;
-            SetStatus("Connecting securely…");
+            SetStatus("Loading…");
 
             switch (page)
             {
@@ -54,6 +55,9 @@ namespace Hotdrop.Core
                 case "Appearance": OpenAppearance(); break;
                 case "Account": OpenAccount(); break;
                 case "Support": OpenSupport(); break;
+                case "Contracts": OpenContracts(); break;
+                case "Mastery": OpenMastery(); break;
+                case "Shop": ShopConceptView.Show(panel, Close); SetStatus("Concept only. Purchases are unavailable in this build."); break;
             }
         }
 
@@ -71,10 +75,7 @@ namespace Hotdrop.Core
         static void ShowPartyEntry()
         {
             ClearRows();
-            Label("Invite code", new Vector2(-330, 235));
-            codeInput = Input("ABCDEFGH", new Vector2(-160, 185), 420, 62, 8);
-            BeginRow();
-            Button("CREATE PARTY", new Vector2(420, 205), 330, 62, async () =>
+            codeInput = PartyRoomView.BuildEntry(panel, "YOU", () => Close(), async () =>
             {
                 SetStatus("Creating party…");
                 int version = screenVersion;
@@ -82,10 +83,9 @@ namespace Hotdrop.Core
                 if (Stale(version)) return;
                 SetStatus(result.Ok ? "Party created." : result.Message);
                 if (result.Ok) RenderParty(result.Value);
-            });
-            Button("JOIN CODE", new Vector2(420, 125), 330, 62, async () =>
+            }, async entered =>
             {
-                string code = (codeInput.text ?? "").Trim().ToUpperInvariant();
+                string code = (entered ?? "").Trim().Replace("-", "").ToUpperInvariant();
                 if (code.Length != 8) { SetStatus("Enter the complete 8-character party code."); return; }
                 SetStatus("Joining party…");
                 int version = screenVersion;
@@ -94,8 +94,6 @@ namespace Hotdrop.Core
                 SetStatus(result.Ok ? "Joined party." : result.Message);
                 if (result.Ok) RenderParty(result.Value);
             });
-            Button("REFRESH", new Vector2(420, 45), 330, 62, RefreshParty);
-            EndRow();
         }
 
         static async void RefreshParty()
@@ -117,12 +115,7 @@ namespace Hotdrop.Core
             int memberCount = party.memberIds?.Count ?? 0;
             int readyCount = party.readyIds?.Count ?? 0;
             Telemetry.PartySize = Mathf.Max(1, memberCount); // QA-027: events carry the real party size
-            Text("CODE  " + party.code, new Vector2(0, 100), 38, MatchHUD.Objective);
-            Text($"Members {memberCount}/3     Ready {readyCount}/{memberCount}     {(isLeader ? "LEADER" : "MEMBER")}", new Vector2(0, 40), 24, MatchHUD.MainText);
-            string memberSummary = string.Join("   ·   ", (party.members ?? Array.Empty<PartyMemberDto>()).Select(m => $"{m.alias}{(m.isReady ? " ✓" : " · not ready")}"));
-            Text("Members: " + memberSummary, new Vector2(0, -15), 20, MatchHUD.SecondaryText);
-            BeginRow();
-            Button(isReady ? "SET NOT READY" : "READY", new Vector2(-260, -105), 340, 64, async () =>
+            Action toggleReady = async () =>
             {
                 SetStatus("Updating readiness…");
                 int version = screenVersion;
@@ -130,8 +123,8 @@ namespace Hotdrop.Core
                 if (Stale(version)) return;
                 if (update.Ok) RenderParty(update.Value);
                 SetStatus(update.Ok ? "Readiness updated." : update.Message);
-            });
-            Button("LEAVE PARTY", new Vector2(260, -105), 340, 64, async () =>
+            };
+            Action leaveParty = async () =>
             {
                 SetStatus("Leaving party…");
                 int version = screenVersion;
@@ -139,20 +132,11 @@ namespace Hotdrop.Core
                 if (Stale(version)) return;
                 if (leave.Ok) { ShowPartyEntry(); Telemetry.PartySize = 1; } // QA-002 / QA-027
                 SetStatus(leave.Ok ? "Left party. The leader role transfers to the next member." : leave.Message);
-            });
-            EndRow();
+            };
             bool allReady = memberCount > 0 && readyCount == memberCount;
-            BeginRow();
-            if (isLeader && allReady)
-                Button("QUEUE PARTY", new Vector2(-230, -195), 420, 68, () => { var owner = game; Close(); OnlineHooks.PlayOnline?.Invoke(owner); });
-            else if (isLeader)
-                Text("The leader can queue when every member is ready.", new Vector2(-230, -195), 19, MatchHUD.SecondaryText);
-            else
-                Text(isReady ? "Ready — you'll join automatically when the leader queues." : "Tap READY so the leader can queue the party.",
-                    new Vector2(-230, -195), 19, MatchHUD.SecondaryText);
-            // QA-014: REFRESH stays available while in a party (it used to be cleared with the rows).
-            Button("REFRESH", new Vector2(330, -195), 260, 64, RefreshParty);
-            EndRow();
+            PartyRoomView.Build(panel, party, BackendClient.Instance.PlayerId, isLeader, isReady, allReady,
+                () => Close(), toggleReady, leaveParty, RefreshParty,
+                () => { var owner = game; Close(); OnlineHooks.PlayOnline?.Invoke(owner); });
             WatchParty();
         }
 
@@ -190,6 +174,7 @@ namespace Hotdrop.Core
         static async void OpenProfile()
         {
             ClearRows(); // drop any RETRY button from a previous failed load
+            ShowProfile(null, null, null);
             SetStatus("Loading your profile…");
             int version = screenVersion;
             var profile = await BackendClient.Instance.GetProfileAsync();
@@ -197,55 +182,235 @@ namespace Hotdrop.Core
             if (!profile.Ok || profile.Value == null) { SetStatus(profile.Message); Retry("RETRY PROFILE", OpenProfile); return; }
             var wallet = await BackendClient.Instance.GetWalletAsync();
             if (Stale(version)) return;
-            if (!wallet.Ok) { SetStatus(wallet.Message); Retry("RETRY PROFILE", OpenProfile); return; }
-            Text(profile.Value.alias, new Vector2(0, 210), 36, MatchHUD.Friendly);
-            Text($"Level {profile.Value.level}     XP {profile.Value.profileXp}     Credits {wallet.Value?.credits ?? 0}", new Vector2(0, 150), 25, MatchHUD.MainText);
-            Text("All weapons stay unlocked. Cosmetic ownership never changes gameplay power.", new Vector2(0, 95), 18, MatchHUD.SecondaryText);
-            SetStatus("Profile loaded from your signed-in account.");
+            if (!wallet.Ok) { SetStatus("Credits unavailable: " + wallet.Message); ShowProfile(profile.Value, null, null); Retry("RETRY PROFILE", OpenProfile); return; }
+            var stats = await BackendClient.Instance.GetProfileStatsAsync();
+            if (Stale(version)) return;
+            if (!stats.Ok || stats.Value == null) { SetStatus("Match record unavailable: " + stats.Message); ShowProfile(profile.Value, wallet.Value, null); Retry("RETRY PROFILE", OpenProfile); return; }
+            SetStatus("Profile loaded.");
+            ShowProfile(profile.Value, wallet.Value, stats.Value);
+        }
+
+        static void ShowProfile(ProfileDto profile, WalletDto wallet, ProfileStatsDto stats)
+        {
+            var challenges = GameBootstrap.Instance?.GetComponent<OfflineChallengeRuntime>()?.Controller;
+            OperativeProfileView.Show(panel, profile, wallet, stats, challenges,
+                status != null ? status.text : "", Close,
+                () => Open(panel.transform.parent, home, "Appearance"));
+        }
+
+        // These pages are reachable only through the local dark-launch gate. They render server state
+        // verbatim; they never derive progress from client telemetry or offer a claim button for seals.
+        static async void OpenContracts()
+        {
+            if (!ContractsMasteryFeature.Enabled)
+            {
+                ClearRows();
+                GoalsPagesView.Unavailable(panel, false, Close,
+                    () => Open(panel.transform.parent, home, "Mastery"));
+                SetStatus("Contracts preview. Verified progression is unavailable in this build.");
+                return;
+            }
+            ClearRows(); SetStatus("Loading Contracts…"); int version = screenVersion;
+            var result = await BackendClient.Instance.GoalsAsync();
+            if (Stale(version)) return;
+            if (!result.Ok || result.Value == null) { SetStatus(result.Message); Retry("RETRY CONTRACTS", OpenContracts); return; }
+            var goals = result.Value;
+            GoalsPagesView.Contracts(panel, goals, Close, () => Open(panel.transform.parent, home, "Mastery"),
+                async id =>
+                {
+                    SetStatus("Switching contract…"); int selectVersion = screenVersion;
+                    var selected = await BackendClient.Instance.SelectContractAsync(id);
+                    if (Stale(selectVersion)) return;
+                    if (selected.Ok) OpenContracts(); else SetStatus(selected.Message);
+                });
+            SetStatus(goals.unlocked ? "Contract progress is verified by the backend."
+                : "Contracts unlock after two eligible public matches.");
+        }
+
+        static async void OpenMastery()
+        {
+            if (!ContractsMasteryFeature.Enabled)
+            {
+                ClearRows();
+                GoalsPagesView.Unavailable(panel, true, Close,
+                    () => Open(panel.transform.parent, home, "Contracts"));
+                SetStatus("Mastery preview. Verified progression is unavailable in this build.");
+                return;
+            }
+            ClearRows(); SetStatus("Loading Mastery…"); int version = screenVersion;
+            var result = await BackendClient.Instance.GoalsAsync();
+            if (Stale(version)) return;
+            if (!result.Ok || result.Value == null) { SetStatus(result.Message); Retry("RETRY MASTERY", OpenMastery); return; }
+            var goals = result.Value;
+            GoalsPagesView.Mastery(panel, goals, Close, () => Open(panel.transform.parent, home, "Contracts"));
+            SetStatus("Permanent mastery progress is verified by the backend.");
         }
 
         static async void OpenAppearance()
         {
+            ClosePreview();
             ClearRows();
+            BuildLocalAppearance();
+            RenderLocker(null, CosmeticLook.LocalEquipped, CosmeticLook.LocalWrap, CosmeticLook.LocalBadge);
             SetStatus("Loading your cosmetic inventory…");
             int version = screenVersion;
             var result = await BackendClient.Instance.GetInventoryAsync();
             if (Stale(version)) return;
-            if (!result.Ok || result.Value == null) { SetStatus(result.Message); Retry("RETRY INVENTORY", OpenAppearance); return; }
+            if (!result.Ok || result.Value == null)
+            {
+                SetStatus(result.Message);
+                RenderLocker(Array.Empty<InventoryItemDto>(), CosmeticLook.LocalEquipped,
+                    CosmeticLook.LocalWrap, CosmeticLook.LocalBadge);
+                Retry("RETRY INVENTORY", OpenAppearance);
+                return;
+            }
             // QA-024: a live preview of the selected item, the currently equipped item marked, and
             // the equipped choice cached locally so the player's own avatar shows it in play.
             var profile = await BackendClient.Instance.GetProfileAsync();
             if (Stale(version)) return;
-            string equippedId = profile.Ok && profile.Value != null ? profile.Value.equippedCosmeticId : CosmeticLook.LocalEquipped;
-            if (profile.Ok && profile.Value != null) CosmeticLook.LocalEquipped = profile.Value.equippedCosmeticId;
-            ShowPreview(equippedId);
-            Text("Tap an item to preview it, then EQUIP. Cosmetics change appearance, never power.", Vector2.zero, 20, MatchHUD.SecondaryText);
-            int row = 0;
-            foreach (var item in result.Value.items ?? Array.Empty<InventoryItemDto>())
+            // Amendment 3: each slot is read and cached on its own so a body style, weapon
+            // wrap and badge can be equipped together.
+            string equippedBody = profile.Ok && profile.Value != null
+                ? (profile.Value.bodyStyleId ?? profile.Value.equippedCosmeticId ?? "") : CosmeticLook.LocalEquipped;
+            string equippedWrap = profile.Ok && profile.Value != null ? (profile.Value.weaponWrapId ?? "") : CosmeticLook.LocalWrap;
+            string equippedBadge = profile.Ok && profile.Value != null ? (profile.Value.badgeId ?? "") : CosmeticLook.LocalBadge;
+            if (profile.Ok && profile.Value != null)
+            {
+                CosmeticLook.LocalEquipped = equippedBody;
+                CosmeticLook.LocalWrap = equippedWrap;
+                CosmeticLook.LocalBadge = equippedBadge;
+            }
+            ShowPreview(CosmeticLook.LocalComposite);
+            var items = result.Value.items ?? Array.Empty<InventoryItemDto>();
+            SetStatus(items.Length == 0 ? "No cosmetic inventory is available yet. Retry when online."
+                : "Owned items shown. Locked cosmetics are unavailable; no shop prices are shown.");
+            RenderLocker(items, equippedBody, equippedWrap, equippedBadge);
+        }
+
+        static string appearanceCategory = "Body Presentation";
+
+        static void RenderLocker(InventoryItemDto[] items, string equippedBody, string equippedWrap,
+            string equippedBadge)
+        {
+            AppearanceLockerView.Show(panel, previewImage, items, appearanceCategory, equippedBody,
+                equippedWrap, equippedBadge, status != null ? status.text : "", Close,
+                () =>
+                {
+                    var owner = GameBootstrap.Instance;
+                    if (owner == null) { SetStatus("Runner selection is unavailable outside the game."); return; }
+                    Close(); owner.GetComponent<OfflineHomeScreen>()?.ShowRigChoice(false);
+                },
+                category => { appearanceCategory = category; RenderLocker(items, equippedBody, equippedWrap, equippedBadge); },
+                item =>
+                {
+                    string id = item.cosmeticId;
+                    ShowPreview(appearanceCategory == "Weapon Wrap"
+                        ? equippedBody + "|" + id + "|" + equippedBadge
+                        : appearanceCategory == "Badge"
+                            ? equippedBody + "|" + equippedWrap + "|" + id
+                            : id + "|" + equippedWrap + "|" + equippedBadge);
+                    SetStatus($"Previewing {CosmeticLook.DisplayName(id)}. Source: {UnlockSource(item.acquiredVia)}.");
+                },
+                async item =>
+                {
+                    string id = item.cosmeticId;
+                    SetStatus("Saving appearance…"); int equipVersion = screenVersion;
+                    var result = await BackendClient.Instance.EquipAsync(id);
+                    if (Stale(equipVersion)) return;
+                    if (!result.Ok) { SetStatus(result.Message); return; }
+                    if (appearanceCategory == "Weapon Wrap") CosmeticLook.LocalWrap = id;
+                    else if (appearanceCategory == "Badge") CosmeticLook.LocalBadge = id;
+                    else CosmeticLook.LocalEquipped = id;
+                    OpenAppearance();
+                });
+        }
+
+        static void RenderAppearanceInventory(InventoryItemDto[] items, string equippedBody, string equippedWrap, string equippedBadge)
+        {
+            Transform inventoryParent = appearanceInventoryHost != null ? appearanceInventoryHost : content;
+            var previous = new System.Collections.Generic.List<GameObject>();
+            foreach (Transform child in inventoryParent)
+                if (child.name.StartsWith("Row_Inventory", StringComparison.Ordinal)) previous.Add(child.gameObject);
+            foreach (var child in previous) Discard(child);
+
+            var tabs = MenuLayout.Row(inventoryParent, "Row_InventoryTabs");
+            foreach (var entry in new[] { ("BODY", "Body Presentation"), ("STYLES", "Body Style"),
+                ("WRAPS", "Weapon Wrap"), ("BADGES", "Badge") })
+            {
+                string category = entry.Item2;
+                MenuLayout.AddButton(tabs, entry.Item1, () =>
+                {
+                    appearanceCategory = category;
+                    RenderAppearanceInventory(items, equippedBody, equippedWrap, equippedBadge);
+                }, "InventoryTab_" + entry.Item1, UiMetrics.MinTouchUnits,
+                    variant: appearanceCategory == category ? ButtonVariant.Primary : ButtonVariant.Secondary);
+            }
+            var categoryItems = items.Where(i => CosmeticCategory(i.cosmeticId) == appearanceCategory).ToArray();
+            if (categoryItems.Length == 0)
+            {
+                var empty = MenuLayout.Card(inventoryParent, "Row_InventoryEmpty");
+                MenuLayout.AddText(empty, appearanceCategory.ToUpperInvariant(), 20, MatchHUD.Friendly);
+                MenuLayout.AddText(empty, "No owned items in this category yet.", 19, MatchHUD.SecondaryText);
+                return;
+            }
+            foreach (var item in categoryItems)
             {
                 string cosmeticId = item.cosmeticId;
-                bool isEquipped = cosmeticId == equippedId;
-                BeginRow();
-                Button((isEquipped ? "✓ " : "") + CosmeticLook.DisplayName(cosmeticId), Vector2.zero, 0, 0, () =>
+                string category = appearanceCategory;
+                string equippedInSlot = category == "Weapon Wrap" ? equippedWrap : category == "Badge" ? equippedBadge : equippedBody;
+                bool isEquipped = cosmeticId == equippedInSlot;
+                var card = MenuLayout.Card(inventoryParent, "Row_InventoryItem_" + item.id);
+                MenuLayout.AddText(card, (isEquipped ? "EQUIPPED  ·  " : "OWNED  ·  ") + category.ToUpperInvariant(), 19,
+                    isEquipped ? MatchHUD.Friendly : MatchHUD.SecondaryText);
+                MenuLayout.AddText(card, CosmeticLook.DisplayName(cosmeticId), 25, MatchHUD.MainText);
+                MenuLayout.AddText(card, "Source: " + UnlockSource(item.acquiredVia), 18, MatchHUD.SecondaryText);
+                var actions = MenuLayout.Row(card, "InventoryActions");
+                MenuLayout.AddButton(actions, "PREVIEW", () =>
                 {
-                    ShowPreview(cosmeticId);
-                    SetStatus($"Previewing {CosmeticLook.DisplayName(cosmeticId)}.");
+                    ShowPreview(category == "Weapon Wrap" ? equippedBody + "|" + cosmeticId + "|" + equippedBadge
+                        : category == "Badge" ? equippedBody + "|" + equippedWrap + "|" + cosmeticId
+                        : cosmeticId + "|" + equippedWrap + "|" + equippedBadge);
+                    SetStatus($"Previewing {CosmeticLook.DisplayName(cosmeticId)}. Unlock source: {UnlockSource(item.acquiredVia)}.");
                 });
-                Button(isEquipped ? "EQUIPPED" : "EQUIP", Vector2.zero, 0, 0, async () =>
-                {
-                    SetStatus("Saving appearance…");
-                    int equipVersion = screenVersion;
-                    var equipped = await BackendClient.Instance.EquipAsync(cosmeticId);
-                    if (equipped.Ok) CosmeticLook.LocalEquipped = cosmeticId;
-                    if (Stale(equipVersion)) return;
-                    SetStatus(equipped.Ok ? $"{CosmeticLook.DisplayName(cosmeticId)} equipped — teammates and opponents will see it." : equipped.Message);
-                    if (equipped.Ok) OpenAppearance();
-                });
-                EndRow();
-                row++;
+                if (!isEquipped)
+                    MenuLayout.AddButton(actions, "EQUIP", async () =>
+                    {
+                        SetStatus("Saving appearance…");
+                        int equipVersion = screenVersion;
+                        var equipped = await BackendClient.Instance.EquipAsync(cosmeticId);
+                        if (Stale(equipVersion)) return;
+                        if (equipped.Ok)
+                        {
+                            if (category == "Weapon Wrap") CosmeticLook.LocalWrap = cosmeticId;
+                            else if (category == "Badge") CosmeticLook.LocalBadge = cosmeticId;
+                            else CosmeticLook.LocalEquipped = cosmeticId;
+                            SetStatus($"Saved: {CosmeticLook.DisplayName(cosmeticId)}.");
+                            OpenAppearance();
+                        }
+                        else SetStatus(equipped.Message);
+                    }, variant: ButtonVariant.Primary);
             }
-            if (row == 0) SetStatus("Inventory is empty. Retry when the service is available.");
-            else SetStatus("Owned cosmetics only. Equip changes appearance, never power.");
+        }
+
+        static void BuildLocalAppearance()
+        {
+            var hero = MenuLayout.Row(content, "Row_AppearanceHero");
+            hero.GetComponent<LayoutElement>().preferredHeight = 500f;
+            hero.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = false;
+            appearancePreviewHost = hero;
+            var information = MenuLayout.Card(hero, "AppearanceInformation", 500f);
+            appearanceInventoryHost = information;
+            MenuLayout.AddText(information, "YOUR RUNNER", 19, MatchHUD.Friendly);
+            MenuLayout.AddText(information, "Drag to inspect · cosmetics never change power.", 19, MatchHUD.SecondaryText);
+            MenuLayout.AddText(information, "OWNED EQUIPMENT", 22, MatchHUD.Friendly);
+            ShowPreview(CosmeticLook.LocalComposite);
+            MenuLayout.AddButton(content, "CHANGE RUNNER", () =>
+            {
+                var owner = GameBootstrap.Instance;
+                if (owner == null) { SetStatus("Runner selection is not available outside the game."); return; }
+                Close();
+                owner.GetComponent<OfflineHomeScreen>()?.ShowRigChoice(false);
+            }, "Row_AppearanceRunnerChoice", 84);
         }
 
         static async void OpenAccount()
@@ -256,52 +421,19 @@ namespace Hotdrop.Core
             var profile = await BackendClient.Instance.GetProfileAsync();
             if (Stale(version)) return;
             if (!profile.Ok || profile.Value == null) { SetStatus(profile.Message); Retry("RETRY ACCOUNT", OpenAccount); return; }
-            Text(profile.Value.isGuest ? "GUEST ACCOUNT" : "RECOVERABLE ACCOUNT", new Vector2(0, 220), 30, MatchHUD.Friendly);
+            Text(AccountStateLabel(profile.Value.isGuest), new Vector2(0, 220), 30, MatchHUD.Friendly);
             Text("Player: " + profile.Value.alias, new Vector2(0, 170), 21, MatchHUD.MainText);
             Text(profile.Value.isGuest
                 ? "Guest profiles are only on this device. Link Google Play Games to recover them after reinstall or on a new phone."
                 : "Google Play Games is linked. Sign in again after reinstall to recover this profile.", new Vector2(0, 90), 20, MatchHUD.SecondaryText);
             if (!profile.Value.isGuest)
-                Button("REVOKE GOOGLE PLAY LINK", new Vector2(0, -30), 490, 64, async () =>
-                {
-                    SetStatus("Removing the recovery link…");
-                    int revokeVersion = screenVersion;
-                    var revoke = await BackendClient.Instance.RevokeGooglePlayLinkAsync();
-                    if (Stale(revokeVersion)) return;
-                    SetStatus(revoke.Ok ? "Link removed. This account is now guest-only and will not recover after reinstall." : revoke.Message);
-                });
+                Button("REVOKE GOOGLE PLAY LINK", new Vector2(0, -30), 490, 64, () => RevokeGooglePlayLink(null));
             else if (PlatformIdentity.Available)
             {
                 // QA-026: link this guest now, or recover an account already linked elsewhere.
                 BeginRow();
-                Button("LINK GOOGLE PLAY", Vector2.zero, 0, 0, async () =>
-                {
-                    SetStatus("Opening Google Play Games…");
-                    int linkVersion = screenVersion;
-                    string code = await PlatformIdentity.RequestServerAuthCodeAsync();
-                    if (Stale(linkVersion)) return;
-                    if (string.IsNullOrEmpty(code)) { SetStatus("Google Play Games sign-in was cancelled."); return; }
-                    var link = await BackendClient.Instance.LinkGooglePlayAsync(code);
-                    if (Stale(linkVersion)) return;
-                    if (link.Ok) OpenAccount();
-                    SetStatus(link.Ok ? "Linked. This account can now be recovered after reinstall."
-                        : link.Error == BackendError.Conflict ? "That Google Play identity already belongs to another account — use RECOVER to switch to it."
-                        : link.Message);
-                });
-                Button("RECOVER LINKED ACCOUNT", Vector2.zero, 0, 0, async () =>
-                {
-                    SetStatus("Recovering your linked account…");
-                    int recoverVersion = screenVersion;
-                    string code = await PlatformIdentity.RequestServerAuthCodeAsync();
-                    if (Stale(recoverVersion)) return;
-                    if (string.IsNullOrEmpty(code)) { SetStatus("Google Play Games sign-in was cancelled."); return; }
-                    var signIn = await BackendClient.Instance.PlatformSignInAsync(code);
-                    if (Stale(recoverVersion)) return;
-                    if (signIn.Ok) { RecentMatch.Forget(); OpenAccount(); SetStatus("Recovered your linked account — profile, inventory and credits restored."); }
-                    else SetStatus(signIn.Error == BackendError.NotFound
-                        ? "No account is linked to this Google Play identity yet. Use LINK to protect this profile."
-                        : signIn.Message);
-                });
+                Button("LINK GOOGLE PLAY", Vector2.zero, 0, 0, () => LinkGooglePlay(OpenAccount));
+                Button("RECOVER LINKED ACCOUNT", Vector2.zero, 0, 0, () => RecoverLinkedAccount(OpenAccount));
                 EndRow();
             }
             else
@@ -339,69 +471,134 @@ namespace Hotdrop.Core
         static void OpenSupport()
         {
             ClearRows(); // this page can replace ConfirmDelete — never stack rows
-            // QA-025: report someone from your last online match by picking their name; the
-            // match context goes with the report. A raw player ID remains an advanced fallback.
-            reportTarget = null;
-            bool hasRecent = RecentMatch.TryGet(out string recentMatchId, out var recentPlayers);
-            if (hasRecent)
-            {
-                Label("Report a player from your last online match — tap their name", Vector2.zero);
-                BeginRow();
-                int inRow = 0;
-                foreach (var entry in recentPlayers)
-                {
-                    var chosen = entry;
-                    Button(chosen.alias, Vector2.zero, 0, 0, () =>
-                    {
-                        reportTarget = chosen;
-                        SetStatus($"Reporting {chosen.alias}. Add a reason and submit.");
-                    });
-                    if (++inRow % 3 == 0) { EndRow(); BeginRow(); }
-                }
-                EndRow();
-            }
-            else Label("Play an online match to report someone you played with, or enter their player ID below.", Vector2.zero);
-            Label("Reason", new Vector2(0, 110));
-            reasonInput = Input("cheating, harassment, or other", new Vector2(0, 60), 760, 58, 180);
-            Label("Or report by player ID (advanced)", new Vector2(0, 235));
-            playerInput = Input("player account ID", new Vector2(0, 185), 760, 58, 40);
-            Button("SUBMIT REPORT", new Vector2(0, -30), 420, 64, async () =>
-            {
-                string id = (playerInput.text ?? "").Trim();
-                string reason = (reasonInput.text ?? "").Trim();
-                if (reason.Length < 3) { SetStatus("Add a short reason (at least 3 characters)."); return; }
-                bool byId = Guid.TryParse(id, out _);
-                if (!byId && reportTarget == null) { SetStatus(hasRecent ? "Tap the player you want to report, or enter their player ID." : "Enter a valid player ID."); return; }
-                SetStatus("Submitting report…");
-                int version = screenVersion;
-                var report = byId ? await BackendClient.Instance.ReportAsync(id, reason)
-                    : await BackendClient.Instance.ReportInMatchAsync(recentMatchId, reportTarget.alias, reportTarget.slot, reason);
-                if (Stale(version)) return;
-                SetStatus(report.Ok ? "Report submitted for review. Thank you." : report.Message);
-            });
-            Button("DELETE ACCOUNT…", new Vector2(0, -120), 500, 64, () => ConfirmDelete());
-            Text("Deletion removes profile, inventory, credits, reports and match history. Purchase records are retained where required.", new Vector2(0, -215), 17, MatchHUD.SecondaryText);
+            // QA-025: report someone from the last online match by the identity that was visible
+            // in-game. The match context goes with the report; no account identifier is shown.
+            // The view fills these two from its violation pills and incident log.
+            reasonInput = Input("Harassment, cheating, or inappropriate name", Vector2.zero, 760, 58, 80);
+            playerInput = Input("What happened?", Vector2.zero, 760, 58, 180);
+            DrawSupport(null, null);
+            SetStatus("");
+            LoadSupportAccount();
         }
 
+        static async void LoadSupportAccount()
+        {
+            int version = screenVersion;
+            var profile = await BackendClient.Instance.GetProfileAsync();
+            if (Stale(version) || !profile.Ok || profile.Value == null) return;
+            var wallet = await BackendClient.Instance.GetWalletAsync();
+            if (Stale(version)) return;
+            DrawSupport(profile.Value, wallet.Ok ? wallet.Value : null);
+        }
+
+        static void DrawSupport(ProfileDto profile, WalletDto wallet)
+        {
+            reportTarget = null;
+            bool hasRecent = RecentMatch.TryGet(out string recentMatchId, out var recentPlayers);
+            var client = BackendClient.Instance;
+            var actions = new SupportHubActions
+            {
+                Back = Close,
+                Navigate = page => Open(panel.transform.parent, home, page),
+                Recover = () => RecoverLinkedAccount(OpenSupport),
+                Link = () => LinkGooglePlay(OpenSupport),
+                Revoke = () => RevokeGooglePlayLink(OpenSupport),
+                AccountSettings = () => Open(panel.transform.parent, home, "Account"),
+                Profile = () => Open(panel.transform.parent, home, "Profile"),
+                WebDeletion = () =>
+                {
+                    // Spec section 31: the same deletion request page players can reach without the app.
+                    string url = client.WebUrl("/api/support/account-deletion");
+                    if (string.IsNullOrEmpty(url)) { SetStatus("The web request page needs the online service, which this build does not have."); return; }
+                    Application.OpenURL(url);
+                    SetStatus("Opened the account-deletion request page in your browser.");
+                },
+                Diagnostics = () => SetStatus($"Build {Application.version}  •  {(client.IsConfigured ? "online service configured" : "offline build")}  •  {(client.HasSession ? "signed in" : "not signed in")}  •  {Application.platform}"),
+                Choose = chosen => { reportTarget = chosen; SetStatus(ReportTargetMessage(chosen)); },
+                Submit = () => SubmitReport(hasRecent, recentMatchId),
+                Purge = ExecuteDelete,
+            };
+            SupportHubView.Show(panel, reasonInput, playerInput, hasRecent ? recentMatchId : null, recentPlayers,
+                RecentMatch.LocalTeam(), profile, wallet, client.HasSession, actions);
+        }
+
+        static async void SubmitReport(bool hasRecent, string matchId)
+        {
+            string detail = (playerInput != null ? playerInput.text ?? "" : "").Trim();
+            string reason = (reasonInput != null ? reasonInput.text ?? "" : "").Trim();
+            if (reportTarget == null) { SetStatus(hasRecent ? "Tap the participant you want to report." : "A recent online match is needed to select a participant."); return; }
+            if (reason.Length < 3) { SetStatus("Choose a violation class for this report."); return; }
+            SetStatus("Submitting report…");
+            int version = screenVersion;
+            var report = await BackendClient.Instance.ReportInMatchAsync(matchId, reportTarget.alias, reportTarget.slot,
+                string.IsNullOrEmpty(detail) ? reason : reason + ": " + detail);
+            if (Stale(version)) return;
+            SetStatus(report.Ok ? "Report received. Thank you." : report.Message);
+        }
+
+        /// <summary>Step 2 of deletion: the typed confirmation (the 3-second hold opens it in the page).</summary>
         static void ConfirmDelete()
         {
-            SetStatus("Tap DELETE ACCOUNT again to confirm. This cannot be undone.");
+            SupportHubView.RevealPurge(panel);
+            SetStatus("Step 2 of 2 — type DELETE to confirm permanent deletion. This cannot be undone.");
+        }
+
+        static async void ExecuteDelete()
+        {
+            SetStatus("Deleting account data…");
+            int version = screenVersion;
+            var deleted = await BackendClient.Instance.DeleteAccountAsync();
+            // Forget the local session even if the player already left this screen.
+            if (deleted.Ok) BackendClient.Instance.ForgetLocalSession();
+            if (Stale(version)) return;
+            if (!deleted.Ok) { SetStatus(deleted.Message); return; }
+            SupportHubView.Clear(panel);
             ClearRows();
-            BeginRow();
-            Button("DELETE ACCOUNT", new Vector2(0, 15), 430, 68, async () =>
-            {
-                SetStatus("Deleting account data…");
-                int version = screenVersion;
-                var deleted = await BackendClient.Instance.DeleteAccountAsync();
-                // Forget the local session even if the player already left this screen.
-                if (deleted.Ok) BackendClient.Instance.ForgetLocalSession();
-                if (Stale(version)) return;
-                if (!deleted.Ok) { SetStatus(deleted.Message); return; }
-                ClearRows();
-                SetStatus("Account deleted. Purchase records are retained where required. Use BACK to return Home.");
-            });
-            Button("CANCEL", new Vector2(0, -70), 320, 60, OpenSupport);
-            EndRow();
+            SetStatus("Account deleted. Purchase records are retained where required. Use BACK to return Home.");
+        }
+
+        // QA-026: link this guest now, or recover an account already linked elsewhere. Shared by
+        // the Account and Support pages; reopen redraws the calling page after a change.
+        static async void LinkGooglePlay(Action reopen)
+        {
+            if (!PlatformIdentity.Available) { SetStatus("Google Play Games is not set up in this build yet, so this profile cannot be linked."); return; }
+            SetStatus("Opening Google Play Games…");
+            int version = screenVersion;
+            string code = await PlatformIdentity.RequestServerAuthCodeAsync();
+            if (Stale(version)) return;
+            if (string.IsNullOrEmpty(code)) { SetStatus("Google Play Games sign-in was cancelled."); return; }
+            var link = await BackendClient.Instance.LinkGooglePlayAsync(code);
+            if (Stale(version)) return;
+            if (link.Ok) reopen?.Invoke();
+            SetStatus(link.Ok ? "Linked. This account can now be recovered after reinstall."
+                : link.Error == BackendError.Conflict ? "That Google Play identity belongs to another account. Use RECOVER to switch to it; accounts are not merged."
+                : link.Message);
+        }
+
+        static async void RecoverLinkedAccount(Action reopen)
+        {
+            if (!PlatformIdentity.Available) { SetStatus("Google Play Games is not set up in this build yet, so linked accounts cannot be recovered here."); return; }
+            SetStatus("Recovering your linked account…");
+            int version = screenVersion;
+            string code = await PlatformIdentity.RequestServerAuthCodeAsync();
+            if (Stale(version)) return;
+            if (string.IsNullOrEmpty(code)) { SetStatus("Google Play Games sign-in was cancelled."); return; }
+            var signIn = await BackendClient.Instance.PlatformSignInAsync(code);
+            if (Stale(version)) return;
+            if (signIn.Ok) { RecentMatch.Forget(); reopen?.Invoke(); SetStatus("Recovered linked account. Its saved profile, inventory and credits are now active."); }
+            else SetStatus(signIn.Error == BackendError.NotFound
+                ? "No account is linked to this Google Play identity yet. Use LINK to protect this profile."
+                : signIn.Message);
+        }
+
+        static async void RevokeGooglePlayLink(Action reopen)
+        {
+            SetStatus("Removing the recovery link…");
+            int version = screenVersion;
+            var revoke = await BackendClient.Instance.RevokeGooglePlayLinkAsync();
+            if (Stale(version)) return;
+            if (revoke.Ok) reopen?.Invoke();
+            SetStatus(revoke.Ok ? "Link removed. This account is now guest-only and will not recover after reinstall." : revoke.Message);
         }
 
         // Compile-repair (data desk, 2026-09-28): the shared Button helper takes
@@ -410,7 +607,10 @@ namespace Hotdrop.Core
         static void Retry(string label, Action retry)
         {
             ClearRows(); // one retry action at a time; keep BACK/status untouched
-            Button(label, new Vector2(0, 0), 360, 62, () => retry());
+            var notice = MenuLayout.Card(content, "Row_LoadFailure");
+            MenuLayout.AddText(notice, "PAGE UNAVAILABLE", 24, MatchHUD.Objective);
+            MenuLayout.AddText(notice, status != null ? status.text : "Unable to load this page.", 20, MatchHUD.SecondaryText);
+            MenuLayout.AddButton(content, label, () => retry(), "Row_Retry", variant: ButtonVariant.Primary);
         }
 
         // ---- QA-024: Appearance preview (render texture of a mannequin wearing the item) ----
@@ -418,36 +618,54 @@ namespace Hotdrop.Core
         static Transform previewMannequin;
         static RenderTexture previewTexture;
         static RawImage previewImage;
+        static RectTransform appearancePreviewHost;
+        static RectTransform appearanceInventoryHost;
 
         static void ShowPreview(string cosmeticId)
         {
             if (previewStage == null)
             {
                 previewStage = new GameObject("AppearancePreviewStage");
-                previewStage.transform.position = new Vector3(0, -500f, 0); // far below the arena
+                previewStage.transform.position = new Vector3(0, -800f, 0); // isolated from Home preview stages
                 previewMannequin = CosmeticLook.BuildMannequin(previewStage.transform);
                 previewMannequin.localRotation = Quaternion.Euler(0, 200f, 0);
                 var light = new GameObject("Light", typeof(Light)).GetComponent<Light>();
                 light.transform.SetParent(previewStage.transform, false);
-                light.type = LightType.Directional; light.transform.rotation = Quaternion.Euler(35, 150, 0);
+                light.type = LightType.Point; light.range = 8f; light.intensity = 3f;
+                light.transform.localPosition = new Vector3(-1.5f, 3f, -2f);
                 previewTexture = new RenderTexture(512, 512, 16);
                 var cam = new GameObject("PreviewCamera", typeof(UnityEngine.Camera)).GetComponent<UnityEngine.Camera>();
                 cam.transform.SetParent(previewStage.transform, false);
                 cam.transform.localPosition = new Vector3(0, 1.05f, -2.6f);
                 cam.fieldOfView = 40f; cam.targetTexture = previewTexture;
-                cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.106f, 0.161f, 0.251f);
+                cam.nearClipPlane = 0.05f; cam.farClipPlane = 30f;
+                cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0, 0, 0, 0);
                 cam.cullingMask = ~0;
             }
             CosmeticLook.Apply(previewMannequin, cosmeticId);
             if (previewImage == null && content != null)
             {
-                var obj = new GameObject("Row_Preview", typeof(RectTransform), typeof(RawImage), typeof(AspectRatioFitter), typeof(LayoutElement));
-                obj.transform.SetParent(content, false);
+                var obj = new GameObject("Row_Preview", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+                obj.transform.SetParent(appearancePreviewHost != null ? appearancePreviewHost : content, false);
                 obj.transform.SetAsFirstSibling();
-                previewImage = obj.GetComponent<RawImage>();
-                previewImage.texture = previewTexture; previewImage.raycastTarget = false;
-                var element = obj.GetComponent<LayoutElement>(); element.preferredHeight = 260; element.minHeight = 200;
-                obj.GetComponent<AspectRatioFitter>().aspectMode = AspectRatioFitter.AspectMode.HeightControlsWidth;
+                obj.GetComponent<Image>().color = UIDesignTokens.SurfacePanel;
+                obj.GetComponent<Image>().raycastTarget = false;
+                previewImage = new GameObject("PreviewImage", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
+                previewImage.transform.SetParent(obj.transform, false);
+                var imageRect = previewImage.rectTransform;
+                imageRect.anchorMin = imageRect.anchorMax = new Vector2(0.5f, 0.5f);
+                imageRect.pivot = new Vector2(0.5f, 0.5f);
+                imageRect.sizeDelta = new Vector2(400f, 400f);
+                previewImage.texture = previewTexture;
+                // The render is an actual match rig and gun, not a static asset. Keeping this
+                // surface interactive lets the player inspect the selected appearance.
+                previewImage.raycastTarget = true;
+                var drag = previewImage.gameObject.AddComponent<AppearancePreviewDrag>();
+                drag.Target = previewMannequin;
+                var element = obj.GetComponent<LayoutElement>();
+                element.preferredHeight = 500; element.minHeight = 400;
+                element.preferredWidth = 420; element.minWidth = 300;
+                element.flexibleWidth = 0;
             }
         }
 
@@ -456,6 +674,8 @@ namespace Hotdrop.Core
             if (previewStage != null) Discard(previewStage);
             if (previewTexture != null) { previewTexture.Release(); Discard(previewTexture); }
             previewStage = null; previewMannequin = null; previewTexture = null; previewImage = null;
+            appearancePreviewHost = null;
+            appearanceInventoryHost = null;
         }
 
         static void Close()
@@ -471,6 +691,30 @@ namespace Hotdrop.Core
 
         /// <summary>True when the screen that issued a request has since been closed or replaced.</summary>
         static bool Stale(int version) => version != screenVersion || panel == null;
+
+        static string CosmeticCategory(string cosmeticId)
+        {
+            if (string.IsNullOrEmpty(cosmeticId) || cosmeticId == "body_standard") return "Body Presentation";
+            if (cosmeticId.StartsWith("body_", StringComparison.Ordinal)) return "Body Style";
+            if (cosmeticId.StartsWith("wrap_", StringComparison.Ordinal)) return "Weapon Wrap";
+            if (cosmeticId.StartsWith("badge_", StringComparison.Ordinal)) return "Badge";
+            return "Body Presentation";
+        }
+
+        static string AccountStateLabel(bool isGuest) => isGuest ? "GUEST ACCOUNT" : "LINKED ACCOUNT";
+
+        static string ReportTargetMessage(RecentMatch.Entry target) =>
+            target == null ? "Choose a participant to report." : $"Reporting {target.alias}, slot {target.slot + 1}. Add a category and submit.";
+
+        static string UnlockSource(string acquiredVia)
+        {
+            if (string.Equals(acquiredVia, "starter", StringComparison.OrdinalIgnoreCase)) return "Starter collection";
+            if (string.Equals(acquiredVia, "unlock", StringComparison.OrdinalIgnoreCase)) return "Eligible match unlock";
+            // Purchase inventory remains displayable for existing owners, but the gated shop
+            // stays disconnected and never invents a price or availability.
+            if (!string.IsNullOrEmpty(acquiredVia) && acquiredVia.StartsWith("purchase:", StringComparison.OrdinalIgnoreCase)) return "Verified purchase";
+            return string.IsNullOrEmpty(acquiredVia) ? "Unavailable" : acquiredVia;
+        }
 
         /// <summary>Removes page content. Nav_* objects (title, BACK) and the status line always survive.</summary>
         static void ClearRows()
@@ -498,7 +742,15 @@ namespace Hotdrop.Core
             else UnityEngine.Object.DestroyImmediate(obj);
         }
 
-        static void SetStatus(string value) { if (status != null) status.text = value ?? "Something went wrong. Try again."; }
+        static void SetStatus(string value)
+        {
+            string message = value ?? "Something went wrong. Try again.";
+            if (status != null) status.text = message;
+            PartyRoomView.SetStatus(panel, message);
+            AppearanceLockerView.SetStatus(panel, message);
+            OperativeProfileView.SetStatus(panel, message);
+            SupportHubView.SetStatus(panel, message);
+        }
         // Positions are ignored: the density-aware layout flows every element into the scroll
         // column (QA-019/020). Signatures are kept so the page code reads as before.
         static void Label(string value, Vector2 position) => Text(value, position, 20, MatchHUD.SecondaryText);
@@ -511,6 +763,18 @@ namespace Hotdrop.Core
 
         static GameObject Button(string caption, Vector2 position, float width, float height, UnityEngine.Events.UnityAction action, string objectName = "Row_Button") =>
             MenuLayout.AddButton(Target, caption, action, objectName).gameObject;
+    }
+
+    /// <summary>Small, input-only affordance for inspecting the real appearance preview rig.</summary>
+    public sealed class AppearancePreviewDrag : MonoBehaviour, IDragHandler
+    {
+        public Transform Target { get; set; }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (Target == null) return;
+            Target.Rotate(0f, -eventData.delta.x * 0.45f, 0f, Space.Self);
+        }
     }
 }
 

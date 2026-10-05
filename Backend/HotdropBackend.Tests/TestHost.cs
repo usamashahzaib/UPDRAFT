@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -8,7 +7,11 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authentication;
 using HotdropBackend.Data;
 
 namespace HotdropBackend.Tests;
@@ -67,6 +70,10 @@ public class HotdropWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("GameServer:ApiKey", TestServerKey);
         builder.ConfigureTestServices(services =>
         {
+            // Keep database failures visible in the test output. The Windows Event
+            // Log provider requires machine-level permissions in restricted test
+            // runners and can otherwise mask the original EF exception.
+            services.AddLogging(logging => logging.ClearProviders());
             services.RemoveAll<IDbContextOptionsConfiguration<HotdropDbContext>>();
             services.RemoveAll<DbContextOptions<HotdropDbContext>>();
             services.RemoveAll<HotdropDbContext>();

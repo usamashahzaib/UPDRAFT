@@ -53,7 +53,7 @@ namespace Hotdrop.Player
                 // Body pattern: one horizontal chest band wrapping the torso.
                 var pattern = new GameObject(AllyPatternName).transform;
                 pattern.SetParent(root, false);
-                Part(pattern, PrimitiveType.Cube, "Band", new Vector3(0f, 1.22f, 0f), Quaternion.identity, new Vector3(0.6f, 0.1f, 0.39f), neutral);
+                Part(pattern, PrimitiveType.Cube, "Band", new Vector3(0f, 1.22f, 0f), Quaternion.identity, new Vector3(0.43f, 0.065f, 0.29f), neutral);
             }
             else
             {

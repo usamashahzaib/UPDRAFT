@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using HotdropBackend.Data;
 using HotdropBackend.Domain;
 using HotdropBackend.Services;
+using Microsoft.Extensions.Options;
 
 namespace HotdropBackend.Endpoints;
 
@@ -104,10 +105,18 @@ public static class MatchEndpoints
                     continue;
                 }
                 var ids = match.Select(t => t.PlayerId).ToList();
-                // QA-024: each player's equipped cosmetic travels with the claim so the match server
-                // can show every player's chosen identity to everyone (presentation only).
+                // QA-024/Amendment 3: the equipped identity travels with the claim so the match
+                // server can show every slot (body style, weapon wrap, badge, rig) to everyone.
                 var accounts = await db.PlayerAccounts.Where(p => ids.Contains(p.Id))
-                    .ToDictionaryAsync(p => p.Id, p => new { p.Alias, p.EquippedCosmeticId }, cancellationToken);
+                    .Select(p => new
+                    {
+                        p.Id, p.Alias,
+                        Body = p.BodyStyleId ?? p.EquippedCosmeticId ?? "",
+                        p.WeaponWrapId, p.BadgeId, p.BodyRigId,
+                    })
+                    .ToListAsync(cancellationToken);
+                var identities = accounts.ToDictionary(p => p.Id, p => new ClaimIdentity(p.Alias,
+                    string.Join("|", p.Body, p.WeaponWrapId ?? "", p.BadgeId ?? "", p.BodyRigId ?? "")));
                 return Results.Ok(new
                 {
                     matchId = match.Key,
@@ -117,8 +126,8 @@ public static class MatchEndpoints
                     players = match.Select(t => new
                     {
                         playerId = t.PlayerId, team = t.Team,
-                        alias = accounts.GetValueOrDefault(t.PlayerId)?.Alias,
-                        cosmetic = accounts.GetValueOrDefault(t.PlayerId)?.EquippedCosmeticId,
+                        alias = identities.GetValueOrDefault(t.PlayerId)?.Alias,
+                        cosmetic = identities.GetValueOrDefault(t.PlayerId)?.Cosmetic ?? "",
                     }),
                 });
             }
@@ -127,11 +136,11 @@ public static class MatchEndpoints
 
         // Spec section 21: results come only from the authenticated game server.
         group.MapPost("/{matchId}/result", async (Guid matchId, SubmitResultRequest request, HotdropDbContext db,
-            MatchResultProcessor processor, CancellationToken cancellationToken) =>
+            MatchResultProcessor processor, IOptionsMonitor<FeatureFlags> features, CancellationToken cancellationToken) =>
         {
             if (request.Participants is null || request.Participants.Count is 0 or > MatchmakingOptions.MatchSize)
                 return Results.BadRequest(new { error = "invalid_participants" });
-            var summaries = await processor.ApplyAsync(matchId, request, db, cancellationToken);
+            var summaries = await processor.ApplyAsync(matchId, request, db, features.CurrentValue.ContractsMasteryEnabled, cancellationToken);
             var allocation = await db.MatchAllocations.FindAsync([matchId], cancellationToken);
             if (allocation is { CompletedAt: null })
             {
@@ -144,6 +153,10 @@ public static class MatchEndpoints
 
     /// <summary>An allocation with no result after this long no longer counts toward capacity (crashed server).</summary>
     public static readonly TimeSpan AllocationTimeout = TimeSpan.FromMinutes(15);
+
+    /// <summary>Public cosmetic identity: body style | weapon wrap | badge | body rig.
+    /// Never contains an account id; empty parts are allowed.</summary>
+    sealed record ClaimIdentity(string? Alias, string Cosmetic);
 
     public sealed record ValidateTicketRequest(Guid MatchId, string Ticket);
 

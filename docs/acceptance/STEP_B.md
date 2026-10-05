@@ -58,7 +58,7 @@ Fix applied at the authority layer so both client and server share one rule:
 
 ```powershell
 # Backend
-dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore --filter "FullyQualifiedName~OfflinePracticeGrantsNothing"
+dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj --no-restore --filter "FullyQualifiedName~OfflinePracticeGrantsNothing"
 
 # Unity after no editor owns the project
 ProjectUpdraft/Run-UnityTests.ps1 -Platform EditMode

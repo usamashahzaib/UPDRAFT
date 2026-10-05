@@ -115,6 +115,7 @@ namespace Hotdrop.Player
         public Vector3 Position => transform.position;
         public string DisplayName { get; set; } = "Player";
         public bool IsBot { get; set; }
+        public bool IsConnected => true;
 
         // Per-match stats for the results screen and personal bests.
         public int Eliminations { get; private set; }
@@ -143,6 +144,7 @@ namespace Hotdrop.Player
 
         // Events
         public System.Action<int, Vector3, Vector3> OnFire; // weaponIndex, muzzlePos, aimDir
+        public System.Action OnShotStarted; // committed ammo/cadence, before local hit callbacks
         public System.Action<PlayerController> OnDeath;
         public System.Action<PlayerController> OnRespawn;
         public System.Action<float> OnHealthChanged; // 0-1
@@ -221,9 +223,8 @@ namespace Hotdrop.Player
         {
             // Load aim assist setting
             aimAssistEnabled = PlayerPrefs.GetInt("AimAssistEnabled", 1) == 1;
-            // Amendment 1/2: the human player wears the locally chosen body rig. Bots keep the
-            // prefab's default rig; the rig is appearance only and never touches gameplay.
-            if (!IsBot) ApplyStoredBodyRig();
+            // Rebuild all runners so bots and humans use the same current presentation.
+            ApplyStoredBodyRig();
         }
 
         /// <summary>
@@ -235,13 +236,13 @@ namespace Hotdrop.Player
         {
             if (bodyMesh == null) return;
             bool friendly = LaunchPadBehaviour.IsFriendlyToViewer(teamId);
-            var parts = AvatarRigVisual.Rebuild(bodyMesh, BodyRigStore.Current,
+            var parts = AvatarRigVisual.Rebuild(bodyMesh, IsBot ? BodyRigs.Default : BodyRigStore.Current,
                 friendly ? friendlyMaterial : enemyMaterial,
                 Resources.Load<Material>("Materials/Equipment"), includeGun: false);
             avatarMotion = bodyMesh.GetComponentInChildren<SportAvatarAnimation>(true);
             if (avatarMotion == null) avatarMotion = bodyMesh.AddComponent<SportAvatarAnimation>();
             AvatarRigVisual.Wire(avatarMotion, parts);
-            var renderer = bodyMesh.GetComponentInChildren<Renderer>();
+            var renderer = parts.Torso.GetComponent<Renderer>();
             if (renderer != null) bodyRenderer = renderer;
             SetTeamMaterial(teamId); // re-colours the new torso and re-applies team cue + cosmetic
         }
@@ -310,6 +311,9 @@ namespace Hotdrop.Player
         void Update()
         {
             float dt = Time.deltaTime;
+            // A paused local world must preserve contact/state. CharacterController.Move(0)
+            // otherwise clears CollidedBelow and turns a grounded checkpoint into airborne.
+            if (dt <= 0) return;
             padManager.Tick(dt);
             if (!hadPadCharge && padManager.HasCharge)
                 OnPadChargeReady?.Invoke();
@@ -412,9 +416,7 @@ namespace Hotdrop.Player
         {
             if (touchInput == null || playerCamera == null) return;
 
-            touchInput.AimSensitivityScale = IsAimAssistRegionActive()
-                ? AimAssistRules.SensitivityMultiplier
-                : 1f;
+            touchInput.AimSensitivityScale = AimAssistRules.SensitivityScale(IsAimAssistRegionActive());
 
             Vector2 aim = touchInput.AimDelta;
             if (aim.sqrMagnitude > 0f)
@@ -573,6 +575,7 @@ namespace Hotdrop.Player
 
             // Resolve pellets
             int pelletCount = ShotResolver.ResolvePellets(currentWeapon, aimDirection, shotSeed, moveState, pelletBuffer);
+            OnShotStarted?.Invoke();
 
             // QA-012: a muzzle pushed into or through thin cover fires into that cover.
             if (IsMuzzleBuried(out Vector3 buriedAt))
@@ -647,14 +650,13 @@ namespace Hotdrop.Player
 
                 Vector3 targetPoint = target.transform.position + Vector3.up * 1.4f;
                 Vector3 toTarget = targetPoint - playerCamera.transform.position;
-                if (Vector3.Angle(playerCamera.transform.forward, toTarget) > AimAssistRules.ConeDegrees) continue;
-
-                if (Physics.Raycast(playerCamera.transform.position, toTarget.normalized, out RaycastHit hit,
+                // Cover blocks assist outright (spec 8: no tracking through cover).
+                bool blocked = Physics.Raycast(playerCamera.transform.position, toTarget.normalized, out RaycastHit hit,
                     toTarget.magnitude, ~0, QueryTriggerInteraction.Ignore) &&
-                    hit.collider.GetComponentInParent<PlayerController>() != target)
-                    continue;
+                    hit.collider.GetComponentInParent<PlayerController>() != target;
 
-                return true;
+                if (AimAssistRules.Qualifies(playerCamera.transform.position, playerCamera.transform.forward, targetPoint, !blocked))
+                    return true;
             }
 
             return false;
@@ -883,9 +885,16 @@ namespace Hotdrop.Player
             }
             // QA-023: shape cue (ally orb + chest band / enemy cross + shoulder spikes) so team
             // never relies on colour alone. Parented to the body so it hides with it on death.
-            TeamCueVisual.Apply(bodyMesh != null ? bodyMesh.transform : transform, friendly, friendly ? friendlyMaterial : enemyMaterial);
-            // QA-024: the human player's equipped cosmetic is visible on their own avatar in play.
-            if (touchInput != null) ApplyCosmetic(Hotdrop.UI.CosmeticLook.LocalEquipped);
+            var teamCue = TeamCueVisual.Apply(bodyMesh != null ? bodyMesh.transform : transform, friendly, friendly ? friendlyMaterial : enemyMaterial);
+            // The overhead identifier is useful on other players, but blocks our own aim.
+            if (!IsBot && touchInput != null)
+            {
+                var marker = teamCue.Find(friendly ? TeamCueVisual.AllyMarkerName : TeamCueVisual.EnemyMarkerName);
+                if (marker != null) marker.gameObject.SetActive(false);
+            }
+            // QA-024/Amendment 3: the human player's equipped look (all slots) is visible on
+            // their own avatar in play.
+            if (touchInput != null) ApplyCosmetic(Hotdrop.UI.CosmeticLook.LocalComposite);
         }
 
         Material[] defaultWeaponMaterials;

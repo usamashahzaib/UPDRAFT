@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -10,6 +11,7 @@ using Hotdrop.Core;
 using Hotdrop.Map;
 using Hotdrop.UI;
 using Hotdrop.Pads;
+using Hotdrop.Config;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using System.Reflection;
@@ -31,6 +33,7 @@ namespace Hotdrop.Tests.PlayMode
     {
         // GameBootstrap is a DontDestroyOnLoad singleton; each test needs a fresh one.
         InputSettings originalInputSettings;
+        InputSettings testInputSettings;
 
         [UnitySetUp]
         public IEnumerator DestroyPreviousBootstrap()
@@ -40,6 +43,8 @@ namespace Hotdrop.Tests.PlayMode
             // device events never reach play-mode (EnhancedTouch) updates.
             originalInputSettings = InputSystem.settings;
             var settings = Object.Instantiate(originalInputSettings);
+            testInputSettings = settings;
+            settings.hideFlags = HideFlags.HideAndDontSave;
             settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             InputSystem.settings = settings;
@@ -51,6 +56,7 @@ namespace Hotdrop.Tests.PlayMode
         public void RestoreInputSettings()
         {
             if (originalInputSettings != null) InputSystem.settings = originalInputSettings;
+            if (testInputSettings != null) Object.DestroyImmediate(testInputSettings);
         }
 
         [UnityTest]
@@ -62,6 +68,9 @@ namespace Hotdrop.Tests.PlayMode
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
             yield return null;
 
+            Assert.IsNotNull(GameObject.Find("Startup"), "Every launch must begin with the real startup presentation.");
+            yield return ContinueStartup();
+
             // Package 1 adds a real first-run runner choice before the guided lesson.
             // Select the displayed default through its actual UI control, then verify
             // the established tutorial gameplay path rather than bypassing it in code.
@@ -70,6 +79,11 @@ namespace Hotdrop.Tests.PlayMode
             var defaultRunner = GameObject.Find("Rig_rig_male")?.GetComponent<UnityEngine.UI.Button>();
             Assert.IsNotNull(defaultRunner, "First launch must offer a usable default runner choice.");
             defaultRunner.onClick.Invoke();
+            yield return null;
+            Assert.IsNull(Object.FindFirstObjectByType<TutorialController>(), "Selecting a runner must wait for CONTINUE.");
+            var continueChoice = GameObject.Find("RigContinue")?.GetComponent<UnityEngine.UI.Button>();
+            Assert.IsNotNull(continueChoice, "Runner selection must provide an explicit continue action.");
+            continueChoice.onClick.Invoke();
             yield return null;
 
             Assert.AreEqual(1, Object.FindObjectsByType<PlayerController>(FindObjectsSortMode.None).Length,
@@ -193,6 +207,7 @@ namespace Hotdrop.Tests.PlayMode
             PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
             yield return null;
+            yield return ContinueStartup();
 
             Assert.IsNotNull(GameObject.Find("Home"), "After the first run the game must open on Home, not force the tutorial.");
             Assert.AreEqual(0, Object.FindObjectsByType<TutorialController>(FindObjectsSortMode.None).Length);
@@ -238,6 +253,7 @@ namespace Hotdrop.Tests.PlayMode
             PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
             yield return null;
+            yield return ContinueStartup();
             var game = GameBootstrap.Instance;
             var input = game.touchInput;
             var screen = InputSystem.AddDevice<Touchscreen>("Ergonomics touchscreen");
@@ -333,6 +349,7 @@ namespace Hotdrop.Tests.PlayMode
             StudySettings.SetCohort("study_pads_on");
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
             yield return null;
+            yield return ContinueStartup();
             var game = GameBootstrap.Instance;
             game.StartOfflinePractice();
             yield return null;
@@ -387,6 +404,7 @@ namespace Hotdrop.Tests.PlayMode
             PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
             yield return null;
+            yield return ContinueStartup();
             var game = GameBootstrap.Instance;
             game.StartOfflinePractice();
             yield return null;
@@ -447,6 +465,7 @@ namespace Hotdrop.Tests.PlayMode
             PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
             yield return null;
+            yield return ContinueStartup();
             var game = GameBootstrap.Instance;
             game.StartOfflinePractice();
             yield return null;
@@ -496,6 +515,38 @@ namespace Hotdrop.Tests.PlayMode
                 yield return new WaitForSeconds(0.2f);
             }
             match.OnReturnHome();
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator OfflineChallenge_RuntimeLifecycle_SavesResumesAndCompletesLocally()
+        {
+            string savePath = Path.Combine(Application.temporaryCachePath, "hotdrop_challenge_playmode_" + System.Guid.NewGuid().ToString("N") + ".json");
+            var config = OfflineChallengeConfig.CreateDefaultAuthoredConfig();
+            var host = new GameObject("OfflineChallenge_PlayMode");
+            var controller = host.AddComponent<OfflineChallengeController>();
+            controller.customSavePath = savePath;
+            controller.config = config;
+            controller.InitializeController();
+            yield return null;
+
+            Assert.IsTrue(controller.StartChallenge("ch_basic_route"));
+            controller.UpdateGameplay(2f, shotFired: true, shotHit: true);
+            controller.RegisterTargetCompleted();
+            controller.PauseChallenge();
+            Assert.AreEqual(ChallengeFlowState.Paused, controller.CurrentState);
+            Assert.IsNotNull(controller.SaveSystem.GetSnapshot("ch_basic_route"));
+
+            controller.UnpauseChallenge();
+            controller.RegisterTargetCompleted(2);
+            Assert.AreEqual(ChallengeFlowState.Result, controller.CurrentState);
+            var record = controller.SaveSystem.GetRecord("ch_basic_route");
+            Assert.IsNotNull(record);
+            Assert.IsTrue(record.isCompleted);
+
+            Object.Destroy(host);
+            Object.Destroy(config);
+            if (File.Exists(savePath)) File.Delete(savePath);
             yield return null;
         }
 
@@ -555,6 +606,16 @@ namespace Hotdrop.Tests.PlayMode
                 game.GetComponent<OfflinePauseMenu>().Close();
                 InputSystem.RemoveDevice(screen);
             }
+        }
+
+        static IEnumerator ContinueStartup()
+        {
+            var startup = GameBootstrap.Instance != null
+                ? GameBootstrap.Instance.GetComponent<StartupConnectionScreen>()
+                : null;
+            Assert.IsNotNull(startup, "The startup connection controller must exist after loading Main.");
+            startup.Continue();
+            yield return null;
         }
 
         // State/physics regression, not a substitute for a human touch playtest.

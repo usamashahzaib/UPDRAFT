@@ -2,7 +2,11 @@
 
 **Specification:** FINAL MASTER SPECIFICATION v1.0
 
-**Audit date:** 2026-09-29 (this continuation; prior audit 2026-09-28)
+**Latest implementation follow-up:** 2026-10-03. Offline travel drills now have a real installed Library/Detail/gameplay/pause/local-results route and versioned atomic recovery. See `docs/audit/OFFLINE_TRAVEL_IMPLEMENTATION_2026-10-03.md` for exact files, tests, APK mapping and remaining evidence. No milestone or gate is newly accepted by this implementation. Shop/ads stay off; final art, live multiplayer, publisher/legal and real-device acceptance remain separate blockers.
+
+Latest candidate: `Builds/Android/HotdropDev_2026-10-03_0149.apk` (60,965,271 bytes; SHA-256 `6563cb81ba250dfcfa78b5161f95d0c91d5eeea8dfe6fa9b5bf4c413bd8fd6bd`). EditMode 295/295, PlayMode 17/17, Backend 167/167 passed. Debug-signed APK packaging used the documented Java-loopback recovery; Android/device acceptance is still NOT RUN for this candidate. See `docs/acceptance/OFFLINE_TRAVEL_DEVICE_CHECKLIST.md` for the pending plan.
+
+**Historical audit date:** 2026-09-29 (continuation below; prior audit 2026-09-28). Its counts/build hashes describe that older snapshot, not today's build.
 
 **Avoided change:** Do NOT start shop, ads, or Phase 2. Gate B is done; Milestone C (six-client dedicated-server slice) is the next gate.
 

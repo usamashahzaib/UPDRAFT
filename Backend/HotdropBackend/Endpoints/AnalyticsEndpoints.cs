@@ -12,11 +12,14 @@ public static class AnalyticsEndpoints
     static readonly HashSet<string> ClientEvents =
     [
         "first_open", "startup_budget", "client_error",
-        "tutorial_started", "tutorial_step", "tutorial_completed",
+        "tutorial_started", "tutorial_step", "tutorial_show_me", "tutorial_completed",
         "queue_started", "queue_cancelled", "weapon_selected", "results_play_again_clicked",
         "purchase_started",
         "matchmaking_started", "match_joining", "online_match_joined", "online_match_completed",
-        "online_failed", "match_disconnect", "match_reconnected",
+        "online_failed", "match_disconnect", "match_reconnected", "afk_removed",
+        // Amendment 4C: offline challenge attempts/completions are client-owned UI facts.
+        // Authoritative online progress still comes only from the match server.
+        "offline_challenge_started", "offline_challenge_completed",
         "study_cohort_set", "study_incentivized_set", "study_participant_started",
     ];
 

@@ -113,6 +113,61 @@ public class MatchmakingComposerTests
     }
 
     [Fact]
+    public async Task FourWaitingGroups_PastBotFillWait_ShareOneMatch_NotFourSeparateOnes()
+    {
+        var tickets = await Run((db, now) =>
+        {
+            for (int i = 0; i < 4; i++) Add(db, now.AddSeconds(-46 - i), 1000 + i * 5);
+        });
+
+        Assert.All(tickets, t => Assert.Equal("matched", t.Status));
+        Assert.Single(tickets.Select(t => t.MatchId).Distinct());
+        Assert.All(tickets, t => Assert.True(t.HasBots));
+        Assert.Equal(2, tickets.Count(t => t.Team == "A"));
+        Assert.Equal(2, tickets.Count(t => t.Team == "B"));
+    }
+
+    [Fact]
+    public async Task BotFill_KeepsPartiesWhole_AndFillsTheRestOfTheLobby()
+    {
+        // A trio plus two solos past the wait: one match, three humans vs two humans + one bot.
+        var tickets = await Run((db, now) =>
+        {
+            AddParty(db, now.AddSeconds(-50), 3);
+            Add(db, now.AddSeconds(-49), 1000);
+            Add(db, now.AddSeconds(-48), 1010);
+        });
+
+        Assert.All(tickets, t => Assert.Equal("matched", t.Status));
+        Assert.Single(tickets.Select(t => t.MatchId).Distinct());
+        foreach (var party in tickets.GroupBy(t => t.PartyId).Where(g => g.Key != null))
+            Assert.Single(party.Select(t => t.Team).Distinct());
+        Assert.Equal(3, tickets.Count(t => t.Team == "A"));
+        Assert.Equal(2, tickets.Count(t => t.Team == "B"));
+    }
+
+    [Fact]
+    public async Task BotFill_SeatsTheLongestWaitingGroups_AndRespectsTheRatingWindow()
+    {
+        // The oldest group plus one inside its rating window and one far outside it
+        // that has not yet waited long enough to be filled on its own.
+        var tickets = await Run((db, now) =>
+        {
+            Add(db, now.AddSeconds(-60), 1000);
+            Add(db, now.AddSeconds(-58), 1080);   // inside the window at ~60 s
+            Add(db, now, 1900);                   // far outside, still searching
+        });
+
+        var seated = tickets.Where(t => t.Status == "matched").ToList();
+        Assert.Equal(2, seated.Count);
+        Assert.Single(seated.Select(t => t.MatchId).Distinct());
+        Assert.Equal(1, seated.Count(t => t.Team == "A"));
+        Assert.Equal(1, seated.Count(t => t.Team == "B"));
+        Assert.All(seated, t => Assert.True(t.HasBots));
+        Assert.Equal("searching", tickets.Single(t => t.Rating == 1900).Status);
+    }
+
+    [Fact]
     public async Task FewerThanSix_BelowBotFillWait_StaysSearching()
     {
         var tickets = await Run((db, now) => { for (int i = 0; i < 3; i++) Add(db, now); });

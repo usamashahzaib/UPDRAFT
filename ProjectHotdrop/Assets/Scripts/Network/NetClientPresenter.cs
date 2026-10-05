@@ -151,7 +151,7 @@ namespace Hotdrop.Network
             if (touch == null || local == null || local.Dead ||
                 PlayerPrefs.GetInt("AimAssistEnabled", 1) == 0)
             {
-                if (touch != null) touch.AimSensitivityScale = 1f;
+                if (touch != null) touch.AimSensitivityScale = AimAssistRules.FullSensitivityScale;
                 return;
             }
 
@@ -166,8 +166,7 @@ namespace Hotdrop.Network
                 Vector3 target = candidate.transform.position + Vector3.up * 1.4f;
                 Vector3 toTarget = target - origin;
                 float distance = toTarget.magnitude;
-                if (distance > AimAssistRules.MaxDistance || distance < 0.01f ||
-                    Vector3.Angle(game.mainCamera.transform.forward, toTarget) > AimAssistRules.ConeDegrees) continue;
+                if (distance > AimAssistRules.MaxDistance || distance < 0.01f) continue;
 
                 int sightCount = Physics.RaycastNonAlloc(origin, toTarget / distance,
                     aimAssistSightHits, distance, ~0, QueryTriggerInteraction.Ignore);
@@ -184,12 +183,15 @@ namespace Hotdrop.Network
                     firstPlayer = hitPlayer;
                     foundObstruction = true;
                 }
-                if (foundObstruction && firstPlayer != candidate) continue;
-                touch.AimSensitivityScale = AimAssistRules.SensitivityMultiplier;
-                return;
+                if (AimAssistRules.Qualifies(origin, game.mainCamera.transform.forward, target,
+                        !foundObstruction || firstPlayer == candidate))
+                {
+                    touch.AimSensitivityScale = AimAssistRules.SensitivityScale(true);
+                    return;
+                }
             }
 
-            touch.AimSensitivityScale = 1f;
+            touch.AimSensitivityScale = AimAssistRules.FullSensitivityScale;
         }
 
         NetInput SampleInput()
@@ -391,21 +393,25 @@ namespace Hotdrop.Network
             bool won = !draw && ((outcome == MatchOutcome.TeamAWins && local.Team == 0) || (outcome == MatchOutcome.TeamBWins && local.Team == 1));
             string footer = match.Cancelled ? "MATCH CANCELLED  ·  NO RATING OR REWARDS CHANGED"
                 : match.HasBots ? "BOT-FILLED MATCH  ·  RATING UNCHANGED" : "RANKED 3v3";
-            game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, match.Participants, footer);
+            game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, null, match.Participants, footer);
             if (!match.Cancelled) PollRewardReceipt();
             // QA-025: remember who was in this match so the player can report someone by name.
             var others = new System.Collections.Generic.List<RecentMatch.Entry>();
             foreach (var p in NetPlayer.All)
                 if (p.Runner == session.Runner && p != local && (!p.BotControlled || p.HadBotSubstitution)) // humans who quit/idled stay reportable
-                    others.Add(new RecentMatch.Entry { alias = HumanAlias(p.Alias.ToString()), slot = p.Slot, team = p.Team });
-            RecentMatch.Remember(MatchId, others);
+                {
+                    // C19: the join-time snapshot, not the "[BOT] "-prefixed display alias, so the
+                    // server can still resolve the account (the prefix can also be trimmed).
+                    string reportAlias = p.ReportAlias;
+                    if (string.IsNullOrEmpty(reportAlias)) continue; // a seat that was never human
+                    others.Add(new RecentMatch.Entry { alias = reportAlias, slot = p.Slot, team = p.Team });
+                }
+            RecentMatch.Remember(MatchId, others, local != null ? local.Team : -1);
             GameAudio.Play2D(draw ? GameCue.ZoneMilestone : won ? GameCue.Victory : GameCue.Defeat);
             Telemetry.Track("online_match_completed", ("result", draw ? "draw" : won ? "win" : "loss"));
         }
 
         public string MatchId { get; set; }
-
-        static string HumanAlias(string alias) => alias.StartsWith("[BOT] ", StringComparison.Ordinal) ? alias.Substring(6) : alias;
 
         /// <summary>
         /// QA-017: show what the player actually earned, as recorded by the backend. Until the
@@ -429,7 +435,11 @@ namespace Hotdrop.Network
                         hud.SetResultsReceipt("NO REWARD FOR THIS MATCH (not eligible: left early, replaced by a bot, or server failure)", Hotdrop.UI.MatchHUD.SecondaryText);
                     else
                     {
-                        string unlocked = r.unlocked != null && r.unlocked.Length > 0 ? "  ·  UNLOCKED " + string.Join(", ", r.unlocked) : "";
+                        string unlocked = r.unlocked != null && r.unlocked.Length > 0
+                            // C02/Amendment 1: show unlocks by the same readable names the
+                            // Appearance screen uses, so "badge_first_flight" reads as a badge.
+                            ? "  ·  UNLOCKED " + string.Join(", ", System.Array.ConvertAll(r.unlocked, Hotdrop.UI.CosmeticLook.DisplayName))
+                            : "";
                         hud.SetResultsReceipt($"+{r.xpGained} XP  ·  +{r.creditsGained} CREDITS  ·  LEVEL {r.level}{unlocked}", Hotdrop.UI.MatchHUD.Objective);
                     }
                     return;

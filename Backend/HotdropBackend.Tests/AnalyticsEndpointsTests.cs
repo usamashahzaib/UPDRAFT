@@ -220,6 +220,60 @@ public class AnalyticsEndpointsTests : IClassFixture<HotdropWebApplicationFactor
         Assert.Equal(DateOnly.FromDateTime(oldTime.UtcDateTime), presence.EventDate);
     }
 
+    [Fact]
+    public async Task SessionRollup_CountsSessionsAndSameDayReturns_AndIsIdempotent()
+    {
+        // One player, one UTC day: two playings separated by more than 30 minutes,
+        // plus a five-minute background switch that must not become a return.
+        // This fixture is shared, so the session tests use their own UTC day to stay
+        // clear of the presence-rollup tests that count rows per date.
+        var noon = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddDays(-3).AddHours(12);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+            db.AnalyticsEvents.AddRange(
+                SeedEvent("session-p1", noon.AddMinutes(0), "tutorial_step", noon),
+                SeedEvent("session-p1", noon.AddMinutes(5), "tutorial_step", noon.AddMinutes(5)),
+                SeedEvent("session-p1", noon.AddMinutes(70), "online_match_completed", noon.AddMinutes(70)));
+            await db.SaveChangesAsync();
+        }
+
+        var service = new AnalyticsRetentionService(_factory.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AnalyticsRetentionService>.Instance);
+        await service.RunOnce(CancellationToken.None);
+        await service.RunOnce(CancellationToken.None); // rerun must not double-count
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+        var row = await verifyDb.AnalyticsDailySessions.SingleAsync(s =>
+            s.PseudonymousId == "session-p1" && s.EventDate == DateOnly.FromDateTime(noon.UtcDateTime));
+        Assert.Equal(2, row.Sessions);
+        Assert.Equal(1, row.SameDayReturns);
+        Assert.Equal(2, row.VoluntarySessions);
+    }
+
+    [Fact]
+    public async Task SessionRollup_ExcludesNonGameplayEventsAndIncentivizedSessions()
+    {
+        var noon = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddDays(-3).AddHours(12);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+            var startup = SeedEvent("session-p2", noon.AddMinutes(0), "first_open", noon);
+            var error = SeedEvent("session-p2", noon.AddMinutes(40), "client_error", noon.AddMinutes(40));
+            error.IncentivizedTester = true;
+            db.AnalyticsEvents.AddRange(startup, error);
+            await db.SaveChangesAsync();
+        }
+
+        var service = new AnalyticsRetentionService(_factory.Services.GetRequiredService<IServiceScopeFactory>(), NullLogger<AnalyticsRetentionService>.Instance);
+        await service.RunOnce(CancellationToken.None);
+
+        using var verifyScope = _factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+        // Startup and crash reports are not gameplay, so this player has no session row at all.
+        Assert.False(await verifyDb.AnalyticsDailySessions.AnyAsync(s => s.PseudonymousId == "session-p2"));
+    }
+
     static AnalyticsEvent SeedEvent(string pseudonymousId, DateTimeOffset timestamp, string eventName = "tutorial_step", DateTimeOffset? clientTimestamp = null) => new()
     {
         EventName = eventName,

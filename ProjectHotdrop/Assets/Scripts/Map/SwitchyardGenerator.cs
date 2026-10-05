@@ -14,6 +14,8 @@ namespace Hotdrop.Map
         [Header("Config")]
         [SerializeField] public MapConfig mapConfig;
         [SerializeField] Material groundMaterial;
+        Material roofDeckMaterial;
+        Material roofCladdingMaterial;
         [SerializeField] Material platformMaterial;
         [SerializeField] Material coverMaterial;
         [SerializeField] Material spawnBarrierMaterial;
@@ -22,6 +24,9 @@ namespace Hotdrop.Map
         [SerializeField] Material enemyMaterial;
         Material presentationDarkMaterial;
         Material presentationSafetyMaterial;
+        Material presentationConcreteMaterial;
+        Material presentationSeamMaterial;
+        readonly System.Collections.Generic.List<Mesh> presentationMeshes = new System.Collections.Generic.List<Mesh>();
 
         [Header("Prefabs")]
         [SerializeField] GameObject rampPrefab;
@@ -38,6 +43,9 @@ namespace Hotdrop.Map
             if (Application.isPlaying && generated) return;
             generated = true;
             EnsureMaterials();
+            foreach (var mesh in presentationMeshes) if (mesh != null)
+            { if (Application.isPlaying) Destroy(mesh); else DestroyImmediate(mesh); }
+            presentationMeshes.Clear();
             // Clear existing children
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
@@ -54,6 +62,7 @@ namespace Hotdrop.Map
             GenerateSightlineBlockers();
             GenerateOuterLaneBreakers();
             GenerateCenterPresentation();
+            GenerateRooftopPresentation();
             SetupLighting();
             if (Application.isPlaying)
             {
@@ -73,6 +82,169 @@ namespace Hotdrop.Map
             if (zoneMaterial == null) zoneMaterial = MakeMaterial("Objective", "#FFD166");
             if (presentationDarkMaterial == null) presentationDarkMaterial = MakeMaterial("SwitchyardEquipment", "#26384A");
             if (presentationSafetyMaterial == null) presentationSafetyMaterial = MakeMaterial("SwitchyardSafety", "#E0A936");
+            if (presentationConcreteMaterial == null) presentationConcreteMaterial = MakeMaterial("SwitchyardRoof", "#A6ACAA");
+            if (presentationSeamMaterial == null) presentationSeamMaterial = MakeMaterial("SwitchyardSeam", "#61727D");
+        }
+
+        /// <summary>
+        /// Collider-free roof dressing drawn from the UIUX rooftop direction. It gives the
+        /// playable Switchyard a roof edge, deck scale, service equipment and a distant city
+        /// silhouette while leaving MapConfig geometry, cover and navigation unchanged.
+        /// </summary>
+        void GenerateRooftopPresentation()
+        {
+            var root = new GameObject("Rooftop visual dressing (no collision)");
+            root.transform.SetParent(transform, false);
+            float west = mapConfig.boundsMin.x;
+            float east = mapConfig.boundsMax.x;
+            float south = mapConfig.boundsMin.y;
+            float north = mapConfig.boundsMax.y;
+            float width = east - west;
+            float depth = north - south;
+
+            // Shallow seams establish a concrete module scale without creating steps.
+            for (float x = west + 8f; x < east; x += 8f)
+                PresentationPart(root.transform, "Deck seam X", PrimitiveType.Cube,
+                    new Vector3(x, mapConfig.groundLevelY + 0.008f, 0f),
+                    new Vector3(0.045f, 0.008f, depth), presentationSeamMaterial);
+            for (float z = south + 8f; z < north; z += 8f)
+                PresentationPart(root.transform, "Deck seam Z", PrimitiveType.Cube,
+                    new Vector3(0f, mapConfig.groundLevelY + 0.009f, z),
+                    new Vector3(width, 0.008f, 0.045f), presentationSeamMaterial);
+
+            // The parapet sits just outside the configured arena footprint. Its renderer has
+            // no collider, so it cannot become new cover or change a sightline test.
+            for (int side = 0; side < 2; side++)
+            {
+                float x = side == 0 ? west - 0.7f : east + 0.7f;
+                float z = side == 0 ? south - 0.7f : north + 0.7f;
+                PresentationPart(root.transform, "Roof parapet", PrimitiveType.Cube,
+                    new Vector3(x, 0.35f, 0f), new Vector3(0.45f, 0.7f, depth + 2f), presentationConcreteMaterial);
+                PresentationPart(root.transform, "Roof parapet", PrimitiveType.Cube,
+                    new Vector3(0f, 0.35f, z), new Vector3(width + 2f, 0.7f, 0.45f), presentationConcreteMaterial);
+                PresentationPart(root.transform, "Parapet cap", PrimitiveType.Cube,
+                    new Vector3(x, 0.73f, 0f), new Vector3(0.62f, 0.08f, depth + 2f), presentationDarkMaterial);
+                PresentationPart(root.transform, "Parapet cap", PrimitiveType.Cube,
+                    new Vector3(0f, 0.73f, z), new Vector3(width + 2f, 0.08f, 0.62f), presentationDarkMaterial);
+            }
+
+            // Repeated vent silhouettes on existing spawn roofs, well above players.
+            foreach (var spawn in new[] { mapConfig.northSpawnCenter, mapConfig.southSpawnCenter })
+            {
+                for (int i = -1; i <= 1; i++)
+                {
+                    Vector3 pos = spawn + new Vector3(i * 5f, 3.95f, 0f);
+                    PresentationPart(root.transform, "Roof service vent", PrimitiveType.Cube,
+                        pos, new Vector3(2.8f, 0.9f, 2.2f), presentationDarkMaterial);
+                    PresentationPart(root.transform, "Vent cover", PrimitiveType.Cube,
+                        pos + Vector3.up * 0.49f, new Vector3(3.0f, 0.08f, 2.4f), presentationConcreteMaterial);
+                }
+            }
+
+            // Fixed, deterministic distant buildings provide the coastal city scale seen in
+            // the reference. They are beyond the arena and never enter the navigation mesh.
+            for (int i = 0; i < 22; i++)
+            {
+                float x = -96f + i * 9f;
+                float height = 12f + ((i * 17) % 23);
+                float z = i % 2 == 0 ? north + 55f : south - 68f;
+                PresentationPart(root.transform, "Distant city block", PrimitiveType.Cube,
+                    new Vector3(x, height * 0.5f - 19f, z),
+                    new Vector3(5f + i % 3, height, 5f), presentationSeamMaterial);
+            }
+
+            // Turn solid gameplay cover into readable fabricated equipment. These shallow
+            // panels hug the original faces; the collision footprint remains authoritative.
+            foreach (var source in GetComponentsInChildren<MeshRenderer>())
+            {
+                bool cover = source.name.StartsWith("OuterBreaker_") || source.name.StartsWith("SightlineBlocker_");
+                if (!cover) continue;
+                var t = source.transform;
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var panel = PresentationPart(root.transform, "Equipment face", PrimitiveType.Cube,
+                        t.TransformPoint(new Vector3(0, 0, side * .505f)),
+                        new Vector3(t.localScale.x * .86f, t.localScale.y * .72f, .035f), presentationDarkMaterial);
+                    panel.rotation = t.rotation;
+                    var stripe = PresentationPart(root.transform, "Equipment safety band", PrimitiveType.Cube,
+                        t.TransformPoint(new Vector3(0, .33f, side * .52f)),
+                        new Vector3(t.localScale.x * .88f, .10f, .04f), presentationSafetyMaterial);
+                    stripe.rotation = t.rotation;
+                }
+            }
+            foreach (var platform in mapConfig.platformCenters)
+            {
+                PresentationPart(root.transform, "Platform landing stripe", PrimitiveType.Cube,
+                    platform + new Vector3(0, .015f, 0),
+                    new Vector3(mapConfig.platformSize.x - .5f, .018f, .18f), presentationSafetyMaterial);
+            }
+            // Each material is one mesh rather than a draw call for every seam/panel/building.
+            CombineDressing(root.transform);
+        }
+
+        void CombineDressing(Transform root)
+        {
+            var groups = new System.Collections.Generic.Dictionary<Material, System.Collections.Generic.List<CombineInstance>>();
+            foreach (var filter in root.GetComponentsInChildren<MeshFilter>())
+            {
+                var renderer = filter.GetComponent<MeshRenderer>();
+                if (renderer == null || renderer.sharedMaterial == null) continue;
+                if (!groups.TryGetValue(renderer.sharedMaterial, out var parts))
+                    groups.Add(renderer.sharedMaterial, parts = new System.Collections.Generic.List<CombineInstance>());
+                parts.Add(new CombineInstance { mesh = filter.sharedMesh, transform = root.worldToLocalMatrix * filter.transform.localToWorldMatrix });
+                renderer.enabled = false;
+            }
+            foreach (var group in groups)
+            {
+                var mesh = new Mesh { name = "Batched rooftop " + group.Key.name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                mesh.CombineMeshes(group.Value.ToArray()); presentationMeshes.Add(mesh);
+                var obj = new GameObject(mesh.name, typeof(MeshFilter), typeof(MeshRenderer));
+                obj.transform.SetParent(root, false);
+                obj.GetComponent<MeshFilter>().sharedMesh = mesh;
+                var renderer = obj.GetComponent<MeshRenderer>(); renderer.sharedMaterial = group.Key;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+        }
+
+        void OnDestroy()
+        {
+            foreach (var mesh in presentationMeshes) if (mesh != null)
+            { if (Application.isPlaying) Destroy(mesh); else DestroyImmediate(mesh); }
+            if (roofDeckMaterial != null)
+            { if (Application.isPlaying) Destroy(roofDeckMaterial); else DestroyImmediate(roofDeckMaterial); }
+            if (roofCladdingMaterial != null)
+            { if (Application.isPlaying) Destroy(roofCladdingMaterial); else DestroyImmediate(roofCladdingMaterial); }
+        }
+
+        Material DeckMaterial()
+        {
+            var texture = Resources.Load<Texture2D>("Environment/RooftopConcrete");
+            if (texture == null || groundMaterial == null) return groundMaterial;
+            if (roofDeckMaterial != null) return roofDeckMaterial;
+            roofDeckMaterial = new Material(groundMaterial) { name = "Weathered rooftop concrete" };
+            roofDeckMaterial.color = new Color(.69f, .72f, .75f);
+            roofDeckMaterial.mainTexture = texture;
+            roofDeckMaterial.mainTextureScale = new Vector2(6f, 5f);
+            if (roofDeckMaterial.HasProperty("_BaseMap"))
+            {
+                roofDeckMaterial.SetTexture("_BaseMap", texture);
+                roofDeckMaterial.SetTextureScale("_BaseMap", new Vector2(6f, 5f));
+            }
+            if (roofDeckMaterial.HasProperty("_Smoothness")) roofDeckMaterial.SetFloat("_Smoothness", .04f);
+            return roofDeckMaterial;
+        }
+
+        Material CladdingMaterial()
+        {
+            var texture = Resources.Load<Texture2D>("Environment/RooftopCladding");
+            if (texture == null || coverMaterial == null) return coverMaterial;
+            if (roofCladdingMaterial != null) return roofCladdingMaterial;
+            roofCladdingMaterial = new Material(coverMaterial) { name = "Weathered rooftop cladding" };
+            roofCladdingMaterial.color = new Color(.88f, .92f, .96f);
+            roofCladdingMaterial.mainTexture = texture;
+            if (roofCladdingMaterial.HasProperty("_BaseMap")) roofCladdingMaterial.SetTexture("_BaseMap", texture);
+            if (roofCladdingMaterial.HasProperty("_Smoothness")) roofCladdingMaterial.SetFloat("_Smoothness", .08f);
+            return roofCladdingMaterial;
         }
 
         /// <summary>
@@ -184,7 +356,7 @@ namespace Hotdrop.Map
             );
 
             var renderer = ground.GetComponent<Renderer>();
-            if (groundMaterial != null) renderer.material = groundMaterial;
+            if (groundMaterial != null) renderer.sharedMaterial = DeckMaterial();
 
             // Add collider (Plane already has MeshCollider)
             ground.layer = LayerMask.NameToLayer("Ground");
@@ -212,7 +384,7 @@ namespace Hotdrop.Map
             // Concrete, not team colour: a saturated floor fills the screen and hides players.
             floor.transform.localPosition = new Vector3(0, mapConfig.groundLevelY + 0.01f, 0);
             floor.transform.localScale = new Vector3(size.x, 0.02f, size.y);
-            floor.GetComponent<Renderer>().material = groundMaterial;
+            floor.GetComponent<Renderer>().sharedMaterial = DeckMaterial();
 
             // Mirrored front with exactly three four-metre exits toward the arena.
             float facing = teamId == 0 ? -1f : 1f;
@@ -411,7 +583,7 @@ namespace Hotdrop.Map
             blocker.transform.localScale = new Vector3(width, height, depth);
 
             var renderer = blocker.GetComponent<Renderer>();
-            if (coverMaterial != null) renderer.material = coverMaterial;
+            if (coverMaterial != null) renderer.sharedMaterial = CladdingMaterial();
 
             blocker.layer = LayerMask.NameToLayer("Cover");
         }
@@ -443,7 +615,7 @@ namespace Hotdrop.Map
                     breaker.transform.localScale = new Vector3(breakerWidth, breakerHeight, breakerDepth);
 
                     var renderer = breaker.GetComponent<Renderer>();
-                    if (coverMaterial != null) renderer.material = coverMaterial;
+                    if (coverMaterial != null) renderer.sharedMaterial = CladdingMaterial();
 
                     breaker.layer = LayerMask.NameToLayer("Cover");
                 }

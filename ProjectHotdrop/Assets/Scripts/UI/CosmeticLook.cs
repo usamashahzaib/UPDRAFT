@@ -12,15 +12,67 @@ namespace Hotdrop.UI
     public static class CosmeticLook
     {
         public const string PrefKey = "EquippedCosmetic";
+        public const string WrapPrefKey = "EquippedWeaponWrap";
+        public const string BadgePrefKey = "EquippedBadge";
         const string RootName = "Cosmetic";
 
         static readonly Dictionary<string, Material> materials = new Dictionary<string, Material>();
 
-        /// <summary>The locally equipped cosmetic (cached from the profile / last successful equip).</summary>
+        /// <summary>Amendment 3: the equipped body style (legacy single slot, kept as an adapter).</summary>
         public static string LocalEquipped
         {
             get => PlayerPrefs.GetString(PrefKey, "");
             set { PlayerPrefs.SetString(PrefKey, value ?? ""); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>Amendment 3: independent slots, so a body style, weapon wrap and badge coexist.</summary>
+        public static string LocalWrap
+        {
+            get => PlayerPrefs.GetString(WrapPrefKey, "");
+            set { PlayerPrefs.SetString(WrapPrefKey, value ?? ""); PlayerPrefs.Save(); }
+        }
+
+        public static string LocalBadge
+        {
+            get => PlayerPrefs.GetString(BadgePrefKey, "");
+            set { PlayerPrefs.SetString(BadgePrefKey, value ?? ""); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>Everything a remote viewer should see: body | wrap | badge.</summary>
+        public static string LocalComposite => string.Join("|", LocalEquipped, LocalWrap, LocalBadge);
+
+        /// <summary>One player's equipped look. Any part may be empty.</summary>
+        public readonly struct Look
+        {
+            public Look(string bodyStyle, string weaponWrap, string badge, string bodyRig)
+            {
+                BodyStyle = bodyStyle ?? ""; WeaponWrap = weaponWrap ?? "";
+                Badge = badge ?? ""; BodyRig = bodyRig ?? "";
+            }
+            public string BodyStyle { get; }
+            public string WeaponWrap { get; }
+            public string Badge { get; }
+            public string BodyRig { get; }
+            public string Composite => string.Join("|", BodyStyle, WeaponWrap, Badge, BodyRig);
+        }
+
+        /// <summary>Parses "body | wrap | badge | rig". Unknown and empty parts are ignored,
+        /// so a legacy single cosmetic id still parses as a body style.</summary>
+        public static Look Parse(string composite)
+        {
+            string body = "", wrap = "", badge = "", rig = "";
+            if (!string.IsNullOrEmpty(composite))
+                foreach (var raw in composite.Split('|'))
+                {
+                    string id = raw.Trim();
+                    if (id.Length == 0) continue;
+                    if (id.StartsWith("body_") || id.EndsWith("_body")) { if (body.Length == 0) body = id; }
+                    else if (id.StartsWith("wrap_") || id.EndsWith("_wrap")) wrap = id;
+                    else if (id.StartsWith("badge_") || id.EndsWith("_badge")) badge = id;
+                    else if (id.StartsWith("rig_")) rig = id;
+                    else if (body.Length == 0) body = id; // legacy single-slot value
+                }
+            return new Look(body, wrap, badge, rig);
         }
 
         public static string DisplayName(string id)
@@ -33,12 +85,16 @@ namespace Hotdrop.UI
             return kind switch { "body" => "Body style: " + name, "wrap" => "Weapon wrap: " + name, "badge" => "Badge: " + name, _ => name };
         }
 
-        /// <summary>Short badge tag for name plates ("" when the cosmetic is not a badge).</summary>
-        public static string BadgeTag(string id) =>
-            id != null && id.StartsWith("badge_") && id != "badge_rookie" ? "◆" + id.Substring(6).ToUpperInvariant() : "";
+        /// <summary>Short badge tag for name plates ("" when the equipped badge is the default).</summary>
+        public static string BadgeTag(string badgeId) =>
+            badgeId != null && badgeId.StartsWith("badge_") && badgeId != "badge_rookie" ? "◆" + badgeId.Substring(6).ToUpperInvariant() : "";
 
-        /// <summary>Applies <paramref name="id"/> to an avatar visual root (body parts + a child named "Gun").</summary>
-        public static void Apply(Transform visualRoot, string id)
+        /// <summary>Applies <paramref name="id"/> to an avatar visual root. Accepts a single
+        /// cosmetic id or a "body|wrap|badge|rig" composite.</summary>
+        public static void Apply(Transform visualRoot, string id) => Apply(visualRoot, Parse(id));
+
+        /// <summary>Applies every equipped slot at once, so identity is never one-of-N.</summary>
+        public static void Apply(Transform visualRoot, Look look)
         {
             if (visualRoot == null) return;
             var old = visualRoot.Find(RootName);
@@ -55,11 +111,12 @@ namespace Hotdrop.UI
                 if (renderer != null)
                 {
                     if (!gunDefaults.ContainsKey(renderer)) gunDefaults[renderer] = renderer.sharedMaterial;
-                    renderer.sharedMaterial = id != null && id.StartsWith("wrap_") && id != "wrap_standard"
-                        ? Material(id, WrapColour(id)) : gunDefaults[renderer];
+                    renderer.sharedMaterial = ActiveWrap(look.WeaponWrap)
+                        ? Material(look.WeaponWrap, WrapColour(look.WeaponWrap)) : gunDefaults[renderer];
                 }
             }
-            if (string.IsNullOrEmpty(id) || !id.StartsWith("body_") || id == "body_standard") return;
+            string id = look.BodyStyle;
+            if (string.IsNullOrEmpty(id) || !(id.StartsWith("body_") || id.EndsWith("_body")) || id == "body_standard") return;
 
             var root = new GameObject(RootName).transform;
             root.SetParent(visualRoot, false);
@@ -84,9 +141,17 @@ namespace Hotdrop.UI
 
         static readonly Dictionary<Renderer, Material> gunDefaults = new Dictionary<Renderer, Material>();
 
-        /// <summary>The weapon-wrap material for <paramref name="id"/>, or null when it is not a wrap.</summary>
-        public static Material WrapMaterialFor(string id) =>
-            id != null && id.StartsWith("wrap_") && id != "wrap_standard" ? Material(id, WrapColour(id)) : null;
+        /// <summary>A wrap is only "active" when it is not the default blank wrap.</summary>
+        static bool ActiveWrap(string id) =>
+            id != null && (id.StartsWith("wrap_") || id.EndsWith("_wrap")) && id != "wrap_standard";
+
+        /// <summary>The weapon-wrap material for <paramref name="id"/>, or null when it is not a wrap.
+        /// Accepts a single id or a composite, so callers can pass the whole look.</summary>
+        public static Material WrapMaterialFor(string id)
+        {
+            string wrap = Parse(id).WeaponWrap;
+            return ActiveWrap(wrap) ? Material(wrap, WrapColour(wrap)) : null;
+        }
 
         static Color BodyColour(string id) => id switch
         {

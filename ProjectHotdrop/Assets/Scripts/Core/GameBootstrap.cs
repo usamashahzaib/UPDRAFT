@@ -169,7 +169,11 @@ namespace Hotdrop.Core
         float nextErrorReport;
         int errorsThisSession;
 
-        // client_error feeds the crash-free KPI; capped so a looping error cannot flood the queue.
+        // C13: client_error is an ERROR event, not a crash. A caught exception or a logged error
+        // is not a process death, so it must never be counted toward a crash-free KPI. Crash and
+        // ANR rates come from Google Play vitals (users-crashed / users-ANR), which measure real
+        // process terminations. This is an error-rate signal only; capped so a looping error
+        // cannot flood the queue.
         void ReportClientError(string condition, string stackTrace, LogType type)
         {
             if (type != LogType.Exception && type != LogType.Error) return;
@@ -252,6 +256,8 @@ namespace Hotdrop.Core
 
         public void StartTutorial()
         {
+            GetComponent<OfflineChallengeRuntime>()?.Leave();
+            matchController?.StopOfflinePractice();
             GetComponent<OfflineHomeScreen>()?.Hide();
             touchInput.enabled = true;
             // Find or create TutorialController
@@ -285,11 +291,22 @@ namespace Hotdrop.Core
             tutorial.botFightPosition = GameObject.Find("TutorialBotFight")?.transform;
 
             tutorial.OnTutorialComplete += OnTutorialComplete;
-            tutorial.tutorialUI = TutorialUI.CreateView(matchHUD.transform, tutorial);
+            // CreateView builds a brand-new card every call and nothing removed the previous one,
+            // so a second entry stacked a second card directly on top of this one. Proved in the
+            // 04_training parity capture: two "Training instruction" Graphics at the same rect
+            // (Unity draw depths -11 and -16), and the upper card's 93%-opaque plate composited
+            // over the lower card's caption, leaving "Move to the marker using the left joystick"
+            // at luma 39 against a plate of luma 20 - unreadable, while SKIP on the same card
+            // rendered pure white. Reachable by a player: first run auto-starts the tutorial, and
+            // Home > More > TRAINING starts it again. Reuse the view the controller already owns.
+            if (tutorial.tutorialUI == null)
+                tutorial.tutorialUI = TutorialUI.CreateView(matchHUD.transform, tutorial);
         }
 
         public void StartOfflinePractice()
         {
+            GetComponent<OfflineChallengeRuntime>()?.Leave();
+            FindFirstObjectByType<TutorialController>()?.Shutdown();
             GetComponent<OfflineHomeScreen>()?.Hide();
             touchInput.enabled = true;
             if (matchController != null)
@@ -313,6 +330,7 @@ namespace Hotdrop.Core
 
         public void ReturnToHome()
         {
+            GetComponent<OfflineChallengeRuntime>()?.Leave();
             TelemetryUploader.Kick(); // QA-027
             FindFirstObjectByType<TutorialController>()?.Shutdown();
             matchController?.StopOfflinePractice();
@@ -321,6 +339,16 @@ namespace Hotdrop.Core
             var home = GetComponent<OfflineHomeScreen>();
             if (home == null) home = gameObject.AddComponent<OfflineHomeScreen>();
             home.Show(this);
+        }
+
+        public void OpenOfflineLibrary()
+        {
+            FindFirstObjectByType<TutorialController>()?.Shutdown();
+            matchController?.StopOfflinePractice();
+            matchHUD?.HideAllPanels();
+            var challenges = GetComponent<OfflineChallengeRuntime>();
+            if (challenges == null) challenges = gameObject.AddComponent<OfflineChallengeRuntime>();
+            challenges.OpenLibrary();
         }
 
         public void QuitApplication()

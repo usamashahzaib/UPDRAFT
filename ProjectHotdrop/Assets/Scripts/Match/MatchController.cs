@@ -12,9 +12,9 @@ namespace Hotdrop.Match
 {
     /// <summary>
     /// Orchestrates the complete match loop per spec section 5:
-    /// Home → Play/Party → Matchmaking → Server reservation → Load →
-    /// 8s prep (weapon select, objective shown, spawn-locked, no damage, no pads) →
-    /// 3s countdown → Match → Results → Play again/Home.
+    /// Home â†’ Play/Party â†’ Matchmaking â†’ Server reservation â†’ Load â†’
+    /// 8s prep (weapon select, objective shown, spawn-locked, no damage, no pads) â†’
+    /// 3s countdown â†’ Match â†’ Results â†’ Play again/Home.
     /// This is the offline practice version; networked version uses Fusion.
     /// </summary>
     public class MatchController : MonoBehaviour, IMatchView
@@ -92,6 +92,9 @@ namespace Hotdrop.Match
 
         public void StartOfflinePractice(int botCount = 5, int humanTeam = 0)
         {
+            // A local drill or network presenter may have replaced the read-only view.
+            // Re-register on every practice start, not just the scene's first OnEnable.
+            MatchView.Register(this);
             if (allPlayers.Count > 0) return;
             isOfflinePractice = true;
             localPlayerTeam = humanTeam;
@@ -170,7 +173,10 @@ namespace Hotdrop.Match
                 // Setup
                 WeaponDefinition weapon = weaponDefinitions[Random.Range(0, weaponDefinitions.Length)];
                 int playerId = allPlayers.Count + 1;
-                bool easyDifficulty = (teamId == localPlayerTeam); // easy bots on player's team
+                // Spec 12 / C09: bots are driven by the same rules on both teams. Offline practice
+                // no longer secretly weakens the player's own teammates; difficulty is a real,
+                // visible choice rather than a hidden buff. Standard reaction delay is the default.
+                bool easyDifficulty = false;
 
                 botController.Initialize(playerId, teamId, weapon, easyDifficulty);
                 playerController.IsBot = true;
@@ -525,8 +531,18 @@ namespace Hotdrop.Match
                 ("localZoneSeconds", localPlayer.ObjectiveSeconds), ("localPadLaunches", localPlayer.PadLaunches),
                 ("localWeapon", localPlayer.CurrentWeapon.id.ToString()), ("padsPlaced", padsPlaced), ("padsUsed", padsUsed),
                 ("padsEnabled", Hotdrop.Core.StudySettings.PadsEnabled));
-            matchHUD?.ShowResults(isWin, isDraw, scoringController.ScoreA, scoringController.ScoreB, allPlayers,
-                "OFFLINE PRACTICE  ·  NO RATING OR CURRENCY");
+            string endCondition = scoringController.EndReason switch
+            {
+                MatchEndReason.ScoreLimit => "SCORE LIMIT",
+                MatchEndReason.OvertimeHold => "OVERTIME HOLD",
+                MatchEndReason.OvertimeDraw => "OVERTIME DRAW",
+                _ => "TIME",
+            };
+
+            matchHUD?.ShowResults(isWin, isDraw, scoringController.ScoreA, scoringController.ScoreB, endCondition, allPlayers,
+                "LOCAL PRACTICE — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY",
+                // Amendment 1: tell the player the next reachable goal, not just the result.
+                Hotdrop.Core.NextGoal.Short(Hotdrop.Core.GameBootstrap.Instance != null ? Hotdrop.Core.GameBootstrap.Instance.gameObject : null));
 
             OnMatchEnded?.Invoke(outcome, scoringController.ScoreA, scoringController.ScoreB);
         }

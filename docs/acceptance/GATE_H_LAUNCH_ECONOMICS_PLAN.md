@@ -18,7 +18,7 @@ cohorts, duplicates, stale builds) apply to every balance/retention metric below
 |---|---|---|
 | Human/bot mix | `MatchmakingTicket.HasBots`, client envelope `botSubstituted`/`botCount`, server match facts | Share of public matches bot-filled; share of slots that are bots; substitution rate. Reported per scheduled window. Bot-filled matches stay excluded from balance/ELO conclusions. |
 | Queues | Ticket `EnqueuedAt`→matched | Median + IQR during scheduled windows; share >45 s and >60 s; cancelled-queue share. The 45 s fill threshold is only revisited with this evidence plus the D-plan retention split. |
-| Crashes | `client_error` + device-manifest ANRs | Crash-free session rate per device tier, RC build only, per G-G plan §3 definitions. |
+| Crashes | Google Play vitals (`users-crashed`, `users-ANR`) | Crash-free session rate per device tier, RC build only, per G-G plan §3 definitions. The client `client_error` event records caught exceptions/logged errors and is *not* a crash; it is tracked as a separate error-rate metric and never substituted here. |
 | Rematches | `results_play_again_clicked` ÷ completed-match results views | Voluntary instant rematch rate ≥ 50% threshold from `KpiGateConfig`; per cohort. |
 | D1/D7 (later D30) | `AnalyticsDailyPresence` (post-ingestion-fix) | Spec §167 windows from `first_open` anchor; never projected from shorter windows; per-cohort split incl. tutorial completers; n ≥ 30 per cell. |
 | Purchase reliability | `PurchaseTransaction` statuses + `purchase_started`/`purchase_verified` | Verified ÷ started; pending-resolution time; duplicate/refund/revocation handling rates. **Blocked until the Gate F verification TODO and RTDN path exist** — no reliability number can be produced from a stub. |

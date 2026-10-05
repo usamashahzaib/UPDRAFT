@@ -118,6 +118,16 @@ namespace Hotdrop.Tests
             Assert.AreEqual(0, presentation.GetComponentsInChildren<Collider>(true).Length,
                 "presentation dressing must not create cover, routes, hit surfaces, or change zone occupation");
         }
+
+        [Test]
+        public void RooftopPresentation_LeavesCompetitiveGeometryUntouched()
+        {
+            var dressing = root.transform.Find("Rooftop visual dressing (no collision)");
+            Assert.IsNotNull(dressing);
+            Assert.Greater(dressing.childCount, 40, "the roof needs visible deck and city details");
+            Assert.AreEqual(0, dressing.GetComponentsInChildren<Collider>(true).Length,
+                "roof dressing must not change navigation, cover, or hit surfaces");
+        }
     }
 }
 

@@ -56,7 +56,7 @@ namespace Hotdrop.Config
         public ChallengeChapter chapter;         // FirstFlight, RooftopOperator, RelayCaptain
         public int indexInChapter;               // 0..3
         public ChallengeObjectiveType objectiveType;
-        public int version = 1;
+        public int version = 2;
 
         [Header("Objective Requirements")]
         public float timeLimitSeconds;           // Max allowed time (0 = no limit)
@@ -64,6 +64,21 @@ namespace Hotdrop.Config
         public int defaultWeaponIndex = 0;       // Weapon index (0 = ARC, 1 = Pulser, 2 = Scatter)
         public int botCount = 0;                 // Number of enemy bots spawned
         public float requiredAccuracy = 0f;      // Required minimum accuracy percentage (0..100)
+        public string difficulty = "Standard";
+        public Vector3 startPosition = new Vector3(0, .05f, 14);
+        public float startYaw = 180;
+        public Vector3[] routePoints = new[] { new Vector3(12, .05f, 20), new Vector3(-10, .05f, 5), Vector3.zero };
+        public Vector3 padPosition = new Vector3(-10, .05f, 5);
+        public Vector3 landingPosition = new Vector3(-20, 3, 14);
+        public float checkpointRadius = 2f;
+        public float landingRadius = 4f;
+        public float holdSeconds = 15f;
+        public Vector3[] targetPositions = new[]
+        {
+            new Vector3(-6, 1, 8), new Vector3(-2, 1, 8), new Vector3(2, 1, 8), new Vector3(6, 1, 8)
+        };
+        public float movingTargetDistance = 2f;
+        public float movingTargetSpeed = 1.5f;
 
         [Header("Tuning & Medals")]
         public bool isTuned = false;             // Untuned entries marked for dev tuning only
@@ -82,40 +97,26 @@ namespace Hotdrop.Config
                 return ChallengeMedal.Bronze;
             }
 
-            // Check Gold conditions
-            bool qualifiesGold = false;
-            if (medalThresholds.goldTimeSeconds > 0f && completionTime <= medalThresholds.goldTimeSeconds)
-            {
-                qualifiesGold = true;
-            }
-            if (medalThresholds.goldScore > 0f && score >= medalThresholds.goldScore)
-            {
-                qualifiesGold = true;
-            }
-
-            if (qualifiesGold) return ChallengeMedal.Gold;
-
-            // Check Silver conditions
-            bool qualifiesSilver = false;
-            if (medalThresholds.silverTimeSeconds > 0f && completionTime <= medalThresholds.silverTimeSeconds)
-            {
-                qualifiesSilver = true;
-            }
-            if (medalThresholds.silverScore > 0f && score >= medalThresholds.silverScore)
-            {
-                qualifiesSilver = true;
-            }
-
-            if (qualifiesSilver) return ChallengeMedal.Silver;
+            if (Qualifies(medalThresholds.goldTimeSeconds, medalThresholds.goldScore,
+                medalThresholds.goldAccuracy, completionTime, score, accuracyPercent)) return ChallengeMedal.Gold;
+            if (Qualifies(medalThresholds.silverTimeSeconds, medalThresholds.silverScore,
+                medalThresholds.silverAccuracy, completionTime, score, accuracyPercent)) return ChallengeMedal.Silver;
 
             return ChallengeMedal.Bronze;
+        }
+
+        static bool Qualifies(float time, float score, float accuracy, float elapsed, float actualScore, float actualAccuracy)
+        {
+            return (time > 0 || score > 0 || accuracy > 0) &&
+                (time <= 0 || elapsed <= time) && (score <= 0 || actualScore >= score) &&
+                (accuracy <= 0 || actualAccuracy >= accuracy);
         }
     }
 
     [CreateAssetMenu(fileName = "OfflineChallengeConfig", menuName = "Hotdrop/Config/Offline Challenge Config")]
     public class OfflineChallengeConfig : ScriptableObject
     {
-        public int configVersion = 1;
+        public int configVersion = 2;
         public List<OfflineChallengeEntry> entries = new List<OfflineChallengeEntry>();
 
         public OfflineChallengeEntry GetChallengeById(string id)
@@ -127,7 +128,9 @@ namespace Hotdrop.Config
         public List<OfflineChallengeEntry> GetChallengesForChapter(ChallengeChapter chapter)
         {
             if (entries == null) return new List<OfflineChallengeEntry>();
-            return entries.FindAll(e => e.chapter == chapter);
+            var result = entries.FindAll(e => e.chapter == chapter);
+            result.Sort((a, b) => a.indexInChapter.CompareTo(b.indexInChapter));
+            return result;
         }
 
         /// <summary>
@@ -136,14 +139,14 @@ namespace Hotdrop.Config
         public static OfflineChallengeConfig CreateDefaultAuthoredConfig()
         {
             var config = CreateInstance<OfflineChallengeConfig>();
-            config.configVersion = 1;
+            config.configVersion = 2;
             config.entries = GetAuthoredEntries();
             return config;
         }
 
         public static List<OfflineChallengeEntry> GetAuthoredEntries()
         {
-            return new List<OfflineChallengeEntry>
+            var entries = new List<OfflineChallengeEntry>
             {
                 // Chapter 1: First Flight
                 new OfflineChallengeEntry
@@ -196,6 +199,10 @@ namespace Hotdrop.Config
                     chapter = ChallengeChapter.FirstFlight,
                     indexInChapter = 3,
                     objectiveType = ChallengeObjectiveType.SafeLanding,
+                    landingRadius = 2f,
+                    // Authored touchdown area on the near half of the north-west deck;
+                    // not the point reached after sliding along the deck after first contact.
+                    landingPosition = new Vector3(-18, 3, 12),
                     timeLimitSeconds = 90f,
                     targetCount = 1,
                     defaultWeaponIndex = 0,
@@ -236,7 +243,7 @@ namespace Hotdrop.Config
                 {
                     id = "ch_reload_discipline",
                     title = "Reload Discipline",
-                    description = "Eliminate targets while maintaining clean magazine reload timing.",
+                    description = "Eliminate 3 targets and complete a magazine reload during the drill.",
                     chapter = ChallengeChapter.RooftopOperator,
                     indexInChapter = 2,
                     objectiveType = ChallengeObjectiveType.ReloadDiscipline,
@@ -250,10 +257,11 @@ namespace Hotdrop.Config
                 {
                     id = "ch_launch_and_hit",
                     title = "Launch and Hit",
-                    description = "Launch from a pad and strike a target while airborne or immediately on landing.",
+                    description = "Launch from a pad and eliminate 2 targets while airborne. Grounded hits do not count.",
                     chapter = ChallengeChapter.RooftopOperator,
                     indexInChapter = 3,
                     objectiveType = ChallengeObjectiveType.LaunchAndHit,
+                    targetPositions = new[] { new Vector3(-24, 3, 18), new Vector3(-16, 3, 18) },
                     timeLimitSeconds = 60f,
                     targetCount = 2,
                     defaultWeaponIndex = 0,
@@ -301,6 +309,7 @@ namespace Hotdrop.Config
                     timeLimitSeconds = 120f,
                     targetCount = 2,
                     botCount = 2,
+                    difficulty = "Easy",
                     defaultWeaponIndex = 0,
                     isTuned = true,
                     medalThresholds = new ChallengeMedalThresholds { thresholdsValidated = false }
@@ -313,7 +322,8 @@ namespace Hotdrop.Config
                     chapter = ChallengeChapter.RelayCaptain,
                     indexInChapter = 3,
                     objectiveType = ChallengeObjectiveType.CompleteOfflineRelay,
-                    timeLimitSeconds = 180f,
+                    // Real Relay decides completion, including preparation, countdown and overtime.
+                    timeLimitSeconds = 0f,
                     targetCount = 1,
                     botCount = 5,
                     defaultWeaponIndex = 0,
@@ -321,6 +331,43 @@ namespace Hotdrop.Config
                     medalThresholds = new ChallengeMedalThresholds { thresholdsValidated = false }
                 }
             };
+            ApplyAuthoredMedalThresholds(entries);
+            return entries;
+        }
+
+        /// <summary>
+        /// Amendment 4C: each challenge has an authored Silver/Gold path so a completed
+        /// challenge still gives the player something to chase. These are initial authored
+        /// values (route-feasible, not arbitrarily large) and are versioned with the entry;
+        /// tune them from real completion distributions before treating them as final.
+        /// Completion always earns Bronze; a player must beat the same challenge version,
+        /// control preset and difficulty to improve a medal.
+        /// </summary>
+        static void ApplyAuthoredMedalThresholds(List<OfflineChallengeEntry> entries)
+        {
+            foreach (var e in entries)
+            {
+                // time-based movement drills
+                e.medalThresholds = e.id switch
+                {
+                    "ch_basic_route" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 45f, goldTimeSeconds = 30f },
+                    "ch_own_pad_route" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 30f, goldTimeSeconds = 18f },
+                    "ch_enemy_pad_route" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 30f, goldTimeSeconds = 18f },
+                    "ch_safe_landing" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 28f, goldTimeSeconds = 16f },
+                    // accuracy/time gunnery drills
+                    "ch_stationary_targets" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 35f, goldTimeSeconds = 22f, silverAccuracy = 55f, goldAccuracy = 80f },
+                    "ch_moving_targets" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 40f, goldTimeSeconds = 25f, silverAccuracy = 45f, goldAccuracy = 70f },
+                    "ch_reload_discipline" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 40f, goldTimeSeconds = 26f, silverAccuracy = 50f, goldAccuracy = 75f },
+                    "ch_launch_and_hit" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 45f, goldTimeSeconds = 28f, silverAccuracy = 40f, goldAccuracy = 65f },
+                    // objective drills
+                    "ch_capture_one_zone" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 40f, goldTimeSeconds = 24f },
+                    "ch_rotate_between_zones" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 75f, goldTimeSeconds = 50f },
+                    "ch_defend_against_bots" => new ChallengeMedalThresholds { thresholdsValidated = true, silverTimeSeconds = 70f, goldTimeSeconds = 45f, silverAccuracy = 40f, goldAccuracy = 65f },
+                    "ch_complete_offline_relay" => new ChallengeMedalThresholds { thresholdsValidated = true, silverScore = 60f, goldScore = 90f },
+                    _ => e.medalThresholds,
+                };
+                e.isTuned = true;
+            }
         }
     }
 }

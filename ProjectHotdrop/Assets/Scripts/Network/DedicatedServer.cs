@@ -128,11 +128,43 @@ namespace Hotdrop.Network
                     Won = won,
                     Eligible = match.IsEligible(p),
                     HadBotSubstitution = p.HadBotSubstitution,
+                    // C04: the server's own bounded facts (eligible players only; the backend
+                    // re-checks eligibility before advancing any progress).
+                    ProgressFacts = match.IsEligible(p) ? BuildProgressFacts(match, p) : null,
                     Team = p.Team == 0 ? "A" : "B",
                     Slot = p.Slot, // QA-025: lets players report someone by what they saw in-match
                 });
             }
             return result;
+        }
+
+        /// <summary>
+        /// C04: bounded per-player facts a client can never fabricate. Occupation time counts
+        /// only for the sole occupying team; a human-teammate pad use is attributed to the
+        /// pad's owner only when a different, real human teammate used it; the weapon is
+        /// whichever the player actually held longest.
+        /// </summary>
+        static ProgressFactsDto BuildProgressFacts(NetMatch match, NetPlayer owner)
+        {
+            var uses = new List<PadTeammateUseDto>();
+            if (!string.IsNullOrEmpty(owner.AccountId))
+            {
+                var seen = new HashSet<string>();
+                foreach (var e in match.ServerPadEvents)
+                {
+                    if (e.name != "pad_used" || e.ownerSlot != owner.Slot || e.slot == owner.Slot || e.team != owner.Team) continue;
+                    var user = NetPlayer.All.Find(x => x.Runner == match.Runner && x.Slot == e.slot);
+                    if (user == null || user.BotControlled || string.IsNullOrEmpty(user.AccountId)) continue;
+                    if (seen.Add(user.AccountId))
+                        uses.Add(new PadTeammateUseDto { PadOwnerPlayerId = owner.AccountId, TeammatePlayerId = user.AccountId, TeammateIsHuman = true });
+                }
+            }
+            return new ProgressFactsDto
+            {
+                ValidUncontestedOccupationSeconds = Mathf.RoundToInt(owner.UncontestedZoneSeconds),
+                MajorityEquippedWeapon = owner.MajorityWeaponId(),
+                HumanTeammatePadUses = uses.ToArray(),
+            };
         }
 
         /// <summary>Spec 4/19: a cancelled or crashed match grants nothing and never changes rating.</summary>

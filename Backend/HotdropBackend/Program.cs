@@ -44,6 +44,7 @@ var progressionOptions = new ProgressionOptions();
 builder.Configuration.GetSection("Progression").Bind(progressionOptions);
 builder.Services.AddSingleton(progressionOptions);
 builder.Services.AddSingleton<MatchResultProcessor>();
+builder.Services.AddSingleton<ContractsMasteryService>();
 
 var allocatorOptions = new AllocatorOptions();
 builder.Configuration.GetSection("Allocator").Bind(allocatorOptions);
@@ -138,6 +139,7 @@ app.MapProfileEndpoints();
 app.MapPartyEndpoints();
 app.MapMatchmakingEndpoints();
 app.MapMatchEndpoints();
+app.MapContractsMasteryEndpoints();
 app.MapCommerceEndpoints();
 app.MapSupportEndpoints();
 app.MapAnalyticsEndpoints();

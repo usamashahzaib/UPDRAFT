@@ -28,6 +28,7 @@ namespace Hotdrop.Tests.PlayMode
         float scale;
         RectTransform canvasRect;
         readonly List<string> failures = new List<string>();
+        string challengeSavePath;
 
         [UnitySetUp]
         public IEnumerator LoadHome()
@@ -38,12 +39,22 @@ namespace Hotdrop.Tests.PlayMode
             PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
             yield return null;
+            var startup = GameBootstrap.Instance.GetComponent<StartupConnectionScreen>();
+            Assert.IsNotNull(startup);
+            startup.Continue();
+            yield return null;
             PinCanvasToReferencePhone();
             yield return Settle();
         }
 
         [TearDown]
-        public void Restore() { Time.timeScale = 1f; }
+        public void Restore()
+        {
+            Time.timeScale = 1f;
+            if (challengeSavePath != null)
+                foreach (string suffix in new[] { "", ".tmp", ".bak" })
+                    if (System.IO.File.Exists(challengeSavePath + suffix)) System.IO.File.Delete(challengeSavePath + suffix);
+        }
 
         void PinCanvasToReferencePhone()
         {
@@ -128,6 +139,12 @@ namespace Hotdrop.Tests.PlayMode
             game.GetComponent<OfflinePauseMenu>().OpenSettings();
             yield return Settle();
             Check("Settings");
+            foreach (string tab in new[] { "GRAPHICS", "AUDIO", "ACCESSIBILITY", "ACCOUNT / SUPPORT", "CONTROLS" })
+            {
+                GameObject.Find("SettingsTab_" + tab).GetComponent<Button>().onClick.Invoke();
+                yield return Settle();
+                Check("Settings/" + tab);
+            }
             game.GetComponent<OfflinePauseMenu>().Close();
             yield return Settle();
 
@@ -143,6 +160,22 @@ namespace Hotdrop.Tests.PlayMode
             Check("Party/Entry");
             typeof(PlayerProductScreens).GetMethod("Close", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
             yield return Settle();
+
+            game.OpenOfflineLibrary();
+            var challenges = game.GetComponent<OfflineChallengeRuntime>().Controller;
+            challengeSavePath = System.IO.Path.Combine(Application.temporaryCachePath, "physical_challenge_" + System.Guid.NewGuid().ToString("N") + ".json");
+            challenges.customSavePath = challengeSavePath;
+            challenges.InitializeController();
+            yield return Settle(); Check("Challenges/Library");
+            challenges.SelectChallenge("ch_basic_route");
+            yield return Settle(); Check("Challenges/Detail");
+            challenges.StartChallenge("ch_basic_route");
+            yield return Settle(); Check("Challenges/Gameplay");
+            challenges.PauseChallenge();
+            yield return Settle(); Check("Challenges/Pause");
+            challenges.UnpauseChallenge(); challenges.CompleteChallenge(false);
+            yield return Settle(); Check("Challenges/FailedResult");
+            game.ReturnToHome();
 
             AssertClean();
         }
@@ -178,7 +211,7 @@ namespace Hotdrop.Tests.PlayMode
             game.GetComponent<OfflinePauseMenu>().Close();
             yield return Settle();
 
-            game.matchHUD.ShowResults(true, false, 120, 87, MatchView.Current?.Participants, "OFFLINE PRACTICE  ·  NO RATING OR CURRENCY");
+            game.matchHUD.ShowResults(true, false, 120, 87, null, MatchView.Current?.Participants, "OFFLINE PRACTICE  ·  NO RATING OR CURRENCY");
             yield return Settle();
             Check("Results");
 

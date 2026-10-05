@@ -1,7 +1,7 @@
 # Gate C Acceptance Record — Network Slice
 
 **Project:** HOTDROP  
-**Specification:** `ProjectUpdraft/PROJECT_HOTDROP_SPEC.md`, v1.0, §§4, 10, 20–23, 26, 28–29, 31–33  
+**Specification:** `ProjectHotdrop/PROJECT_UPDRAFT_SPEC.md`, v1.0, §§4, 10, 20–23, 26, 28–29, 31–33  
 **Gate:** C — dedicated server, six clients, scoring, reconnect  
 **Audit date:** 2026-09-28  
 **Result:** **NOT ACCEPTED — implementation evidence is partial; real multiplayer acceptance is blocked.** No Gate C pass is claimed.
@@ -47,14 +47,14 @@
 Run backend tests from the repository root:
 
 ```powershell
-dotnet test Backend/UpdraftBackend.Tests/UpdraftBackend.Tests.csproj --no-restore
+dotnet test Backend/HotdropBackend.Tests/HotdropBackend.Tests.csproj --no-restore
 ```
 
 Run Unity tests after confirming the Editor is closed for this project:
 
 ```powershell
-ProjectUpdraft/Run-UnityTests.ps1 -Platform EditMode
-ProjectUpdraft/Run-UnityTests.ps1 -Platform PlayMode
+powershell -ExecutionPolicy Bypass -File ProjectHotdrop/Run-UnityTests.ps1 -Platform EditMode
+powershell -ExecutionPolicy Bypass -File ProjectHotdrop/Run-UnityTests.ps1 -Platform PlayMode
 ```
 
 Build the Linux Dedicated Server player with Unity 6.3.25f1 and Linux Dedicated Server Build Support installed (run only when no Editor owns the project):

@@ -11,7 +11,12 @@ namespace Hotdrop.Network
     [Serializable] public class ClaimedPlayerDto { public string playerId; public string team; public string alias; public string cosmetic; }
     [Serializable] public class ClaimDto { public string matchId; public string session; public string region; public bool hasBots; public List<ClaimedPlayerDto> players; }
     [Serializable] public class TicketCheckDto { public string playerId; public string matchId; public string team; public string alias; }
-    [Serializable] public class ResultParticipantDto { public string PlayerId; public bool Won; public bool Eligible; public bool HadBotSubstitution; public string Team; public int Slot = -1; }
+    // C04: bounded, server-computed progress facts. Contracts/mastery advance only from these
+    // authenticated facts; the backend validates them against the allocated roster and match
+    // bounds, so a client can never fabricate progress.
+    [Serializable] public class PadTeammateUseDto { public string PadOwnerPlayerId; public string TeammatePlayerId; public bool TeammateIsHuman; }
+    [Serializable] public class ProgressFactsDto { public int ValidUncontestedOccupationSeconds; public string MajorityEquippedWeapon; public PadTeammateUseDto[] HumanTeammatePadUses; }
+    [Serializable] public class ResultParticipantDto { public string PlayerId; public bool Won; public bool Eligible; public bool HadBotSubstitution; public string Team; public int Slot = -1; public ProgressFactsDto ProgressFacts; }
     [Serializable] public class ResultDto { public bool Draw; public List<ResultParticipantDto> Participants; public bool ServerFailed; public bool HasBots; }
 
     /// <summary>

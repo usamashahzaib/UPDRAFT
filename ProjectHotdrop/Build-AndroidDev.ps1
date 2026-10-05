@@ -10,7 +10,9 @@ try {
     $env:JAVA_TOOL_OPTIONS = "$priorJavaOptions -Djdk.net.unixdomain.tmpdir=$socketPath".Trim()
     $logPath = Join-Path $projectPath 'apk_repair.log'
     $buildStarted = Get-Date
-    $process = Start-Process -FilePath $UnityPath -ArgumentList "-batchmode -nographics -projectPath `"$projectPath`" -executeMethod Hotdrop.Editor.BuildAndroidApk.Run -quit -logFile `"$logPath`"" -WindowStyle Hidden -PassThru -Wait
+    $process = Start-Process -FilePath $UnityPath -ArgumentList "-batchmode -nographics -projectPath `"$projectPath`" -executeMethod Hotdrop.Editor.BuildAndroidApk.Run -quit -logFile `"$logPath`"" -WindowStyle Hidden -PassThru
+    # Wait on the editor only, not its long-lived licensing child process.
+    $process.WaitForExit()
     $apk = Join-Path $projectPath 'Builds\Android\HotdropDev.apk'
     if ($process.ExitCode -ne 0) {
         $buildLog = Get-Content -LiteralPath $logPath -Raw
@@ -38,5 +40,6 @@ try {
         } finally { Pop-Location }
     }
     if (-not (Test-Path -LiteralPath $apk)) { throw "Unity returned without producing $apk" }
+    if ((Get-Item -LiteralPath $apk).LastWriteTime -lt $buildStarted) { throw 'No fresh APK was produced; refusing to report the older artifact as this build.' }
     Get-Item -LiteralPath $apk | Select-Object FullName, Length, LastWriteTime
 } finally { $env:JAVA_TOOL_OPTIONS = $priorJavaOptions }

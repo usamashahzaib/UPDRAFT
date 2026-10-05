@@ -51,6 +51,9 @@ Production replacements needed:
 - Environment modular pieces (~15-20): NEED ORIGINAL OR LICENSED
 
 ## TEXTURES/MATERIALS
+Home rooftop menu illustration | User-supplied `UIUX/stitch_project_continuation_hub/a_wide_landscape_cinematic_composition_of_a_near_future_rooftop_athletic_sports/screen.png` copied to `Assets/Resources/HomeRooftop.png` | User-supplied design reference | Publisher clearance pending | Not yet verified for distribution | Used only as a Home backdrop; the actual runner remains a live model preview. Replace or confirm rights before release. It is not a playable map texture or gameplay asset.
+Switchyard roof dressing | `Assets/Scripts/Map/SwitchyardGenerator.cs` | Project-original collider-free procedural geometry | Yes | Source inspected | Deck seams, parapet, vents and skyline reflect the supplied rooftop direction; no competitive geometry change.
+
 Current: Unity default materials / procedural colors
 Production: Need PBR texture sets for:
 - Character body materials (friendly/enemy/team variants)
@@ -64,6 +67,9 @@ Sources to investigate:
 - Original creation (preferred)
 
 ## ICONS/UI GRAPHICS
+2026-10-03 installed travel challenges | Assets/Scripts/Config/OfflineChallengeConfig.cs, Core/OfflineChallengeRuntime.cs, UI/OfflineChallengeScreen.cs, Core/StartupConnectionScreen.cs | Project-original authored code, shared Unity primitive prefabs, procedural UI geometry | Yes | Source inspected; device/gameplay acceptance pending | Twelve local drills use existing TutorialTarget/TutorialMarker/Player/Bot prefabs and the unchanged Switchyard. No Stitch bitmap, streamed art, paid entitlement or new third-party asset imported. Challenge/save schema v2; completion Bronze only, Silver/Gold disabled until reviewed target-device tuning. Startup route motif uses original bars/rings/diamond, not missing font glyphs. These are graybox/presentation assets, not accepted final production models or bundle contents.
+2026-10-02 menu parity pass | Assets/Scripts/UI/UIKit.cs, MenuLayout.cs, UiBorder.cs | Project-original procedural Unity UI geometry | Yes | Source inspected | Shared rounded surfaces, four-edge frames and button states; no Stitch/remote bitmap imported. Runner previews reuse AvatarRigVisual/CosmeticLook graybox models; these are not production character art. See docs/audit/UIUX_PARITY_2026-10-02.md for limitations.
+
 Current: Unity UI primitives / TextMeshPro
 Production: Need icon set for:
 - Weapon icons (3)
@@ -101,6 +107,16 @@ Milestone G (Closed Launch): ALL ASSETS MUST BE VERIFIED COMMERCIAL LICENSES
 Milestone H (Release): COMPLETE REGISTER REQUIRED FOR STORE SUBMISSION
 
 ## ACTION ITEMS
+
+### 2026-10-03 playable presentation pass
+
+The shared beveled armor mesh in `AvatarRigVisual`, capsule limbs, visor details,
+weapon-ready procedural pose, rooftop equipment face panels and safety stripes are
+original project-authored procedural geometry/code. No downloaded model, texture,
+animation or third-party license was added by this pass. Existing material colors
+were adjusted; the existing Home illustration's provenance is unchanged. These
+changes improve the prototype presentation and do not certify final production art.
+
 [ ] Select and license font (Inter/Roboto/Noto recommended)
 [ ] Create or license all audio assets (Kenney.nl CC0 as baseline)
 [ ] Create or license all VFX (original particle systems)

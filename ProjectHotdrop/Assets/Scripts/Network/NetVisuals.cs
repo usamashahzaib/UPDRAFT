@@ -22,8 +22,7 @@ namespace Hotdrop.Network
             bool friendly = MatchView.IsFriendly(player.Team);
             var material = Resources.Load<Material>(friendly ? "Materials/Friendly" : "Materials/Enemy");
             // Amendment 2: the same procedural humanoid the offline slice uses, with the
-            // networked motion component so remote players are not frozen statues. Remote
-            // body-rig replication is package 2; every online avatar renders the default rig.
+            // networked motion component so remote players are not frozen statues.
             var motion = root.gameObject.AddComponent<Hotdrop.Player.SportAvatarAnimation>();
             var parts = Hotdrop.Player.AvatarRigVisual.Build(root.gameObject, Hotdrop.Player.BodyRigs.Default,
                 material, Resources.Load<Material>("Materials/Equipment"), includeGun: true);
@@ -31,6 +30,18 @@ namespace Hotdrop.Network
             // QA-023: viewer-relative shape cue (ally orb + chest band / enemy cross + shoulder
             // spikes) so team never relies on colour alone; collider-free, under "Visual".
             Hotdrop.Player.TeamCueVisual.Apply(root, friendly, material);
+        }
+
+        /// <summary>Amendment 3: rebuild the humanoid in the player's replicated body rig.
+        /// Capsule, hitboxes and animation set are unchanged - appearance only.</summary>
+        public static void ApplyRig(Transform visualRoot, Hotdrop.Player.BodyRig rig, bool friendly)
+        {
+            if (visualRoot == null) return;
+            var material = Resources.Load<Material>(friendly ? "Materials/Friendly" : "Materials/Enemy");
+            var motion = visualRoot.GetComponent<Hotdrop.Player.SportAvatarAnimation>();
+            var parts = Hotdrop.Player.AvatarRigVisual.Rebuild(visualRoot.gameObject, rig, material,
+                Resources.Load<Material>("Materials/Equipment"), includeGun: true);
+            if (motion != null) Hotdrop.Player.AvatarRigVisual.Wire(motion, parts);
         }
 
         static void Part(Transform parent, string name, Vector3 position, Vector3 scale, Material material)

@@ -136,19 +136,26 @@ namespace Hotdrop.UI
             headerRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleLeft;
 
             var title = UIKit.Label(headerRow, "Title", "HOTDROP UI FOUNDATION — DEVELOPMENT GALLERY", UiTextRole.TitleMedium);
+            title.enableAutoSizing = true;
+            title.fontSizeMin = UiMetrics.MinTextUnits;
             var titleElement = title.gameObject.AddComponent<LayoutElement>();
             titleElement.flexibleWidth = 1f;
+            titleElement.preferredWidth = 0f;
             titleElement.minHeight = UiMetrics.MinTouchUnits;
 
             view.subtitle = UIKit.Label(headerRow, "Subtitle", AspectLabel(aspect), UiTextRole.Caption, UiTone.Objective);
             var subtitleElement = view.subtitle.gameObject.AddComponent<LayoutElement>();
-            subtitleElement.preferredWidth = UIDesignTokens.Dp(240f);
+            subtitleElement.preferredWidth = UIDesignTokens.Dp(220f);
             subtitleElement.minHeight = UiMetrics.MinTextUnits;
 
             // A safe-area root for everything below the header, so the sheet itself demonstrates
             // that controls stay clear of cutouts and the gesture area.
             var safeAreaHost = UIKit.Stretch(root, "SafeAreaHost", 0f, headerHeight, 0f, 0f);
-            var safeRoot = safeAreaHost.gameObject.AddComponent<SafeAreaRoot>();
+            // Keep the header offset on a separate host. SafeAreaRoot owns the anchors and
+            // offsets of its own RectTransform, so placing it on safeAreaHost would erase the
+            // reserved header band every time safe-area insets are reapplied.
+            var safeAreaRect = UIKit.Stretch(safeAreaHost, "SafeArea");
+            var safeRoot = safeAreaRect.gameObject.AddComponent<SafeAreaRoot>();
             safeRoot.Apply();
 
             var scrollRect = UIKit.Stretch(safeRoot.Content, "Scroll");
@@ -212,32 +219,36 @@ namespace Hotdrop.UI
         void BuildContent(RectTransform column)
         {
             Section(column, "BUTTON VARIANTS");
-            var variants = UIKit.Row(column, "Variants");
-            AddSpecimen(UIKit.Button(variants, "PRIMARY", ButtonVariant.Primary));
-            AddSpecimen(UIKit.Button(variants, "SECONDARY", ButtonVariant.Secondary));
-            AddSpecimen(UIKit.Button(variants, "QUIET", ButtonVariant.Quiet));
-            AddSpecimen(UIKit.Button(variants, "DESTRUCTIVE", ButtonVariant.Destructive));
-            AddSpecimen(UIKit.IconButton(variants, "BACK", UiGlyph.Back));
-            AddSpecimen(UIKit.IconButton(variants, "CLOSE", UiGlyph.Close));
+            // Six minimum-width controls cannot truthfully fit one 16:9 phone row. Demonstrate
+            // deliberate wrapping instead of allowing the layout group to overlap captions.
+            var variantsMain = UIKit.Row(column, "VariantsMain");
+            AddSpecimen(UIKit.Button(variantsMain, "PRIMARY", ButtonVariant.Primary));
+            AddSpecimen(UIKit.Button(variantsMain, "SECONDARY", ButtonVariant.Secondary));
+            AddSpecimen(UIKit.Button(variantsMain, "QUIET", ButtonVariant.Quiet));
+            AddSpecimen(UIKit.Button(variantsMain, "DESTRUCTIVE", ButtonVariant.Destructive));
+            var variantsIcons = UIKit.Row(column, "VariantsIcons");
+            AddSpecimen(UIKit.IconButton(variantsIcons, "BACK", UiGlyph.Back));
+            AddSpecimen(UIKit.IconButton(variantsIcons, "CLOSE", UiGlyph.Close));
 
             Section(column, "BUTTON STATES");
-            var states = UIKit.Row(column, "States");
-            AddSpecimen(UIKit.Button(states, "NORMAL", ButtonVariant.Primary));
-            var pressed = UIKit.Button(states, "PRESSED", ButtonVariant.Primary);
+            var statesA = UIKit.Row(column, "StatesA");
+            AddSpecimen(UIKit.Button(statesA, "NORMAL", ButtonVariant.Primary));
+            var pressed = UIKit.Button(statesA, "PRESSED", ButtonVariant.Primary);
             // A genuinely held pointer, so the specimen shows the real pressed treatment rather
             // than a debug-only override of the state machine.
             pressed.OnPointerDown(new UnityEngine.EventSystems.PointerEventData(null));
             AddSpecimen(pressed);
-            var held = UIKit.Button(states, "HELD", ButtonVariant.Primary);
+            var held = UIKit.Button(statesA, "HELD", ButtonVariant.Primary);
             held.SetHeld(true);
             AddSpecimen(held);
-            var disabled = UIKit.Button(states, "DISABLED", ButtonVariant.Primary);
+            var statesB = UIKit.Row(column, "StatesB");
+            var disabled = UIKit.Button(statesB, "DISABLED", ButtonVariant.Primary);
             disabled.SetInteractable(false);
             AddSpecimen(disabled);
-            var cooldown = UIKit.Button(states, "COOLDOWN 2.0s", ButtonVariant.Primary);
+            var cooldown = UIKit.Button(statesB, "COOLDOWN 2.0s", ButtonVariant.Primary);
             cooldown.BeginCooldown(2f);
             AddSpecimen(cooldown);
-            var loading = UIKit.Button(states, "LOADING", ButtonVariant.Primary);
+            var loading = UIKit.Button(statesB, "LOADING", ButtonVariant.Primary);
             loading.SetLoading(true);
             AddSpecimen(loading);
 

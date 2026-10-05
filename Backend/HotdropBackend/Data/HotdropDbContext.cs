@@ -20,8 +20,12 @@ public class HotdropDbContext : DbContext
     public DbSet<AnalyticsEvent> AnalyticsEvents => Set<AnalyticsEvent>();
     public DbSet<AnalyticsDailyAggregate> AnalyticsDailyAggregates => Set<AnalyticsDailyAggregate>();
     public DbSet<AnalyticsDailyPresence> AnalyticsDailyPresence => Set<AnalyticsDailyPresence>();
+    public DbSet<AnalyticsDailySession> AnalyticsDailySessions => Set<AnalyticsDailySession>();
     public DbSet<MatchmakingTicket> MatchmakingTickets => Set<MatchmakingTicket>();
     public DbSet<MatchAllocation> MatchAllocations => Set<MatchAllocation>();
+    public DbSet<ContractGoalInstance> ContractGoalInstances => Set<ContractGoalInstance>();
+    public DbSet<FlightSealGrant> FlightSealGrants => Set<FlightSealGrant>();
+    public DbSet<MasteryProgress> MasteryProgresses => Set<MasteryProgress>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,6 +104,13 @@ public class HotdropDbContext : DbContext
         modelBuilder.Entity<AnalyticsDailyPresence>()
             .HasIndex(e => new { e.PseudonymousId, e.EventDate });
 
+        modelBuilder.Entity<AnalyticsDailySession>()
+            .HasIndex(e => new { e.EventDate, e.PseudonymousId })
+            .IsUnique();
+
+        modelBuilder.Entity<AnalyticsDailySession>()
+            .HasIndex(e => new { e.PseudonymousId, e.EventDate });
+
         modelBuilder.Entity<InventoryItem>()
             .HasIndex(i => new { i.PlayerId, i.CosmeticId })
             .IsUnique();
@@ -114,5 +125,11 @@ public class HotdropDbContext : DbContext
             .HasKey(a => a.MatchId);
         modelBuilder.Entity<MatchAllocation>()
             .HasIndex(a => a.ServerId);
+        modelBuilder.Entity<ContractGoalInstance>().HasIndex(g => new { g.PlayerId, g.Status });
+        // Exactly one active goal even if two switch requests race. Paused/completed history is retained.
+        modelBuilder.Entity<ContractGoalInstance>().HasIndex(g => g.PlayerId).IsUnique().HasFilter("\"Status\" = 'active'");
+        modelBuilder.Entity<FlightSealGrant>().HasIndex(g => g.GoalInstanceId).IsUnique();
+        modelBuilder.Entity<FlightSealGrant>().HasIndex(g => new { g.PlayerId, g.SourceKey }).IsUnique();
+        modelBuilder.Entity<MasteryProgress>().HasKey(m => new { m.PlayerId, m.TrackId, m.WeaponId });
     }
 }

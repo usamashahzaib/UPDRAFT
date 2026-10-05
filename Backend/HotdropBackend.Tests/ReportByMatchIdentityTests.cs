@@ -162,6 +162,56 @@ public class ReportByMatchIdentityTests : IClassFixture<HotdropWebApplicationFac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Report_ByPrefixedBotAlias_StillResolvesToTheHumanWhoLeft()
+    {
+        // C19: a client that submits the name it actually saw — "[BOT] Kite-…" — after the
+        // player's slot was taken over by a labeled bot must still resolve to that human.
+        var (reporter, target, targetAlias, _) = await SeedAccountsAsync();
+        var matchId = Guid.NewGuid();
+        var server = _factory.CreateGameServerClient();
+        (await server.PostAsJsonAsync($"/api/matches/{matchId}/result", new
+        {
+            Draw = false,
+            Participants = new object[]
+            {
+                new { PlayerId = reporter, Won = true, Eligible = true, HadBotSubstitution = false, Team = "A", Slot = 0 },
+                new { PlayerId = target, Won = false, Eligible = true, HadBotSubstitution = true, Team = "B", Slot = 4 },
+            },
+        })).EnsureSuccessStatusCode();
+
+        var client = _factory.CreateClientWithPlayerId(reporter);
+        var response = await client.PostAsJsonAsync("/api/support/report", new
+        {
+            reason = "griefing", matchId = matchId.ToString(), reportedAlias = "[BOT] " + targetAlias,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var report = await SingleReportAsync(reporter);
+        Assert.Equal(target, report.ReportedPlayerId);
+    }
+
+    [Fact]
+    public async Task Report_ByPrefixedBotAlias_DoesNotResolveABotFilledSeatToAnotherPlayer()
+    {
+        // The prefix must not become a wildcard: an unrelated player's alias still fails.
+        var (reporter, target, targetAlias, outsider) = await SeedAccountsAsync();
+        var matchId = Guid.NewGuid();
+        await SeedMatchedTicketsAsync(matchId, (reporter, "A"), (target, "B"));
+        string outsiderAlias;
+        using (var scope = _factory.Services.CreateScope())
+            outsiderAlias = (await scope.ServiceProvider.GetRequiredService<HotdropDbContext>().PlayerAccounts.FindAsync(outsider))!.Alias;
+        Assert.NotEqual(targetAlias, outsiderAlias);
+
+        var client = _factory.CreateClientWithPlayerId(reporter);
+        var response = await client.PostAsJsonAsync("/api/support/report", new
+        {
+            reason = "cheating", matchId = matchId.ToString(), reportedAlias = "[BOT] " + outsiderAlias,
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("{\"reason\":\"cheating\"}")] // no target at all
     [InlineData("{\"reason\":\"cheating\",\"reportedAlias\":\"Someone\"}")] // alias without match

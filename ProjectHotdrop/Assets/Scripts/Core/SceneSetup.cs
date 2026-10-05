@@ -8,6 +8,7 @@ using Hotdrop.Player;
 using Hotdrop.Input;
 using Hotdrop.Camera;
 using Hotdrop.UI;
+using Hotdrop.UI;
 using Hotdrop.Map;
 using Hotdrop.Core;
 
@@ -195,6 +196,9 @@ namespace Hotdrop.Core
             GameObject padReady = CreateText("PadReady", padPanel.transform, "✓", 24, TextAlignmentOptions.Center, Vector2.zero);
             padReady.SetActive(false);
             hud.padReadyIndicator = padReady;
+            GameObject padCharge = CreateText("PadStatus", padPanel.transform, "", 16, TextAlignmentOptions.Center, new Vector2(0, -56));
+            padCharge.GetComponent<RectTransform>().sizeDelta = new Vector2(220, 38);
+            hud.padChargeText = padCharge.GetComponent<TextMeshProUGUI>();
             padPanel.SetActive(false); // State is drawn on the actual adjustable pad control.
 
             // Weapon Select Panel (Preparation)
@@ -292,7 +296,10 @@ namespace Hotdrop.Core
             rt.anchoredPosition = anchoredPos;
             rt.sizeDelta = size;
             var background = obj.AddComponent<Image>();
-            background.color = new Color(0.063f, 0.094f, 0.153f, 0.82f);
+            // Appearance has one owner (HudAppearance), so a regenerated scene cannot bake a
+            // colour the live HUD would immediately disagree with. MatchHUD re-applies the same
+            // rule at runtime, which is what makes the baked value authoritative-but-not-load-bearing.
+            background.color = HudAppearance.FloatingPanelColor();
             background.raycastTarget = false;
             return obj;
         }

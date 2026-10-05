@@ -73,6 +73,7 @@ namespace Hotdrop.UI
             var style = Style(role);
             float max = style.SizeUnits;
             text.fontSize = max;
+            UIFonts.Use(text, UIFonts.ForRole(role));
             text.color = UIDesignTokens.ForTone(tone);
             text.enableAutoSizing = true;
             text.fontSizeMin = Mathf.Min(UiMetrics.MinTextUnits, max);

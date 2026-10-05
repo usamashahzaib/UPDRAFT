@@ -15,6 +15,17 @@ public sealed class AnalyticsRetentionService(IServiceScopeFactory scopeFactory,
     DateTimeOffset lastPresenceRollup = DateTimeOffset.MinValue;
     bool presenceWatermarkInitialized;
 
+    // Amendment (measurement section): a session ends after 30 minutes with no
+    // gameplay activity. Only events that show the player actually playing count;
+    // startup, crash reports and study bookkeeping do not keep a session alive.
+    static readonly HashSet<string> GameplayActivityEvents =
+    [
+        "tutorial_started", "tutorial_step", "tutorial_completed",
+        "queue_started", "matchmaking_started", "match_joining", "online_match_joined", "online_match_completed",
+        "offline_challenge_started", "offline_challenge_completed",
+        "match_started", "match_completed", "pad_placed", "pad_used", "pad_destroyed",
+    ];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -33,9 +44,10 @@ public sealed class AnalyticsRetentionService(IServiceScopeFactory scopeFactory,
         var rawCutoff = now.AddDays(-30);
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        // Presence must fold in before expired raw rows are deleted, inside the
-        // same transaction, so no user-day can vanish between the two steps.
+        // Presence and sessions must fold in before expired raw rows are deleted,
+        // inside the same transaction, so no user-day can vanish between the two steps.
         await RollUpDailyPresence(db, cancellationToken);
+        await RollUpDailySessions(db, cancellationToken);
 
         var expiredRaw = await db.AnalyticsEvents.Where(e => e.Timestamp < rawCutoff).ToListAsync(cancellationToken);
 
@@ -64,6 +76,8 @@ public sealed class AnalyticsRetentionService(IServiceScopeFactory scopeFactory,
         db.AnalyticsDailyAggregates.RemoveRange(expiredAggregates);
         var expiredPresence = await db.AnalyticsDailyPresence.Where(p => p.ExpiresAt <= now).ToListAsync(cancellationToken);
         db.AnalyticsDailyPresence.RemoveRange(expiredPresence);
+        var expiredSessions = await db.AnalyticsDailySessions.Where(s => s.ExpiresAt <= now).ToListAsync(cancellationToken);
+        db.AnalyticsDailySessions.RemoveRange(expiredSessions);
         // Web deletion requests nobody verified hold a plaintext name/email and did nothing;
         // drop them a week after their link expired (completed requests are already scrubbed).
         var abandonedCutoff = now.AddDays(-7);
@@ -121,6 +135,81 @@ public sealed class AnalyticsRetentionService(IServiceScopeFactory scopeFactory,
             {
                 if (firstSeen < presence.FirstSeenAt) presence.FirstSeenAt = firstSeen;
                 presence.Cohort = cohort;
+            }
+        }
+    }
+
+    // One AnalyticsDailySession row per pseudonymous player per UTC day, using the
+    // amendment's definitions in SessionRules: a session ends after 30 minutes of
+    // no gameplay activity, and a same-day return is a new session at least 30
+    // minutes after the previous one ended on the same UTC day. Sessions are
+    // attributed to the day they started; a return is credited to the day the
+    // player came back. Recomputed from the raw events still inside the 30-day
+    // window and written last-write-wins, so reruns and a crashed run converge.
+    //
+    // Known boundary: raw rows expire after 30 days, so a session whose events have
+    // all aged out keeps the daily row written while they were still present rather
+    // than being silently re-attributed. Only days that still have raw activity are
+    // recomputed, so an aged day is never overwritten with a partial count.
+    async Task RollUpDailySessions(HotdropDbContext db, CancellationToken cancellationToken)
+    {
+        var cutoff = presenceWatermarkInitialized ? lastPresenceRollup : DateTimeOffset.UtcNow;
+        var affected = await db.AnalyticsEvents
+            .Where(e => e.Timestamp < cutoff && e.PseudonymousId != "" && GameplayActivityEvents.Contains(e.EventName))
+            .Select(e => e.PseudonymousId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        if (affected.Count == 0) return;
+
+        foreach (var pseudonymousId in affected)
+        {
+            // Full remaining history for this player: sessions are a gap property, so
+            // splitting them across rollup windows would invent extra sessions.
+            var activity = await db.AnalyticsEvents
+                .Where(e => e.PseudonymousId == pseudonymousId && GameplayActivityEvents.Contains(e.EventName))
+                .Select(e => new { At = e.ClientTimestamp ?? e.Timestamp, e.IncentivizedTester })
+                .ToListAsync(cancellationToken);
+            if (activity.Count == 0) continue;
+
+            // Sessions are built from every gameplay event, including incentivized
+            // ones: dropping them first would invent extra sessions at the boundary.
+            // Voluntariness is then judged per session, so an incentivized tester
+            // never contributes a voluntary session.
+            var sessions = SessionRules.BuildSessions(activity.Select(a => a.At));
+
+            var perDay = sessions
+                .Select((session, index) => new
+                {
+                    Day = DateOnly.FromDateTime(session.StartedAt.UtcDateTime),
+                    Session = session,
+                    // The first session of a player cannot be a return: there is no prior one.
+                    IsReturn = index > 0 && SessionRules.IsSameDayReturn(sessions[index - 1].EndedAt, session.StartedAt),
+                    Voluntary = !activity.Any(a => a.IncentivizedTester && a.At >= session.StartedAt && a.At <= session.EndedAt),
+                })
+                .GroupBy(x => x.Day);
+
+            foreach (var day in perDay)
+            {
+                var existing = await db.AnalyticsDailySessions.SingleOrDefaultAsync(s =>
+                    s.EventDate == day.Key && s.PseudonymousId == pseudonymousId, cancellationToken);
+                if (existing is null)
+                {
+                    db.AnalyticsDailySessions.Add(new AnalyticsDailySession
+                    {
+                        EventDate = day.Key,
+                        PseudonymousId = pseudonymousId,
+                        Sessions = day.Count(),
+                        SameDayReturns = day.Count(x => x.IsReturn),
+                        VoluntarySessions = day.Count(x => x.Voluntary),
+                        ExpiresAt = new DateTimeOffset(day.Key.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).AddDays(180),
+                    });
+                }
+                else
+                {
+                    existing.Sessions = day.Count();
+                    existing.SameDayReturns = day.Count(x => x.IsReturn);
+                    existing.VoluntarySessions = day.Count(x => x.Voluntary);
+                }
             }
         }
     }

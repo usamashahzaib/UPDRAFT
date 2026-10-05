@@ -196,6 +196,8 @@ namespace Hotdrop.Network
                 p.Connected = !bot;
                 p.AccountId = identity?.AccountId ?? "";
                 p.Alias = bot ? "[BOT] " + OfflineAlias.Next(slot * 7919 + (MatchId ?? "").GetHashCode()) : identity?.Alias ?? $"Player{slot + 1}";
+                // C19: snapshot the human alias before any bot substitution can relabel it.
+                if (!bot) p.HumanAliasAtJoin = p.Alias;
                 p.Cosmetic = bot ? "" : identity?.Cosmetic ?? "";
             });
             if (owner != PlayerRef.None) Runner.SetPlayerObject(owner, obj);
@@ -300,7 +302,12 @@ namespace Hotdrop.Network
                 if (existing.Connected || existing.AfkRemoved) { runner.Disconnect(player); return; }
                 existing.Object.AssignInputAuthority(player);
                 runner.SetPlayerObject(player, existing.Object);
-                if (identity != null && !string.IsNullOrWhiteSpace(identity.Alias)) existing.Alias = identity.Alias;
+                if (identity != null && !string.IsNullOrWhiteSpace(identity.Alias))
+                {
+                    existing.Alias = identity.Alias;
+                    // C19: a resuming human replaces the bot label; re-snapshot the real alias.
+                    existing.HumanAliasAtJoin = identity.Alias;
+                }
                 existing.Connected = true;
                 existing.BotControlled = false;
                 existing.DisconnectGrace = default;

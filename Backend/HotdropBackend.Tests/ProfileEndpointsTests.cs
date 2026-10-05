@@ -99,6 +99,30 @@ public class ProfileEndpointsTests : IClassFixture<HotdropWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Get_Profile_Stats_ReturnsOnlyEligibleMatchFacts()
+    {
+        var playerId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId });
+            db.MatchParticipations.AddRange(
+                new MatchParticipation { MatchId = Guid.NewGuid(), PlayerId = playerId, Eligible = true, Won = true },
+                new MatchParticipation { MatchId = Guid.NewGuid(), PlayerId = playerId, Eligible = true, Draw = true },
+                new MatchParticipation { MatchId = Guid.NewGuid(), PlayerId = playerId, Eligible = false, Won = true });
+            await db.SaveChangesAsync();
+        }
+
+        var response = await _factory.CreateClientWithPlayerId(playerId).GetAsync("/api/profile/stats");
+        response.EnsureSuccessStatusCode();
+        var stats = await response.Content.ReadFromJsonAsync<ProfileStatsResponse>();
+        Assert.NotNull(stats);
+        Assert.Equal(2, stats.EligibleMatches);
+        Assert.Equal(1, stats.Wins);
+        Assert.Equal(1, stats.Draws);
+    }
+
+    [Fact]
     public async Task Post_Profile_Equip_OwnedCosmetic_Succeeds()
     {
         // Arrange
@@ -152,6 +176,71 @@ public class ProfileEndpointsTests : IClassFixture<HotdropWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Equip_WritesEachSlotIndependently_AndRigNeedsNoOwnership()
+    {
+        var playerId = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            db.InventoryItems.AddRange(
+                new InventoryItem { PlayerId = playerId, CosmeticId = "body_teal_stripe", AcquiredVia = "unlock" },
+                new InventoryItem { PlayerId = playerId, CosmeticId = "wrap_hazard", AcquiredVia = "unlock" },
+                new InventoryItem { PlayerId = playerId, CosmeticId = "badge_summit", AcquiredVia = "unlock" });
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClientWithPlayerId(playerId);
+        foreach (var id in new[] { "body_teal_stripe", "wrap_hazard", "badge_summit" })
+            (await client.PostAsJsonAsync("/api/profile/equip/" + id, new { })).EnsureSuccessStatusCode();
+        // Amendment 3: body selection is a catalog choice and never requires earning it.
+        (await client.PostAsJsonAsync("/api/profile/equip/rig_female", new { })).EnsureSuccessStatusCode();
+
+        // Amendment 3: an id outside every known category is rejected, not silently stored.
+        var unknown = await client.PostAsJsonAsync("/api/profile/equip/not_a_cosmetic", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+
+        using var scope2 = _factory.Services.CreateScope();
+        var db2 = scope2.ServiceProvider.GetRequiredService<HotdropDbContext>();
+        var account = await db2.PlayerAccounts.FindAsync(playerId);
+        Assert.NotNull(account);
+        Assert.Equal("body_teal_stripe", account.BodyStyleId);
+        Assert.Equal("wrap_hazard", account.WeaponWrapId);
+        Assert.Equal("badge_summit", account.BadgeId);
+        Assert.Equal("rig_female", account.BodyRigId);
+        // Backward-compatible adapter: old clients still read a single body style.
+        Assert.Equal("body_teal_stripe", account.EquippedCosmeticId);
+
+        var profile = await (await client.GetAsync("/api/profile/")).Content
+            .ReadFromJsonAsync<SlotProfileResponse>();
+        Assert.NotNull(profile);
+        Assert.Equal("body_teal_stripe", profile.BodyStyleId);
+        Assert.Equal("wrap_hazard", profile.WeaponWrapId);
+        Assert.Equal("badge_summit", profile.BadgeId);
+        Assert.Equal("rig_female", profile.BodyRigId);
+    }
+
+    [Fact]
+    public async Task Get_Profile_BackfillsLegacySingleValueIntoBodyStyleSlot()
+    {
+        var playerId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, EquippedCosmeticId = "body_rooftop" });
+            await db.SaveChangesAsync();
+        }
+
+        var profile = await (await _factory.CreateClientWithPlayerId(playerId).GetAsync("/api/profile/"))
+            .Content.ReadFromJsonAsync<SlotProfileResponse>();
+
+        Assert.NotNull(profile);
+        Assert.Equal("body_rooftop", profile.BodyStyleId);
+        Assert.Equal("body_rooftop", profile.EquippedCosmeticId);
+    }
+
+    [Fact]
     public async Task Profile_Endpoints_RequireAuthorization()
     {
         // Arrange
@@ -172,6 +261,10 @@ public class ProfileEndpointsTests : IClassFixture<HotdropWebApplicationFactory>
     private record InventoryItemResponse(string CosmeticId, DateTimeOffset AcquiredAt, string AcquiredVia);
     private record InventoryResponse(List<InventoryItemResponse> Items);
     private record EquipResponse(string Equipped);
+    private record SlotProfileResponse(Guid Id, string Alias, int ProfileXp, int Level,
+        string? EquippedCosmeticId, string? LinkedPlatformIdentity, bool IsGuest,
+        string? BodyStyleId, string? WeaponWrapId, string? BadgeId, string? BodyRigId);
+    private record ProfileStatsResponse(int EligibleMatches, int Wins, int Draws);
 }
 
 

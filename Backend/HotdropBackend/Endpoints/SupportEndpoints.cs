@@ -246,11 +246,27 @@ public static class SupportEndpoints
 
         var matches = roster
             .Where(r => slot is null || r.Slot == slot)
-            .Where(r => alias is null || r.Aliases.Any(a => string.Equals(a, alias, StringComparison.OrdinalIgnoreCase)))
+            .Where(r => alias is null || r.Aliases.Any(a => AliasMatches(a, alias)))
             .Select(r => r.PlayerId).Distinct().ToList();
         return matches.Count == 1
             ? (matches[0], null)
             : (Guid.Empty, Results.NotFound(new { error = "reported_player_not_found" }));
+    }
+
+    /// <summary>
+    /// Compares an in-match alias case-insensitively, also accepting the display alias a
+    /// client saw. QA-025/C19: when a human disconnects or is removed as AFK, their slot
+    /// keeps playing as a labeled "[BOT] " bot, so an older client can report the prefixed
+    /// name they actually saw. Trimming the prefix here keeps that human reportable instead
+    /// of failing to resolve; bots themselves carry no account and stay unresolvable.
+    /// </summary>
+    const string BotPrefix = "[BOT] ";
+
+    static bool AliasMatches(string candidate, string reported)
+    {
+        if (string.Equals(candidate, reported, StringComparison.OrdinalIgnoreCase)) return true;
+        string Trimmed(string value) => value.StartsWith(BotPrefix, StringComparison.Ordinal) ? value.Substring(BotPrefix.Length) : value;
+        return string.Equals(Trimmed(candidate), Trimmed(reported), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
