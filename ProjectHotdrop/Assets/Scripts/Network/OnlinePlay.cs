@@ -18,7 +18,6 @@ namespace Hotdrop.Network
     {
         const float ServerWaitSeconds = 60f;
         const float ReconnectPollSeconds = 2f;
-        const int LongWaitSeconds = 45; // QA-029: the bot-fill boundary; offer practice from here
 
         GameBootstrap game;
         GameObject panel;
@@ -89,6 +88,12 @@ namespace Hotdrop.Network
             // ticket for every member. Follow an existing ticket if there is one.
             var existing = await api.QueueStatusAsync();
             if (cancelled) return;
+            if (existing.Ok && existing.Value != null &&
+                (existing.Value.state == "maintenance" || existing.Value.state == "queue_paused"))
+            {
+                Failed(MaintenanceMessage(existing.Value.message, existing.Value.etaUtc, existing.Value.compensationNote));
+                return;
+            }
             bool following = existing.Ok && existing.Value != null && existing.Value.state != "idle";
             queueRequested = true;
             if (!following)
@@ -107,7 +112,8 @@ namespace Hotdrop.Network
                 }
                 else if (!enqueue.Ok && enqueue.Error != BackendError.Conflict) // 409 = already queued: keep waiting
                 {
-                    Failed(enqueue.Value?.error == "matchmaking_disabled" ? "Matchmaking is paused right now. Practice offline and try again soon."
+                    Failed(enqueue.Value?.error == "maintenance" ? MaintenanceMessage(enqueue.Value.message, enqueue.Value.etaUtc, enqueue.Value.compensationNote)
+                        : enqueue.Value?.error == "matchmaking_disabled" ? "Matchmaking is paused right now. Practice offline and try again soon."
                         : enqueue.Value?.error == "party_not_ready" ? "Everyone in your party must be Ready before the leader can queue."
                         : enqueue.Message);
                     return;
@@ -116,21 +122,38 @@ namespace Hotdrop.Network
 
             searching = true;
             Telemetry.Track("matchmaking_started");
+            int queueRetryDelay = 2;
             while (!cancelled)
             {
                 var queue = await api.QueueStatusAsync();
                 if (cancelled) return;
-                if (!queue.Ok) { Failed(queue.Message); return; }
+                if (!queue.Ok)
+                {
+                    if (IsTransientConnectionError(queue.Error))
+                    {
+                        int delay = queueRetryDelay;
+                        if (!await WaitBeforeRetryAsync("QUEUE STATUS", queue.Message, delay)) return;
+                        queueRetryDelay = Mathf.Min(queueRetryDelay * 2, 30);
+                        continue;
+                    }
+                    Failed(queue.Message);
+                    return;
+                }
+                queueRetryDelay = 2;
+                if (queue.Value.state == "maintenance" || queue.Value.state == "queue_paused")
+                {
+                    Failed(MaintenanceMessage(queue.Value.message, queue.Value.etaUtc, queue.Value.compensationNote));
+                    return;
+                }
                 if (queue.Value.state == "matched") break;
                 if (queue.Value.state == "idle") { Failed("You left the queue."); return; }
                 int s = queue.Value.elapsedSeconds;
-                // QA-029: elapsed time, the region and — once the wait is long — a direct way to practice.
+                // Keep offline practice reachable throughout queue search.
                 string region = string.IsNullOrEmpty(queue.Value.region) ? "" : $"  ·  Region {queue.Value.region.ToUpperInvariant()}";
-                string body = $"Searching {s / 60}:{s % 60:00}{region}\nFair matches first — empty seats fill with labeled bots after a short wait.";
-                if (s >= LongWaitSeconds) Show("FINDING A 3v3 MATCH", body, "CANCEL", Cancel, "PRACTICE INSTEAD", PracticeInstead);
-                else Show("FINDING A 3v3 MATCH", body, "CANCEL", Cancel);
+                string body = $"Searching {s / 60}:{s % 60:00}{region}\nFair matches first — empty seats fill automatically after a short wait.";
+                Show("FINDING A 3v3 MATCH", body, "CANCEL", Cancel, "PRACTICE INSTEAD", PracticeInstead);
                 MatchSearchView.Show(panel, s, queue.Value.region, searchParty, api.PlayerId,
-                    s >= LongWaitSeconds, Cancel, PracticeInstead);
+                    practiceAvailable: true, cancel: Cancel, practice: PracticeInstead);
                 await Task.Delay(2000);
             }
             if (cancelled) return;
@@ -158,7 +181,7 @@ namespace Hotdrop.Network
             Telemetry.Region = string.IsNullOrEmpty(ticket.region) ? "unknown" : ticket.region;
             Telemetry.CurrentMatchHasBots = ticket.hasBots;
             Telemetry.Track("match_joining", ("match_id", ticket.matchId), ("has_bots", ticket.hasBots ? "1" : "0"));
-            Show("LOADING MATCH", ticket.hasBots ? "Joining… (some seats are labeled bots)" : "Joining…", "CANCEL", Cancel);
+            Show("LOADING MATCH", ticket.hasBots ? "Joining… roster is being balanced." : "Joining…", "CANCEL", Cancel);
             await Join(ticket.session, ticket.region, ticket.ticket, ticket.matchId);
         }
 
@@ -169,21 +192,42 @@ namespace Hotdrop.Network
         async Task<bool> WaitForPartyLeaderAsync()
         {
             var api = BackendClient.Instance;
+            int retryDelay = 2;
             while (!cancelled)
             {
-                Show("WAITING FOR PARTY LEADER", "Your party leader starts the search for everyone.\nYou'll join the same match automatically.", "CANCEL", Cancel);
-                await Task.Delay(2000);
+                Show("WAITING FOR PARTY LEADER", $"Your party leader starts the search for everyone.\nYou'll join automatically. Checking again in {retryDelay}s.", "CANCEL", Cancel);
+                await Task.Delay(retryDelay * 1000);
                 if (cancelled) return false;
                 var status = await api.QueueStatusAsync();
                 if (cancelled) return false;
                 if (status.Ok && status.Value != null && status.Value.state != "idle") return true;
-                if (!status.Ok && status.Error != BackendError.NoInternet && status.Error != BackendError.ServerBusy)
+                if (!status.Ok && IsTransientConnectionError(status.Error))
+                {
+                    int delay = retryDelay;
+                    if (!await WaitBeforeRetryAsync("PARTY QUEUE", status.Message, delay)) return false;
+                    retryDelay = Mathf.Min(retryDelay * 2, 30);
+                    continue;
+                }
+                if (!status.Ok)
                 {
                     Failed(status.Message);
                     return false;
                 }
+                retryDelay = 2;
             }
             return false;
+        }
+
+        static bool IsTransientConnectionError(BackendError error) =>
+            error == BackendError.NoInternet || error == BackendError.ServerBusy || error == BackendError.ServerError;
+
+        async Task<bool> WaitBeforeRetryAsync(string operation, string detail, int seconds)
+        {
+            string reason = string.IsNullOrWhiteSpace(detail) ? "The server did not respond." : detail.Trim();
+            Show($"RECONNECTING — {operation}", $"{reason}\nRetrying in {seconds}s. Cancel or switch to offline practice at any time.",
+                "CANCEL", Cancel, "PRACTICE INSTEAD", PracticeInstead);
+            await Task.Delay(seconds * 1000);
+            return !cancelled;
         }
 
         async Task Join(string sessionName, string region, string ticket, string matchId)
@@ -216,7 +260,7 @@ namespace Hotdrop.Network
                 net.Leave();
                 session = null;
                 Show("REMOVED FOR INACTIVITY",
-                    "You were idle for 45 seconds, so a labeled bot took your seat to keep the match fair for your team.\nThis match won't count toward XP or rating.",
+                    "You were idle for 45 seconds, so a squadmate took over your seat to keep the match fair.\nThis match won't count toward XP or rating.",
                     "BACK TO HOME", ReturnHome, "PRACTICE OFFLINE", () => { ReturnHome(); game.touchInput.enabled = true; game.StartOfflinePractice(); });
             };
             net.OnFailed += reason =>
@@ -370,6 +414,16 @@ namespace Hotdrop.Network
             game.touchInput.enabled = false;
             Show("CAN'T PLAY ONLINE", message, "BACK TO HOME", ReturnHome, "PRACTICE OFFLINE", () => { ReturnHome(); game.touchInput.enabled = true; game.StartOfflinePractice(); });
             Telemetry.Track("online_failed", ("reason", message.Length > 120 ? message.Substring(0, 120) : message));
+        }
+
+        static string MaintenanceMessage(string message, string etaUtc, string compensationNote)
+        {
+            string result = string.IsNullOrWhiteSpace(message)
+                ? "Online matchmaking is under maintenance. You can keep browsing Home or practice offline."
+                : message.Trim();
+            if (!string.IsNullOrWhiteSpace(etaUtc)) result += $"\nExpected update: {etaUtc.Trim()} UTC.";
+            if (!string.IsNullOrWhiteSpace(compensationNote)) result += $"\n{compensationNote.Trim()}";
+            return result;
         }
 
         void ReturnHome()

@@ -62,12 +62,14 @@ namespace Hotdrop.Player
         int teamId = 0; // 0 = TeamA (friendly), 1 = TeamB (enemy)
         SportAvatarAnimation avatarMotion;
         int playerId;
+        string displayName = "Player";
         bool movementAllowed = true;
         bool combatAllowed = true;
         bool padPlacementAllowed = true;
         bool weaponSelectionAllowed = true;
         bool isSpawnProtected;
         float spawnProtectionRemaining;
+        float weaponLockoutUntil;
         bool hadPadCharge = true;
 
         // External (bot) input override. Humans drive via touchInput; bots drive
@@ -102,7 +104,7 @@ namespace Hotdrop.Player
         // Every live player, maintained without per-frame scene searches.
         public static readonly System.Collections.Generic.List<PlayerController> All = new System.Collections.Generic.List<PlayerController>();
         void OnEnable() { if (!All.Contains(this)) All.Add(this); }
-        void OnDisable() => All.Remove(this);
+        void OnDisable() { All.Remove(this); Hotdrop.Core.GameAudio.ClearFlightMix(); }
 
         public static PlayerController Find(int id)
         {
@@ -113,7 +115,11 @@ namespace Hotdrop.Player
         int Hotdrop.Match.IMatchParticipant.ParticipantId => playerId;
         public float HealthFraction => healthController.CurrentHealth / movementConfig.maxHealth;
         public Vector3 Position => transform.position;
-        public string DisplayName { get; set; } = "Player";
+        public string DisplayName
+        {
+            get => Hotdrop.UI.StreamSafePresentation.PlayerName(displayName, playerId);
+            set => displayName = value;
+        }
         public bool IsBot { get; set; }
         public bool IsConnected => true;
 
@@ -153,7 +159,7 @@ namespace Hotdrop.Player
         public System.Action<LaunchPad> OnPadActivated;
         public System.Action OnPadChargeReady;
         public System.Action OnShotBlocked;
-        public System.Action OnHitConfirmed;
+        public System.Action<bool> OnHitConfirmed;
         public System.Action<int, WeaponId> OnEliminated;
 
         public bool IsAlive => healthController.IsAlive;
@@ -304,6 +310,7 @@ namespace Hotdrop.Player
             charController.enabled = false;
             transform.SetPositionAndRotation(position, rotation);
             movementSim.Reset();
+            weaponLockoutUntil = 0f;
             charController.enabled = true;
             playerCamera?.SetTarget(transform);
         }
@@ -385,6 +392,9 @@ namespace Hotdrop.Player
                 timeSinceLastFootstep = 0f;
             }
             wasGrounded = movementSim.IsGrounded;
+            Hotdrop.Core.GameAudio.SetFlightMix(
+                new Vector2(movementSim.Velocity.x, movementSim.Velocity.z).magnitude,
+                movementSim.Velocity.y, !movementSim.IsGrounded);
 
             // Footsteps
             HandleFootsteps(dt);
@@ -518,9 +528,11 @@ namespace Hotdrop.Player
                         // Launch!
                         Vector3 launchVel = pad.PadData.GetLaunchVelocity();
                         movementSim.ApplyLaunchVelocity(launchVel);
+                        weaponLockoutUntil = Time.time + padConfig.launchWeaponLockoutSeconds;
                         pad.NotifyActivated();
                         padManager.NotifyActivated();
                         PadLaunches++;
+                        if (touchInput != null) Hotdrop.Core.HapticFeedback.Pulse();
                         OnPadActivated?.Invoke(pad.PadData);
                         PlaySound(jumpClip, 1f); // launch sound
                         return;
@@ -540,7 +552,7 @@ namespace Hotdrop.Player
             if (currentWeapon == null || !combatAllowed) return;
 
             // Spawn protection: no firing out of your own spawn room.
-            bool trigger = FireHeld && !IsInsideOwnSpawnRoom();
+            bool trigger = FireHeld && !IsInsideOwnSpawnRoom() && Time.time >= weaponLockoutUntil;
             bool wasReloading = weaponState.IsReloading;
             int shots = weaponState.Tick(dt, trigger);
             for (int i = 0; i < shots; i++)
@@ -576,6 +588,7 @@ namespace Hotdrop.Player
             // Resolve pellets
             int pelletCount = ShotResolver.ResolvePellets(currentWeapon, aimDirection, shotSeed, moveState, pelletBuffer);
             OnShotStarted?.Invoke();
+            touchInput?.PulseFireFeedback();
 
             // QA-012: a muzzle pushed into or through thin cover fires into that cover.
             if (IsMuzzleBuried(out Vector3 buriedAt))
@@ -593,7 +606,8 @@ namespace Hotdrop.Player
             }
 
             // Recoil
-            ApplyRecoil(currentWeapon.verticalRecoilDegreesPerShot);
+            int shotInMagazine = currentWeapon.magazineSize - weaponState.Ammo;
+            ApplyRecoil(currentWeapon.GetVerticalRecoilDegrees(shotInMagazine));
 
             // Muzzle flash, sound, etc.
             PlayWeaponFireSound();
@@ -691,7 +705,8 @@ namespace Hotdrop.Player
 
                     float damage = ShotResolver.GetDamage(currentWeapon, hit.distance, isHeadshot);
                     target.ApplyDamage(damage, this.playerId, currentWeapon.id);
-                    OnHitConfirmed?.Invoke();
+                    if (touchInput != null) Hotdrop.Core.HapticFeedback.Pulse(0.6f);
+                    OnHitConfirmed?.Invoke(isHeadshot);
                     if (touchInput != null)
                         Hotdrop.Core.GameAudio.Play2D(target.IsAlive ? Hotdrop.Core.GameCue.Hit : Hotdrop.Core.GameCue.EliminationConfirm, 0.8f);
                 }
@@ -707,7 +722,7 @@ namespace Hotdrop.Player
                 else if (hit.collider.GetComponentInParent<Hotdrop.Tutorial.TutorialTarget>() is Hotdrop.Tutorial.TutorialTarget trainingTarget)
                 {
                     trainingTarget.TakeDamage(ShotResolver.GetDamage(currentWeapon, hit.distance, false));
-                    OnHitConfirmed?.Invoke();
+                    OnHitConfirmed?.Invoke(false);
                 }
             }
         }
@@ -716,7 +731,7 @@ namespace Hotdrop.Player
         {
             if (playerCamera != null)
             {
-                playerCamera.AddYawPitch(0, -verticalDegrees);
+                playerCamera.AddRecoilPitch(-verticalDegrees);
             }
         }
 
@@ -749,6 +764,7 @@ namespace Hotdrop.Player
 
         void Die(int killerId, WeaponId weaponId)
         {
+            Hotdrop.Core.GameAudio.ClearFlightMix();
             PlaySound(deathClip);
             Deaths++;
             LastKillerId = killerId;

@@ -195,7 +195,7 @@ namespace Hotdrop.Network
                 p.BotControlled = bot;
                 p.Connected = !bot;
                 p.AccountId = identity?.AccountId ?? "";
-                p.Alias = bot ? "[BOT] " + OfflineAlias.Next(slot * 7919 + (MatchId ?? "").GetHashCode()) : identity?.Alias ?? $"Player{slot + 1}";
+                p.Alias = bot ? OfflineAlias.Next(slot * 7919 + (MatchId ?? "").GetHashCode()) : identity?.Alias ?? $"Player{slot + 1}";
                 // C19: snapshot the human alias before any bot substitution can relabel it.
                 if (!bot) p.HumanAliasAtJoin = p.Alias;
                 p.Cosmetic = bot ? "" : identity?.Cosmetic ?? "";

@@ -8,7 +8,6 @@ using Hotdrop.Player;
 using Hotdrop.Input;
 using Hotdrop.Camera;
 using Hotdrop.UI;
-using Hotdrop.UI;
 using Hotdrop.Map;
 using Hotdrop.Core;
 
@@ -328,7 +327,7 @@ namespace Hotdrop.Core
             tmp.text = text;
             tmp.fontSize = fontSize;
             tmp.alignment = alignment;
-            tmp.color = Color.white;
+            tmp.color = UIDesignTokens.TextPrimary;
             tmp.raycastTarget = false;
             tmp.enableAutoSizing = true;
             tmp.fontSizeMin = 10;

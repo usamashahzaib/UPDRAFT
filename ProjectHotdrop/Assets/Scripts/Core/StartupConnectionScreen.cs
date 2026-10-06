@@ -3,6 +3,7 @@ using Hotdrop.UI;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Threading.Tasks;
 
 namespace Hotdrop.Core
 {
@@ -15,9 +16,14 @@ namespace Hotdrop.Core
         bool advanced;
         float normalAdvanceAt;
         GameObject recoveryActions;
+        HotdropButton recoveryActionButton;
         bool held;
         TextMeshProUGUI frameLabel;
         string frameLabelText;
+        int showRevision;
+        StartupConnectionState visibleState;
+        string remoteStatusDetail;
+        string remoteStoreUrl;
 
         /// <summary>How long the branded connection moment stays up before advancing by itself.</summary>
         public const float NormalHoldSeconds = 1.1f;
@@ -25,14 +31,20 @@ namespace Hotdrop.Core
         public void Show(GameBootstrap bootstrap)
         {
             game = bootstrap;
+            int revision = ++showRevision;
             advanced = false;
             var state = ResolveState();
+            visibleState = state;
+            remoteStatusDetail = null;
+            remoteStoreUrl = null;
             if (panel == null) Build(state);
             else { panel.SetActive(true); Refresh(state); }
 
             // Normal launches should feel immediate but the branded connection moment remains
             // available for a screenshot and does not block automated or keyboard-free starts.
             normalAdvanceAt = state == StartupConnectionState.Normal ? Time.unscaledTime + NormalHoldSeconds : -1f;
+            if (state == StartupConnectionState.Normal && Application.internetReachability != NetworkReachability.NotReachable)
+                _ = RefreshRemoteAvailabilityAsync(revision);
         }
 
         void Update()
@@ -133,6 +145,49 @@ namespace Hotdrop.Core
                 ? StartupConnectionState.NoInternet : StartupConnectionState.Normal;
         }
 
+        async Task RefreshRemoteAvailabilityAsync(int revision)
+        {
+            BackendResult<ClientStatusDto> result;
+            try { result = await BackendClient.Instance.ClientStatusAsync(); }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Backend availability check failed: {exception.Message}");
+                return;
+            }
+            if (this == null || revision != showRevision || advanced || panel == null || !panel.activeSelf) return;
+
+            if (result.Error == BackendError.UpdateRequired)
+            {
+                visibleState = StartupConnectionState.UpdateRequired;
+                remoteStoreUrl = SafeStoreUrl(result.Value?.storeUrl);
+                remoteStatusDetail = result.Value != null && result.Value.minClientProtocol > 0
+                    ? $"Install protocol {result.Value.minClientProtocol} or newer to play online."
+                    : null;
+            }
+            else if (result.Ok && result.Value != null && result.Value.state == "maintenance")
+            {
+                visibleState = StartupConnectionState.Maintenance;
+                remoteStatusDetail = FormatRemoteStatus(result.Value.message, result.Value.etaUtc, result.Value.compensationNote);
+            }
+            else if (result.Ok && result.Value != null && result.Value.state == "queue_paused")
+            {
+                visibleState = StartupConnectionState.ServiceUnavailable;
+                remoteStatusDetail = FormatRemoteStatus(result.Value.message, null, null);
+            }
+            else return;
+
+            normalAdvanceAt = -1f;
+            Refresh(visibleState);
+        }
+
+        static string FormatRemoteStatus(string message, string etaUtc, string compensationNote)
+        {
+            string detail = string.IsNullOrWhiteSpace(message) ? string.Empty : message.Trim();
+            if (!string.IsNullOrWhiteSpace(etaUtc)) detail += $"\nExpected update: {etaUtc.Trim()} UTC.";
+            if (!string.IsNullOrWhiteSpace(compensationNote)) detail += $"\n{compensationNote.Trim()}";
+            return detail;
+        }
+
         TextMeshProUGUI statusLine;
         Image beamFill;
         RectTransform ringPulse;
@@ -204,7 +259,7 @@ namespace Hotdrop.Core
             recovery.sizeDelta = new Vector2(640f, 52f);
             RecoveryButton(recovery, "CONTINUE", Continue, "Continue", -210f);
             RecoveryButton(recovery, "PLAY OFFLINE", PlayOffline, "Offline", 0f);
-            RecoveryButton(recovery, "RETRY CONNECTION", Retry, "Retry", 210f);
+            recoveryActionButton = RecoveryButton(recovery, "RETRY CONNECTION", OpenStoreOrRetry, "Retry", 210f);
             shownAt = Time.unscaledTime;
             Animate();
             Refresh(state);
@@ -309,20 +364,31 @@ namespace Hotdrop.Core
             }
         }
 
-        static void RecoveryButton(Transform parent, string caption, Action onClick, string name, float x)
+        static HotdropButton RecoveryButton(Transform parent, string caption, Action onClick, string name, float x)
         {
             var button = UIKit.Button(parent, caption, ButtonVariant.Secondary, onClick, name);
             var rect = button.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = new Vector2(x, 0f);
             rect.sizeDelta = new Vector2(196f, 52f);
+            return button;
         }
+
+        void OpenStoreOrRetry()
+        {
+            if (!string.IsNullOrEmpty(remoteStoreUrl)) Application.OpenURL(remoteStoreUrl);
+            else Retry();
+        }
+
+        static string SafeStoreUrl(string value) =>
+            Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
+                ? uri.AbsoluteUri : string.Empty;
 
         void Refresh(StartupConnectionState state)
         {
             var status = statusLine;
             if (status == null) return;
-            status.text = state switch
+            string message = state switch
             {
                 StartupConnectionState.NoInternet => "NO INTERNET — local Offline play is ready.",
                 StartupConnectionState.ServiceUnavailable => "SERVICE UNAVAILABLE — retry or play Offline.",
@@ -331,6 +397,11 @@ namespace Hotdrop.Core
                 StartupConnectionState.RecoveringLocalSave => "RECOVERING LOCAL SAVE — your saved training progress is kept safe.",
                 _ => "Synchronizing Relay protocol nodes...",
             };
+            if (!string.IsNullOrWhiteSpace(remoteStatusDetail)) message += "\n" + remoteStatusDetail;
+            status.text = message;
+            if (recoveryActionButton != null)
+                recoveryActionButton.SetCaption(state == StartupConnectionState.UpdateRequired && !string.IsNullOrEmpty(remoteStoreUrl)
+                    ? "UPDATE GAME" : "RETRY CONNECTION");
             if (recoveryActions != null) recoveryActions.SetActive(state != StartupConnectionState.Normal);
         }
     }

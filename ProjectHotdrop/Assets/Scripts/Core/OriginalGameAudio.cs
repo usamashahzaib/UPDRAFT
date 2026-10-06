@@ -11,7 +11,7 @@ namespace Hotdrop.Core
         LowHealth, EliminationConfirm, PadCharging,
     }
 
-    public enum AudioCategory { Sfx, Announcer, Music }
+    public enum AudioCategory { Sfx, Voice, Music }
 
     /// <summary>
     /// Original synthetic prototype sounds, generated in code (no third-party
@@ -22,7 +22,9 @@ namespace Hotdrop.Core
     {
         const int Rate = 22050;
         static readonly AudioClip[] clips = new AudioClip[System.Enum.GetValues(typeof(GameCue)).Length];
+        static readonly AudioClip[] weaponMechanism = new AudioClip[3], weaponTail = new AudioClip[3];
         static AudioClip music;
+        static AudioClip flightWind, flightCloth;
 
         public static void Warmup() { for (int i = 0; i < clips.Length; i++) Get((GameCue)i); }
 
@@ -108,6 +110,53 @@ namespace Hotdrop.Core
             music.SetData(samples, 0);
             return music;
         }
+
+        public static AudioClip FlightWind() => flightWind != null ? flightWind : flightWind = MakeFlightLoop("HOTDROP Flight Wind", 0.24f, 0.08f);
+        public static AudioClip FlightCloth() => flightCloth != null ? flightCloth : flightCloth = MakeFlightLoop("HOTDROP Flight Cloth", 0.12f, 0.025f);
+
+        static AudioClip MakeFlightLoop(string name, float low, float high)
+        {
+            const int frames = Rate * 2;
+            var samples = new float[frames];
+            for (int i = 0; i < frames; i++)
+            {
+                float phase = (float)i / frames * 2f * Mathf.PI;
+                float swell = 0.65f + 0.35f * Mathf.Sin(phase);
+                samples[i] = (Mathf.Sin(phase * 7f) * low + Mathf.Sin(phase * 31f) * high) * swell;
+            }
+            var clip = AudioClip.Create(name, frames, 1, Rate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
+        public static AudioClip WeaponMechanism(GameCue cue) => WeaponLayer(cue, weaponMechanism, false);
+        public static AudioClip WeaponTail(GameCue cue) => WeaponLayer(cue, weaponTail, true);
+
+        static AudioClip WeaponLayer(GameCue cue, AudioClip[] cache, bool tail)
+        {
+            int index = (int)cue;
+            if (index < 0 || index >= cache.Length) return null;
+            if (cache[index] != null) return cache[index];
+            int frames = Mathf.RoundToInt(Rate * (tail ? 0.42f : 0.055f));
+            var samples = new float[frames];
+            float[] fundamentals = { 720f, 1180f, 210f };
+            float baseHz = fundamentals[index];
+            uint seed = 0xA511E9B3u ^ (uint)(index * 7919 + (tail ? 97 : 13));
+            for (int i = 0; i < frames; i++)
+            {
+                float t = (float)i / Rate;
+                float p = (float)i / frames;
+                seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+                float noise = (seed & 65535) / 32767.5f - 1f;
+                float envelope = tail ? Mathf.Pow(1f - p, 2.8f) : Mathf.Exp(-t * 85f);
+                float tone = Mathf.Sin(2f * Mathf.PI * baseHz * t) + 0.35f * Mathf.Sin(2f * Mathf.PI * baseHz * 1.51f * t);
+                samples[i] = tail ? (noise * 0.14f + tone * 0.86f) * envelope * 0.11f
+                    : (noise * 0.35f + tone * 0.65f) * envelope * 0.16f;
+            }
+            cache[index] = AudioClip.Create($"HOTDROP {(tail ? "Environment Tail" : "Mechanism")} {cue}", frames, 1, Rate, false);
+            cache[index].SetData(samples, 0);
+            return cache[index];
+        }
     }
 
     /// <summary>
@@ -118,12 +167,23 @@ namespace Hotdrop.Core
     /// </summary>
     public class GameAudio : MonoBehaviour
     {
-        public const string MasterKey = "Volume.Master", SfxKey = "Volume.Sfx", MusicKey = "Volume.Music", AnnouncerKey = "Volume.Announcer";
+        public const string MasterKey = "Volume.Master", SfxKey = "Volume.Sfx", MusicKey = "Volume.Music", VoiceKey = "Volume.Voice";
+        [System.Obsolete("Use VoiceKey. Existing Announcer preference is migrated at startup.")]
+        public const string AnnouncerKey = VoiceKey;
+        public const string MonoOutputKey = "Audio.MonoOutput";
+        public const string SoundCaptionsKey = "GameplaySoundCaptions";
+        public static System.Action<string> OnCriticalCaption;
         const int PoolSize = 24;
 
         static GameAudio instance;
+        static readonly float[] nextWeaponCaptionAt = new float[3];
         readonly List<(AudioSource source, AudioLowPassFilter filter)> pool = new List<(AudioSource, AudioLowPassFilter)>();
         AudioSource musicSource;
+        AudioSource flightWindSource, flightClothSource;
+        float flightWindTarget, flightClothTarget, flightDiveTarget;
+        bool flightCaptionActive;
+        AudioSpeakerMode startupSpeakerMode;
+        bool monoWarningLogged;
         int obstructionMask;
         int next;
 
@@ -144,6 +204,12 @@ namespace Hotdrop.Core
         void Awake()
         {
             instance = this;
+            if (!PlayerPrefs.HasKey(VoiceKey) && PlayerPrefs.HasKey("Volume.Announcer"))
+            {
+                PlayerPrefs.SetFloat(VoiceKey, PlayerPrefs.GetFloat("Volume.Announcer", 1f));
+                PlayerPrefs.Save();
+            }
+            startupSpeakerMode = AudioSettings.GetConfiguration().speakerMode;
             obstructionMask = LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
             for (int i = 0; i < PoolSize; i++)
             {
@@ -163,7 +229,14 @@ namespace Hotdrop.Core
             musicSource.loop = true;
             musicSource.spatialBlend = 0f;
             musicSource.priority = 250;
+            flightWindSource = CreateFlightSource("FlightWind", OriginalGameAudio.FlightWind());
+            flightClothSource = CreateFlightSource("FlightCloth", OriginalGameAudio.FlightCloth());
             ApplyVolumes();
+            if (!ApplyMonoOutput() && PlayerPrefs.GetInt(MonoOutputKey, 0) == 1)
+            {
+                PlayerPrefs.SetInt(MonoOutputKey, 0);
+                PlayerPrefs.Save();
+            }
         }
 
         public static float Volume(string key) => PlayerPrefs.GetFloat(key, key == MusicKey ? 0.5f : 1f);
@@ -176,6 +249,72 @@ namespace Hotdrop.Core
             PlayerPrefs.SetFloat(key, Mathf.Clamp01(value));
             PlayerPrefs.Save();
             Instance.ApplyVolumes();
+        }
+
+        AudioSource CreateFlightSource(string name, AudioClip clip)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(transform, false);
+            var source = go.AddComponent<AudioSource>();
+            source.clip = clip;
+            source.loop = true;
+            source.playOnAwake = false;
+            source.spatialBlend = 0f;
+            source.priority = 180;
+            source.volume = 0f;
+            source.Play();
+            return source;
+        }
+
+        void Update()
+        {
+            float blend = 1f - Mathf.Exp(-Time.unscaledDeltaTime * 5f);
+            float volume = Volume(SfxKey);
+            flightWindSource.volume = Mathf.Lerp(flightWindSource.volume, flightWindTarget * volume, blend);
+            flightClothSource.volume = Mathf.Lerp(flightClothSource.volume, flightClothTarget * volume, blend);
+            float divePitch = Mathf.Lerp(1f, 1.18f, flightDiveTarget);
+            flightWindSource.pitch = Mathf.Lerp(flightWindSource.pitch, divePitch, blend);
+            flightClothSource.pitch = Mathf.Lerp(flightClothSource.pitch, divePitch * 1.06f, blend);
+        }
+
+        public static void SetFlightMix(float planarSpeed, float verticalSpeed, bool airborne)
+        {
+            var audio = Instance;
+            if (airborne && !audio.flightCaptionActive && PlayerPrefs.GetInt(SoundCaptionsKey, 1) == 1)
+                OnCriticalCaption?.Invoke("FLIGHT WIND");
+            audio.flightCaptionActive = airborne;
+            float speed = Mathf.InverseLerp(4f, 18f, Mathf.Max(0f, planarSpeed));
+            float dive = airborne ? Mathf.InverseLerp(1f, 12f, Mathf.Max(0f, -verticalSpeed)) : 0f;
+            audio.flightWindTarget = airborne ? 0.12f + 0.34f * speed + 0.18f * dive : 0f;
+            audio.flightClothTarget = airborne ? 0.035f + 0.09f * speed + 0.08f * dive : 0f;
+            audio.flightDiveTarget = dive;
+        }
+
+        public static void ClearFlightMix() => SetFlightMix(0f, 0f, false);
+
+        public static void SetMonoOutput(bool enabled)
+        {
+            PlayerPrefs.SetInt(MonoOutputKey, enabled ? 1 : 0);
+            PlayerPrefs.Save();
+            if (!Instance.ApplyMonoOutput() && enabled)
+            {
+                PlayerPrefs.SetInt(MonoOutputKey, 0);
+                PlayerPrefs.Save();
+                if (!Instance.monoWarningLogged)
+                {
+                    Instance.monoWarningLogged = true;
+                    Debug.LogWarning("This audio device could not switch to mono output.");
+                }
+            }
+        }
+
+        bool ApplyMonoOutput()
+        {
+            var configuration = AudioSettings.GetConfiguration();
+            var target = PlayerPrefs.GetInt(MonoOutputKey, 0) == 1 ? AudioSpeakerMode.Mono : startupSpeakerMode;
+            if (configuration.speakerMode == target) return true;
+            configuration.speakerMode = target;
+            return AudioSettings.Reset(configuration) && AudioSettings.GetConfiguration().speakerMode == target;
         }
 
         void ApplyVolumes()
@@ -197,8 +336,12 @@ namespace Hotdrop.Core
         /// <summary>Non-positional cue (UI, announcer, local feedback).</summary>
         public static void Play2D(GameCue cue, float volume = 1f) => Instance.PlayInternal(cue, Vector3.zero, volume, false);
 
+        /// <summary>Publishes a caption for a world sound played by an external AudioSource.</summary>
+        public static void ReportSpatialCue(GameCue cue, Vector3 position) => PublishCriticalCaption(cue, position, true);
+
         void PlayInternal(GameCue cue, Vector3 position, float volume, bool spatial)
         {
+            PublishCriticalCaption(cue, position, spatial);
             var category = Category(cue);
             int priority = Priority(cue);
             var (source, filter) = Acquire(priority);
@@ -206,7 +349,7 @@ namespace Hotdrop.Core
             source.transform.position = position;
             source.spatialBlend = spatial ? 1f : 0f;
             source.priority = priority;
-            float categoryVolume = category == AudioCategory.Announcer ? Volume(AnnouncerKey) : Volume(SfxKey);
+            float categoryVolume = category == AudioCategory.Voice ? Volume(VoiceKey) : Volume(SfxKey);
             float obstruction = 1f;
             filter.cutoffFrequency = 22000f;
             var listener = UnityEngine.Camera.main;
@@ -219,7 +362,60 @@ namespace Hotdrop.Core
                     obstruction = 0.6f;
                 }
             }
-            source.PlayOneShot(OriginalGameAudio.Get(cue), volume * categoryVolume * obstruction);
+            float mixedVolume = volume * categoryVolume * obstruction;
+            source.PlayOneShot(OriginalGameAudio.Get(cue), mixedVolume);
+            if (cue is GameCue.Arc or GameCue.Zip or GameCue.Brick)
+            {
+                source.PlayOneShot(OriginalGameAudio.WeaponMechanism(cue), mixedVolume);
+                source.PlayOneShot(OriginalGameAudio.WeaponTail(cue), mixedVolume);
+            }
+        }
+
+        static void PublishCriticalCaption(GameCue cue, Vector3 position, bool spatial)
+        {
+            if (PlayerPrefs.GetInt(SoundCaptionsKey, 1) != 1) return;
+            if (!spatial)
+            {
+                string objectiveCaption = cue switch
+                {
+                    GameCue.ZoneActivate => "OBJECTIVE ZONE ACTIVE",
+                    GameCue.ZoneContest => "OBJECTIVE ZONE CONTESTED",
+                    GameCue.ZoneMilestone => "OBJECTIVE SCORE MILESTONE",
+                    _ => null,
+                };
+                if (objectiveCaption != null) OnCriticalCaption?.Invoke(objectiveCaption);
+                return;
+            }
+
+            string caption = cue switch
+            {
+                GameCue.Arc => "DISTANT ARC FIRE",
+                GameCue.Zip => "DISTANT ZIP FIRE",
+                GameCue.Brick => "DISTANT BRICK FIRE",
+                GameCue.PadLaunch => "NEARBY PAD LAUNCH",
+                GameCue.PadArm => "NEARBY PAD ARMED",
+                GameCue.PadCharging => "NEARBY PAD CHARGING",
+                GameCue.PadDeploy => "NEARBY PAD DEPLOYED",
+                GameCue.PadDestroy => "NEARBY PAD DESTROYED",
+                _ => null,
+            };
+            var listenerCamera = UnityEngine.Camera.main;
+            if (caption == null || listenerCamera == null) return;
+            float distance = Vector3.Distance(listenerCamera.transform.position, position);
+            if (cue is GameCue.Arc or GameCue.Zip or GameCue.Brick)
+            {
+                // Avoid captioning the local weapon (camera-to-avatar distance is short),
+                // and rate-limit automatic fire so it cannot keep resetting the caption.
+                int weaponIndex = (int)cue;
+                if (distance < 10f || distance > 50f || Time.unscaledTime < nextWeaponCaptionAt[weaponIndex]) return;
+                int mask = instance != null ? instance.obstructionMask : 0;
+                if (mask != 0 && Physics.Linecast(listenerCamera.transform.position,
+                    position + Vector3.up * 0.5f, mask, QueryTriggerInteraction.Ignore)) return;
+                nextWeaponCaptionAt[weaponIndex] = Time.unscaledTime + 3f;
+                OnCriticalCaption?.Invoke(caption);
+                return;
+            }
+            if (distance <= 50f) OnCriticalCaption?.Invoke(caption);
         }
 
         (AudioSource, AudioLowPassFilter) Acquire(int priority)
@@ -251,7 +447,7 @@ namespace Hotdrop.Core
         static AudioCategory Category(GameCue cue) => cue switch
         {
             GameCue.ZoneActivate or GameCue.ZoneContest or GameCue.ZoneMilestone or GameCue.Countdown or GameCue.CountdownGo
-                or GameCue.Victory or GameCue.Defeat => AudioCategory.Announcer,
+                or GameCue.Victory or GameCue.Defeat => AudioCategory.Voice,
             _ => AudioCategory.Sfx,
         };
     }

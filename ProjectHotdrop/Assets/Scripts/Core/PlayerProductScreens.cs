@@ -185,6 +185,10 @@ namespace Hotdrop.Core
             if (!wallet.Ok) { SetStatus("Credits unavailable: " + wallet.Message); ShowProfile(profile.Value, null, null); Retry("RETRY PROFILE", OpenProfile); return; }
             var stats = await BackendClient.Instance.GetProfileStatsAsync();
             if (Stale(version)) return;
+            // A brand-new account has no match-stats record yet; that is a normal empty
+            // state, not a failure, and must read like one rather than a raw backend error.
+            if (!stats.Ok && stats.Error == BackendError.NotFound)
+            { SetStatus("Profile loaded."); ShowProfile(profile.Value, wallet.Value, new ProfileStatsDto()); return; }
             if (!stats.Ok || stats.Value == null) { SetStatus("Match record unavailable: " + stats.Message); ShowProfile(profile.Value, wallet.Value, null); Retry("RETRY PROFILE", OpenProfile); return; }
             SetStatus("Profile loaded.");
             ShowProfile(profile.Value, wallet.Value, stats.Value);
@@ -422,7 +426,7 @@ namespace Hotdrop.Core
             if (Stale(version)) return;
             if (!profile.Ok || profile.Value == null) { SetStatus(profile.Message); Retry("RETRY ACCOUNT", OpenAccount); return; }
             Text(AccountStateLabel(profile.Value.isGuest), new Vector2(0, 220), 30, MatchHUD.Friendly);
-            Text("Player: " + profile.Value.alias, new Vector2(0, 170), 21, MatchHUD.MainText);
+            Text("Player: " + StreamSafePresentation.AccountAlias(profile.Value.alias), new Vector2(0, 170), 21, MatchHUD.MainText);
             Text(profile.Value.isGuest
                 ? "Guest profiles are only on this device. Link Google Play Games to recover them after reinstall or on a new phone."
                 : "Google Play Games is linked. Sign in again after reinstall to recover this profile.", new Vector2(0, 90), 20, MatchHUD.SecondaryText);
@@ -704,7 +708,7 @@ namespace Hotdrop.Core
         static string AccountStateLabel(bool isGuest) => isGuest ? "GUEST ACCOUNT" : "LINKED ACCOUNT";
 
         static string ReportTargetMessage(RecentMatch.Entry target) =>
-            target == null ? "Choose a participant to report." : $"Reporting {target.alias}, slot {target.slot + 1}. Add a category and submit.";
+            target == null ? "Choose a participant to report." : $"Reporting {StreamSafePresentation.PlayerName(target.alias, target.slot)}, slot {target.slot + 1}. Add a category and submit.";
 
         static string UnlockSource(string acquiredVia)
         {

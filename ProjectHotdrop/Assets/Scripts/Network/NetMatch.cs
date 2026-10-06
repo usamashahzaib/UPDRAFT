@@ -55,6 +55,7 @@ namespace Hotdrop.Network
         readonly Dictionary<NetPlayer, float> pendingDamage = new Dictionary<NetPlayer, float>();
         readonly Dictionary<NetPlayer, (int slot, int weapon)> lastAttacker = new Dictionary<NetPlayer, (int, int)>();
         readonly HashSet<NetPlayer> shootersWhoHit = new HashSet<NetPlayer>(); // QA-010
+        readonly HashSet<NetPlayer> shootersWhoHeadshot = new HashSet<NetPlayer>();
         readonly List<IMatchParticipant> participants = new List<IMatchParticipant>();
         // C04: players physically inside each team's scoring zone this tick, so the
         // match can credit uncontested occupation only to the sole occupying team.
@@ -194,6 +195,7 @@ namespace Hotdrop.Network
             shots.Sort((x, y) => x.shooter.Slot.CompareTo(y.shooter.Slot));
             pendingDamage.Clear();
             shootersWhoHit.Clear();
+            shootersWhoHeadshot.Clear();
             foreach (var shot in shots)
             {
                 if (shot.shooter == null || shot.shooter.Dead) continue;
@@ -220,6 +222,7 @@ namespace Hotdrop.Network
                             pendingDamage[target] = sum + damage;
                             lastAttacker[target] = (shot.shooter.Slot, shot.shooter.WeaponIndex);
                             if (IsLive && !target.IsSpawnProtected) shootersWhoHit.Add(shot.shooter); // only hits that deal damage confirm
+                            if (head && IsLive && !target.IsSpawnProtected) shootersWhoHeadshot.Add(shot.shooter);
                             break;
                         }
                         var pad = hit.GameObject != null ? hit.GameObject.GetComponentInParent<NetPad>() : null;
@@ -237,6 +240,7 @@ namespace Hotdrop.Network
                 }
             // QA-010: every shooter who landed damage this tick gets an immediate hit confirmation.
             foreach (var shooter in shootersWhoHit) if (shooter != null) shooter.HitConfirmCounter++;
+            foreach (var shooter in shootersWhoHeadshot) if (shooter != null) shooter.HeadshotConfirmCounter++;
         }
 
         public void Eliminate(NetPlayer victim, int killerSlot, int weapon)
@@ -340,6 +344,7 @@ namespace Hotdrop.Network
         // ---- IMatchView (clients' presentation) ----
 
         public MatchRulesConfig Rules => R;
+        MapConfig IMatchView.MapConfig => Map;
         public MatchPhase CurrentPhase => Phase;
         public float MatchTime => MatchClock;
         public ZoneId ScoringZone => R.GetScoringZone(MatchClock);

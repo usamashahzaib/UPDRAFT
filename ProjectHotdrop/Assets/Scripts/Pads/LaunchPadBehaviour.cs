@@ -211,7 +211,11 @@ namespace Hotdrop.Pads
 
             bool isArming = padData.State == PadState.Arming;
             bool isArmed = padData.State == PadState.Armed;
-            if (isArmed && lastState == PadState.Arming && armSound != null) audioSource.PlayOneShot(armSound, Hotdrop.Core.GameAudio.SfxVolume);
+            if (isArmed && lastState == PadState.Arming)
+            {
+                Hotdrop.Core.GameAudio.ReportSpatialCue(Hotdrop.Core.GameCue.PadArm, transform.position);
+                if (armSound != null) audioSource.PlayOneShot(armSound, Hotdrop.Core.GameAudio.SfxVolume);
+            }
             lastState = padData.State;
             // Arming pads read as dim and blinking; armed pads at full colour.
             if (padRenderer != null && colorBlock != null)
@@ -237,6 +241,7 @@ namespace Hotdrop.Pads
 
         public void NotifyActivated()
         {
+            Hotdrop.Core.GameAudio.ReportSpatialCue(Hotdrop.Core.GameCue.PadLaunch, transform.position);
             if (launchSound != null)
                 audioSource.PlayOneShot(launchSound, Hotdrop.Core.GameAudio.SfxVolume);
         }
@@ -249,6 +254,7 @@ namespace Hotdrop.Pads
                 reportedDestroyed = true;
                 Hotdrop.Core.Telemetry.TrackOfflineMatchFact("pad_destroyed", ("padTeam", padData.TeamId),
                     ("ageSeconds", Time.time - spawnTime));
+                Hotdrop.Core.GameAudio.ReportSpatialCue(Hotdrop.Core.GameCue.PadDestroy, transform.position);
                 if (destroySound != null)
                     audioSource.PlayOneShot(destroySound, Hotdrop.Core.GameAudio.SfxVolume);
                 if (destroyEffect != null)

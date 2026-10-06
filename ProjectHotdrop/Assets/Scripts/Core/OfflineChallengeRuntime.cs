@@ -52,6 +52,7 @@ namespace Hotdrop.Core
         public PlayerController Player => player;
         public float HoldSeconds => hold;
         public MatchRulesConfig Rules => game.matchRules;
+        public MapConfig MapConfig => game.mapConfig;
         public MatchPhase CurrentPhase => Controller.IsAttemptActive ? MatchPhase.InProgress : MatchPhase.Results;
         public float MatchTime => Controller.CurrentElapsedTime;
         public ZoneId ScoringZone => entry?.objectiveType == ChallengeObjectiveType.RotateBetweenZones
@@ -132,7 +133,7 @@ namespace Hotdrop.Core
             player.DisplayName = "YOU";
             player.SetMatchPermissions(true, true, true, false);
             player.OnShotStarted += () => Controller.UpdateGameplay(0, shotFired: true);
-            player.OnHitConfirmed += () => { Controller.UpdateGameplay(0, shotHit: true); game.matchHUD.ShowHitConfirmed(); };
+            player.OnHitConfirmed += headshot => { Controller.UpdateGameplay(0, shotHit: true); game.matchHUD.ShowHitConfirmed(headshot: headshot); };
             player.OnHealthChanged += game.matchHUD.UpdateHealth;
             player.OnAmmoChanged += game.matchHUD.UpdateAmmo;
             player.OnPadRejected += game.matchHUD.ShowPadRejected;
@@ -200,7 +201,7 @@ namespace Hotdrop.Core
             {
                 var bot = Instantiate(game.botPrefab, game.mapConfig.centerZone + new Vector3(i == 0 ? -12 : 12, .05f, -8), Quaternion.identity, world.transform);
                 bot.GetComponent<BotController>().Initialize(i + 1, 1, game.weaponDefinitions[0], entry.difficulty == "Easy");
-                var opponent = bot.GetComponent<PlayerController>(); opponent.IsBot = true; opponent.DisplayName = "[BOT] Defender";
+                var opponent = bot.GetComponent<PlayerController>(); opponent.IsBot = true; opponent.DisplayName = "Rafi Khan";
                 defenders.Add(opponent); participants.Add(opponent);
                 opponent.OnDeath += killed =>
                 {

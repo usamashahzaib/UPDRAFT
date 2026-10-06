@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 using Hotdrop.Config;
 using Hotdrop.Match;
 using Hotdrop.Player;
@@ -26,6 +27,11 @@ namespace Hotdrop.Core
         // time of the first script Awake, which is comparable across builds.
         static float firstAwakeRealSeconds = -1f;
         static bool startupLogged;
+        static readonly Dictionary<VolumeComponent, bool> volumeComponentDefaults = new Dictionary<VolumeComponent, bool>();
+        static bool qualityDefaultsCaptured;
+        static int defaultTextureMipmapLimit, defaultMaximumLodLevel;
+        static float defaultLodBias;
+        static UnityEngine.ShadowQuality defaultShadowQuality;
 
         [Header("Config Assets")]
         [SerializeField] public MovementConfig movementConfig;
@@ -198,8 +204,8 @@ namespace Hotdrop.Core
         }
 
         /// <summary>
-        /// Amendment 2: a graphics preset must do something real, not just relabel a button.
-        /// LOW = 30 FPS target at 80% render scale; SMOOTH = 60 FPS target at full render scale.
+        /// Applies Performance (60 FPS target, 80% render scale), Balanced (60 FPS target,
+        /// full render scale), or Cinematic (30 FPS target, full render scale).
         /// The render-scale change is only made inside a player: in the editor the URP asset is
         /// the checked-in project file, and a runtime preset must never rewrite the check-out.
         /// Device measurement of the result is the job of DevicePerformanceProbe.
@@ -207,15 +213,77 @@ namespace Hotdrop.Core
         public static void ApplyGraphicsQuality(int quality)
         {
             var config = instance != null ? instance.graphicsConfig : null;
-            int lowFps = config != null ? config.lowPresetTargetFps : 30;
-            int highFps = config != null ? config.mediumHighPresetTargetFps : 60;
+            quality = Mathf.Clamp(quality, 0, 2);
+            CaptureQualityDefaults();
+            if (quality == 0)
+            {
+                QualitySettings.globalTextureMipmapLimit = Mathf.Clamp(config != null ? config.performanceTextureMipmapLimit : 1, 0, 3);
+                QualitySettings.lodBias = Mathf.Clamp(config != null ? config.performanceLodBias : 0.7f, 0.1f, 2f);
+                QualitySettings.maximumLODLevel = Mathf.Clamp(config != null ? config.performanceMaximumLodLevel : 1, 0, 3);
+            }
+            else
+            {
+                QualitySettings.globalTextureMipmapLimit = defaultTextureMipmapLimit;
+                QualitySettings.lodBias = defaultLodBias;
+                QualitySettings.maximumLODLevel = defaultMaximumLodLevel;
+            }
+            QualitySettings.shadows = quality == 0 && !(config != null && config.realtimeShadowsOnLow)
+                ? UnityEngine.ShadowQuality.Disable
+                : defaultShadowQuality;
+            int performanceFps = config != null ? config.performanceTargetFps : 60;
+            int balancedFps = config != null ? config.balancedTargetFps : 60;
+            int cinematicFps = config != null ? config.cinematicPresetTargetFps : 30;
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = quality == 0 ? lowFps : highFps;
-            float renderScale = quality == 0 ? 0.8f : 1f;
+            Application.targetFrameRate = quality == 0 ? performanceFps : quality == 1 ? balancedFps : cinematicFps;
+            float performanceScale = config != null ? config.performanceRenderScale : 0.8f;
+            float balancedScale = config != null ? config.balancedRenderScale : 1f;
+            float cinematicScale = config != null ? config.cinematicRenderScale : 1f;
+            float renderScale = quality == 0 ? performanceScale : quality == 1 ? balancedScale : cinematicScale;
             if (Application.isPlaying && !Application.isEditor
                 && GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urp)
                 urp.renderScale = renderScale;
-            Debug.Log($"HOTDROP_GRAPHICS preset={(quality == 0 ? "low" : "smooth")} targetFps={Application.targetFrameRate} renderScale={renderScale}");
+            ApplyVolumeQualityOverrides(config, quality == 0);
+            string preset = quality == 0 ? "performance" : quality == 1 ? "balanced" : "cinematic";
+            Debug.Log($"HOTDROP_GRAPHICS preset={preset} targetFps={Application.targetFrameRate} renderScale={renderScale} textureMipLimit={QualitySettings.globalTextureMipmapLimit} lodBias={QualitySettings.lodBias:0.##} maxLod={QualitySettings.maximumLODLevel}");
+        }
+
+        static void CaptureQualityDefaults()
+        {
+            if (qualityDefaultsCaptured) return;
+            qualityDefaultsCaptured = true;
+            defaultTextureMipmapLimit = QualitySettings.globalTextureMipmapLimit;
+            defaultLodBias = QualitySettings.lodBias;
+            defaultMaximumLodLevel = QualitySettings.maximumLODLevel;
+            defaultShadowQuality = QualitySettings.shadows;
+        }
+
+        static void ApplyVolumeQualityOverrides(GraphicsConfig config, bool performancePreset)
+        {
+            if (!Application.isPlaying) return;
+            var volumes = FindObjectsByType<Volume>(FindObjectsSortMode.None);
+            foreach (var volume in volumes)
+            {
+                if (volume == null || volume.sharedProfile == null) continue;
+                // Volume.profile gives this scene volume a runtime copy. Never change the
+                // shared project asset when a player changes a graphics preset.
+                var profile = volume.profile;
+                foreach (var component in profile.components)
+                {
+                    if (component == null) continue;
+                    string type = component.GetType().Name;
+                    bool? lowTierValue = type switch
+                    {
+                        "Bloom" => config != null ? config.bloomOnLow : false,
+                        "MotionBlur" => config != null ? config.motionBlurOnLow : false,
+                        "DepthOfField" => config != null ? config.depthOfFieldOnLow : false,
+                        _ => null,
+                    };
+                    if (!lowTierValue.HasValue) continue;
+                    if (!volumeComponentDefaults.ContainsKey(component))
+                        volumeComponentDefaults.Add(component, component.active);
+                    component.active = performancePreset ? lowTierValue.Value : volumeComponentDefaults[component];
+                }
+            }
         }
 
         void InitializeSystems()

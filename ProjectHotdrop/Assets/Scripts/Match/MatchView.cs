@@ -30,6 +30,7 @@ namespace Hotdrop.Match
     public interface IMatchView
     {
         MatchRulesConfig Rules { get; }
+        MapConfig MapConfig { get; }
         MatchPhase CurrentPhase { get; }
         float MatchTime { get; }
         ZoneId ScoringZone { get; }

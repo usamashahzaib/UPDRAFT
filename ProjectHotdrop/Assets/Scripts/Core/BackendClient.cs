@@ -27,7 +27,8 @@ namespace Hotdrop.Core
 
     [Serializable] public class SessionDto { public string playerId; public string accessToken; public string refreshToken; public string accessExpiresAt; }
     [Serializable] public class RefreshDto { public string refreshToken; }
-    [Serializable] public class QueueStatusDto { public string state; public int elapsedSeconds; public string matchId; public string region; }
+    [Serializable] public class ClientStatusDto { public string state; public int minClientProtocol; public string storeUrl; public string message; public string etaUtc; public string compensationNote; public bool maintenance; }
+    [Serializable] public class QueueStatusDto { public string state; public int elapsedSeconds; public string matchId; public string region; public string message; public string etaUtc; public string compensationNote; }
     [Serializable] public class TicketDto { public string ticket; public string expiresAt; public string matchId; public string session; public string region; public string team; public bool hasBots; public bool serverReady; public string note; }
     [Serializable] public class ReconnectDto { public string matchId; public bool reconnectAllowed; }
     [Serializable] public class MatchReceiptDto { public bool recorded; public bool eligible; public int xpGained; public int creditsGained; public int level; public string[] unlocked; }
@@ -36,7 +37,7 @@ namespace Hotdrop.Core
     [Serializable] public class ProfileDto { public string id; public string alias; public int profileXp; public int level; public string equippedCosmeticId; public string linkedPlatformIdentity; public bool isGuest; public string bodyStyleId; public string weaponWrapId; public string badgeId; public string bodyRigId; }
     [Serializable] public class WalletDto { public int credits; }
     [Serializable] public class ProfileStatsDto { public int eligibleMatches; public int wins; public int draws; }
-    [Serializable] public class ErrorDto { public string error; }
+    [Serializable] public class ErrorDto { public string error; public string message; public string etaUtc; public string compensationNote; }
     [Serializable] public class InventoryItemDto { public long id; public string cosmeticId; public string acquiredVia; }
     [Serializable] public class InventoryDto { public InventoryItemDto[] items; }
     [Serializable] public class ReportRequestDto { public string reportedPlayerId; public string reason; public string matchId; public string reportedAlias; public int reportedSlot = -1; }
@@ -150,6 +151,9 @@ namespace Hotdrop.Core
         public Task<BackendResult<ErrorDto>> EnqueueAsync() => AuthedAsync<ErrorDto>("POST", "/api/matchmaking/enqueue", "{}");
         public Task<BackendResult<ErrorDto>> CancelQueueAsync() => AuthedAsync<ErrorDto>("POST", "/api/matchmaking/cancel", "{}");
         public Task<BackendResult<QueueStatusDto>> QueueStatusAsync() => AuthedAsync<QueueStatusDto>("GET", "/api/matchmaking/status");
+        public Task<BackendResult<ClientStatusDto>> ClientStatusAsync() => IsConfigured
+            ? SendAsync<ClientStatusDto>("GET", "/api/client/status", null, auth: false)
+            : Task.FromResult(new BackendResult<ClientStatusDto>(null, BackendError.NotConfigured, 0));
         public Task<BackendResult<TicketDto>> TicketAsync() => AuthedAsync<TicketDto>("GET", "/api/matchmaking/ticket");
         public Task<BackendResult<MatchReceiptDto>> MatchReceiptAsync(string matchId) =>
             AuthedAsync<MatchReceiptDto>("GET", $"/api/matches/{UnityWebRequest.EscapeURL(matchId)}/receipt");
@@ -241,6 +245,12 @@ namespace Hotdrop.Core
                 request.SetRequestHeader("Content-Type", "application/json");
             }
             request.SetRequestHeader("X-Client-Protocol", config.clientProtocolVersion.ToString());
+            request.SetRequestHeader("X-Client-Platform", Application.platform switch
+            {
+                RuntimePlatform.Android => "android",
+                RuntimePlatform.IPhonePlayer => "ios",
+                _ => "other",
+            });
             if (auth && accessToken != null) request.SetRequestHeader("Authorization", "Bearer " + accessToken);
             request.timeout = Mathf.CeilToInt(config.requestTimeoutSeconds);
 
@@ -260,7 +270,6 @@ namespace Hotdrop.Core
                 >= 400 and < 500 => BackendError.Invalid,
                 _ => BackendError.ServerError,
             };
-            if (error != BackendError.None) return new BackendResult<T>(null, error, status);
             string text = request.downloadHandler.text;
             T value = null;
             if (!string.IsNullOrEmpty(text) && text.TrimStart().StartsWith("{"))
@@ -268,7 +277,7 @@ namespace Hotdrop.Core
                 try { value = JsonUtility.FromJson<T>(text); }
                 catch (Exception e) { Debug.LogWarning($"Backend response parse failed for {path}: {e.Message}"); }
             }
-            return new BackendResult<T>(value, BackendError.None, status);
+            return new BackendResult<T>(value, error, status);
         }
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using Hotdrop.Config;
+using Hotdrop.UI;
 
 namespace Hotdrop.Camera
 {
@@ -99,9 +100,16 @@ namespace Hotdrop.Camera
             targetPitch = Mathf.Clamp(targetPitch + pitchDelta, pitchMin, pitchMax);
         }
 
+        /// <summary>Apply weapon camera kick unless the player has requested reduced motion.</summary>
+        public void AddRecoilPitch(float pitchDelta)
+        {
+            if (UIMotionSettings.ReduceMotionEnabled) return;
+            AddYawPitch(0f, pitchDelta);
+        }
+
         public void TriggerShake(float magnitudeMultiplier = 1f)
         {
-            if (!shakeEnabled) return;
+            if (!shakeEnabled || UIMotionSettings.ReduceMotionEnabled) return;
             shakeTimer = shakeDuration;
             shakeOffset = Random.insideUnitSphere * shakeMagnitude * magnitudeMultiplier;
             shakeOffset.y *= 0.5f; // less vertical shake
@@ -118,7 +126,12 @@ namespace Hotdrop.Camera
             if (target == null) return;
 
             // Update shake
-            if (shakeTimer > 0f)
+            if (UIMotionSettings.ReduceMotionEnabled)
+            {
+                shakeTimer = 0f;
+                shakeOffset = Vector3.zero;
+            }
+            else if (shakeTimer > 0f)
             {
                 shakeTimer -= Time.deltaTime;
                 float t = shakeTimer / shakeDuration;

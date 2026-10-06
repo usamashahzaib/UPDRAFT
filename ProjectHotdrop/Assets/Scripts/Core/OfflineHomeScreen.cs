@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
+using System.Threading.Tasks;
 using Hotdrop.Player;
 using Hotdrop.UI;
 
@@ -16,6 +18,7 @@ namespace Hotdrop.Core
         GameObject panel;
         GameBootstrap game;
         TextMeshProUGUI characterLabel, goalText, onlineStatus;
+        TextMeshProUGUI serviceStatusIcon;
         RawImage previewImage;
         RawImage rooftopBackdrop;
         RectTransform homeStrip;
@@ -28,9 +31,15 @@ namespace Hotdrop.Core
         BodyRig selectedRig;
         Button femaleChoice, maleChoice;
         RectTransform femaleCard, maleCard;
+        Coroutine homeStatusPolling;
+        int identityRefreshRevision;
+        string displayedAlias = "GUEST", displayedLevel = "", displayedSeals = "", connectionState = "CHECKING";
+        string connectionDetail = "";
+        string defaultHomeNote = "All 3 weapons unlocked • Cosmetics never change power";
 
         public void Hide()
         {
+            StopHomeStatusPolling();
             if (panel != null) panel.SetActive(false);
             if (rigChoicePanel != null) rigChoicePanel.SetActive(false);
             DisposeChoicePreviews();
@@ -47,13 +56,50 @@ namespace Hotdrop.Core
             this.game = game;
             if (rigChoicePanel != null) rigChoicePanel.SetActive(false);
             DisposeChoicePreviews();
-            if (panel != null) { panel.SetActive(true); FitBackdrop(); RefreshPreview(); Refresh(); return; }
+            if (panel != null) { panel.SetActive(true); FitBackdrop(); RefreshPreview(); Refresh(); StartHomeStatusPolling(); return; }
             // QA-019/020: density-aware menu layout — every control stays above the 48 dp floor.
             var screen = Hotdrop.UI.MenuLayout.Create(game.matchHUD.transform, "Home", "HOTDROP", null);
             panel = screen.Root;
             BuildHomeStage(screen);
             RefreshPreview();
             Refresh();
+            StartHomeStatusPolling();
+        }
+
+        void OnEnable() => StreamSafePresentation.Changed += RefreshStreamSafeStrip;
+
+        void OnDisable()
+        {
+            StopHomeStatusPolling();
+            StreamSafePresentation.Changed -= RefreshStreamSafeStrip;
+        }
+
+        void RefreshStreamSafeStrip() => SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
+
+        void StartHomeStatusPolling()
+        {
+            if (homeStatusPolling == null && panel != null && panel.activeInHierarchy)
+                homeStatusPolling = StartCoroutine(PollHomeStatus());
+        }
+
+        void StopHomeStatusPolling()
+        {
+            identityRefreshRevision++;
+            if (homeStatusPolling == null) return;
+            StopCoroutine(homeStatusPolling);
+            homeStatusPolling = null;
+        }
+
+        IEnumerator PollHomeStatus()
+        {
+            var wait = new WaitForSecondsRealtime(30f);
+            while (panel != null && panel.activeInHierarchy)
+            {
+                yield return wait;
+                if (panel == null || !panel.activeInHierarchy) break;
+                _ = RefreshConnectionStatusAsync(++identityRefreshRevision);
+            }
+            homeStatusPolling = null;
         }
 
         // Screen 03 is rebuilt from its UIUX HTML; numbers are the reference's CSS px.
@@ -313,11 +359,18 @@ namespace Hotdrop.Core
             UiDraw.Place(rewardText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(55f, -8f), new Vector2(270f, 16f));
 
             UiDraw.HRule(g, "NoteRule", UiDraw.Hex("#49627b", .3f), 242.7f, pad, pad);
-            UiDraw.Place(UiDraw.Icon(g, "ShieldIcon", "shield", 12f, UiDraw.Hex("#bbc6d8")).rectTransform,
+            serviceStatusIcon = UiDraw.Icon(g, "ShieldIcon", "shield", 12f, UiDraw.Hex("#bbc6d8"));
+            UiDraw.Place(serviceStatusIcon.rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad, -259f), new Vector2(12f, 12f));
             fairPlayNote = UiDraw.Text(g, "FairPlayNote", "All 3 weapons unlocked • Cosmetics never change power", UiFont.Body, 11f,
                 UiDraw.Hex("#bbc6d8", .9f));
-            UiDraw.Place(fairPlayNote.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad + 20f, -258f), new Vector2(318f, 14f));
+            fairPlayNote.richText = false;
+            fairPlayNote.enableAutoSizing = true;
+            fairPlayNote.fontSizeMin = 9f;
+            fairPlayNote.fontSizeMax = 11f;
+            fairPlayNote.textWrappingMode = TextWrappingModes.Normal;
+            fairPlayNote.alignment = TextAlignmentOptions.MidlineLeft;
+            UiDraw.Place(fairPlayNote.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad + 20f, -258f), new Vector2(318f, 30f));
 
             var goalHit = new GameObject("HomeGoalAction", typeof(RectTransform), typeof(Image), typeof(Button));
             goalHit.transform.SetParent(g, false);
@@ -440,7 +493,10 @@ namespace Hotdrop.Core
                 if (goalDesc != null) goalDesc.text = split < 0 ? "" : line.Substring(split + 1);
             }
             if (onlineStatus != null)
-                onlineStatus.text = OnlineHooks.UnavailableReason?.Invoke() ?? "All 3 weapons unlocked • Cosmetics never change power";
+            {
+                defaultHomeNote = OnlineHooks.UnavailableReason?.Invoke() ?? "All 3 weapons unlocked • Cosmetics never change power";
+                onlineStatus.text = defaultHomeNote;
+            }
             RefreshGoalProgress();
             RefreshIdentityStrip();
         }
@@ -505,46 +561,138 @@ namespace Hotdrop.Core
         async void RefreshIdentityStrip()
         {
             if (homeStrip == null) return;
-            if (BackendClient.Instance == null || !BackendClient.Instance.HasSession)
-            {
-                SetStrip("GUEST", "", "", "");
-                return;
-            }
+            int revision = ++identityRefreshRevision;
+            var client = BackendClient.Instance;
+            bool hasSession = client.HasSession;
+            displayedAlias = "GUEST";
+            displayedLevel = displayedSeals = "";
+            connectionDetail = "";
+            SetStrip(displayedAlias, displayedLevel, displayedSeals, "CHECKING");
+            var availability = await ReadConnectionStateAsync(client);
+            connectionState = availability.state;
+            connectionDetail = availability.detail;
+            if (this == null || revision != identityRefreshRevision || homeStrip == null) return;
+            SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
+            if (!hasSession) return;
 
-            SetStrip("GUEST", "", "", "ONLINE");
-            var profile = await BackendClient.Instance.GetProfileAsync();
+            var profile = await client.GetProfileAsync();
+            if (this == null || revision != identityRefreshRevision || homeStrip == null) return;
             if (profile.Ok && profile.Value != null && !string.IsNullOrEmpty(profile.Value.alias))
             {
-                string level = $"Level {Mathf.Clamp(profile.Value.level, 1, 20)}";
-                SetStrip(profile.Value.alias, level, "", "ONLINE");
+                displayedAlias = profile.Value.alias;
+                displayedLevel = $"Level {Mathf.Clamp(profile.Value.level, 1, 20)}";
+                SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
                 // Seals are permanent server-derived progress, so only ask when a goal exists.
                 if (ContractsMasteryFeature.Enabled)
                 {
-                    var goals = await BackendClient.Instance.GoalsAsync();
+                    var goals = await client.GoalsAsync();
+                    if (this == null || revision != identityRefreshRevision || homeStrip == null) return;
                     if (goals.Ok && goals.Value != null)
-                        SetStrip(profile.Value.alias, level, goals.Value.seals.ToString(), "ONLINE");
+                    {
+                        displayedSeals = goals.Value.seals.ToString();
+                        SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
+                    }
                 }
             }
         }
 
-        void SetStrip(string alias, string level, string seals, string region)
+        async Task<(string state, string detail)> ReadConnectionStateAsync(BackendClient client)
+        {
+            try
+            {
+                var status = await client.ClientStatusAsync();
+                if (status.Error == BackendError.UpdateRequired) return ("UPDATE REQUIRED", "A newer version is required for online play.");
+                if (!status.Ok || status.Value == null)
+                    return (status.Error == BackendError.NoInternet || status.Error == BackendError.NotConfigured
+                        ? "OFFLINE" : "SERVER UNAVAILABLE", "");
+                switch (status.Value.state)
+                {
+                    case "maintenance":
+                        return ("MAINTENANCE", FormatHomeStatusDetail(status.Value.message, status.Value.etaUtc));
+                    case "queue_paused":
+                        return ("QUEUE PAUSED", FormatHomeStatusDetail(status.Value.message, null));
+                    case "available":
+                        return ("ONLINE", "");
+                    default:
+                        return ("SERVER STATUS UNKNOWN", "");
+                }
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogWarning($"Home server status check failed: {exception.Message}");
+                return ("SERVER UNAVAILABLE", "");
+            }
+        }
+
+        static string FormatHomeStatusDetail(string message, string etaUtc)
+        {
+            // This string is operator-controlled, so remove control characters and keep rich text
+            // disabled on the label. Preserve a compact ETA on its own line when one is supplied.
+            string cleanMessage = CleanStatusText(message, 110);
+            string cleanEta = CleanStatusText(etaUtc, 48);
+            if (string.IsNullOrEmpty(cleanMessage)) cleanMessage = "Online matchmaking is temporarily unavailable.";
+            return string.IsNullOrEmpty(cleanEta) ? cleanMessage : cleanMessage + "\nETA: " + cleanEta + " UTC";
+        }
+
+        static string CleanStatusText(string value, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            var builder = new System.Text.StringBuilder(Mathf.Min(value.Length, maxLength));
+            bool previousSpace = false;
+            bool truncated = false;
+            foreach (char c in value.Trim())
+            {
+                if (char.IsControl(c))
+                {
+                    if (!previousSpace) builder.Append(' ');
+                    previousSpace = true;
+                }
+                else
+                {
+                    builder.Append(c);
+                    previousSpace = char.IsWhiteSpace(c);
+                }
+                if (builder.Length >= maxLength) { truncated = true; break; }
+            }
+            string result = builder.ToString().Trim();
+            return truncated ? result.TrimEnd() + "…" : result;
+        }
+
+        async Task RefreshConnectionStatusAsync(int revision)
+        {
+            var availability = await ReadConnectionStateAsync(BackendClient.Instance);
+            if (this == null || revision != identityRefreshRevision || homeStrip == null || panel == null || !panel.activeInHierarchy) return;
+            connectionState = availability.state;
+            connectionDetail = availability.detail;
+            SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
+        }
+
+        void SetStrip(string alias, string level, string seals, string state)
         {
             if (aliasText == null) return;
-            aliasText.text = alias ?? "";
-            levelText.text = level ?? "";
-            sealsCount.text = seals ?? "";
-            bool online = !string.IsNullOrEmpty(region);
-            netText.text = online ? region : "OFFLINE";
-            netDot.color = online ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#ff6376");
+            aliasText.text = StreamSafePresentation.AccountAlias(alias);
+            levelText.text = StreamSafePresentation.AccountProgress(level);
+            sealsCount.text = StreamSafePresentation.AccountProgress(seals);
+            netText.text = string.IsNullOrEmpty(state) ? "OFFLINE" : state;
+            bool hasServiceDetail = !string.IsNullOrWhiteSpace(connectionDetail);
+            onlineStatus.text = hasServiceDetail ? connectionDetail : defaultHomeNote;
+            serviceStatusIcon.gameObject.SetActive(!hasServiceDetail);
+            onlineStatus.color = hasServiceDetail ? UiDraw.Hex("#ffda88") : UiDraw.Hex("#bbc6d8", .9f);
+            netDot.color = state == "ONLINE" ? UiDraw.Hex("#30d5e8")
+                : state == "MAINTENANCE" || state == "QUEUE PAUSED" ? UiDraw.Hex("#ffda88") : UiDraw.Hex("#ff6376");
             LayoutChips();
         }
 
         string GoalLine()
         {
-            // Shared with the results screen so Home and post-match always agree.
+            // Shared with the results screen so Home and post-match always agree. Building the
+            // runtime binds its view to the controller's current (Library) state and renders it,
+            // which would pop the Offline Challenges screen over Home the first time a trained
+            // player's goal text is ever computed; hide it immediately so only the text — the
+            // thing this call actually wants — escapes the read.
             if (PlayerPrefs.GetInt(GameBootstrap.TutorialDoneKey, 0) != 0 &&
                 game.GetComponent<OfflineChallengeRuntime>() == null)
-                game.gameObject.AddComponent<OfflineChallengeRuntime>();
+                game.gameObject.AddComponent<OfflineChallengeRuntime>().View.Hide();
             return NextGoal.Describe(game.gameObject);
         }
 
@@ -954,5 +1102,3 @@ namespace Hotdrop.Core
         }
     }
 }
-
-

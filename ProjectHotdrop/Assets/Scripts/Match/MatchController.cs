@@ -76,6 +76,7 @@ namespace Hotdrop.Match
         void OnDisable() { if (Current == this) Current = null; MatchView.Unregister(this); }
 
         MatchRulesConfig IMatchView.Rules => matchRules;
+        MapConfig IMatchView.MapConfig => mapConfig;
         bool IMatchView.IsLiveMatch => allPlayers.Count > 0;
         IMatchParticipant IMatchView.LocalParticipant => localPlayer;
         IReadOnlyList<IMatchParticipant> IMatchView.Participants => allPlayers;
@@ -143,7 +144,7 @@ namespace Hotdrop.Match
             localPlayer.OnPadChargeReady += () => matchHUD?.ShowPadReady();
             localPlayer.OnShotBlocked += () => matchHUD?.ShowBlockedShot();
             localPlayer.OnPadRejected += reason => matchHUD?.ShowPadRejected(reason);
-            localPlayer.OnHitConfirmed += () => matchHUD?.ShowHitConfirmed();
+            localPlayer.OnHitConfirmed += headshot => matchHUD?.ShowHitConfirmed(headshot: headshot);
             localPlayer.OnEliminated += (killerId, weapon) =>
             {
                 var killer = PlayerController.Find(killerId);
@@ -180,7 +181,7 @@ namespace Hotdrop.Match
 
                 botController.Initialize(playerId, teamId, weapon, easyDifficulty);
                 playerController.IsBot = true;
-                playerController.DisplayName = "[BOT] " + OfflineAlias.Next(playerId * 7919 + teamId);
+                playerController.DisplayName = OfflineAlias.Next(playerId * 7919 + teamId);
 
                 // Subscribe to events
                 playerController.OnDeath += OnPlayerDeath;
@@ -188,7 +189,11 @@ namespace Hotdrop.Match
                 var victim = playerController;
                 playerController.OnEliminated += (killerId, weapon) =>
                 {
-                    if (localPlayer != null && killerId == localPlayer.PlayerId) matchHUD?.ShowEliminationConfirmed(victim.DisplayName);
+                    if (localPlayer != null && killerId == localPlayer.PlayerId)
+                    {
+                        matchHUD?.ShowHitConfirmed(elimination: true);
+                        matchHUD?.ShowEliminationConfirmed(victim.DisplayName);
+                    }
                 };
 
                 TrackPadEvents(playerController);
@@ -540,7 +545,7 @@ namespace Hotdrop.Match
             };
 
             matchHUD?.ShowResults(isWin, isDraw, scoringController.ScoreA, scoringController.ScoreB, endCondition, allPlayers,
-                "LOCAL PRACTICE — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY",
+                "PRACTICE MATCH — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY",
                 // Amendment 1: tell the player the next reachable goal, not just the result.
                 Hotdrop.Core.NextGoal.Short(Hotdrop.Core.GameBootstrap.Instance != null ? Hotdrop.Core.GameBootstrap.Instance.gameObject : null));
 

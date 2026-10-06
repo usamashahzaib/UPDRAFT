@@ -27,8 +27,8 @@ namespace Hotdrop.Network
             var parts = Hotdrop.Player.AvatarRigVisual.Build(root.gameObject, Hotdrop.Player.BodyRigs.Default,
                 material, Resources.Load<Material>("Materials/Equipment"), includeGun: true);
             Hotdrop.Player.AvatarRigVisual.Wire(motion, parts);
-            // QA-023: viewer-relative shape cue (ally orb + chest band / enemy cross + shoulder
-            // spikes) so team never relies on colour alone; collider-free, under "Visual".
+            // QA-023: viewer-relative ally chevron + chest band / enemy diamond + shoulder
+            // spikes so team never relies on color alone; collider-free, under "Visual".
             Hotdrop.Player.TeamCueVisual.Apply(root, friendly, material);
         }
 

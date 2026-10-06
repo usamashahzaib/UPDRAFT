@@ -20,9 +20,13 @@ namespace Hotdrop.Network
         NetPlayer local;
         NetMatch match;
         MatchPhase lastPhase = (MatchPhase)(-1);
-        bool wasDead;
-        int lastEliminations, lastShotCounter, lastHitConfirms;
+        bool wasDead, lastLaunched;
+        int lastEliminations, lastShotCounter, lastHitConfirms, lastHeadshotConfirms;
+        readonly int[] rttSampleBuckets = new int[6];
+        int rttSampleCount, maxRttSampleMs;
+        float nextRttTelemetryAt;
         float lastHealth = -1f;
+        float nextLatencyRefresh;
         byte pendingWeaponChoice;
         // Button presses are latched until the next network tick consumes them, so a
         // tap shorter than a tick is never lost.
@@ -63,10 +67,13 @@ namespace Hotdrop.Network
 
         void Update()
         {
-            if (session == null || session.Runner == null || !session.Runner.IsRunning) return;
+            if (session == null || session.Runner == null || !session.Runner.IsRunning) { GameAudio.ClearFlightMix(); return; }
             if (match == null) match = NetMatch.For(session.Runner);
             if (local == null) FindLocal();
-            if (match == null || local == null) return;
+            if (match == null || local == null) { GameAudio.ClearFlightMix(); return; }
+            var localVelocity = local.Kcc != null ? local.Kcc.RealVelocity : Vector3.zero;
+            GameAudio.SetFlightMix(new Vector2(localVelocity.x, localVelocity.z).magnitude,
+                localVelocity.y, local.Kcc != null && !local.Kcc.IsGrounded && !local.Dead);
             if (local.AfkRemoved && !ShowingResults)
             {
                 // Without this the player would sit in the match with dead controls, watching a bot play as them.
@@ -91,6 +98,11 @@ namespace Hotdrop.Network
                 lastPadRejectCounter = -1;
                 lastEliminations = p.EliminationCount;
                 lastHitConfirms = p.HitConfirmCounter;
+                lastHeadshotConfirms = p.HeadshotConfirmCounter;
+                lastLaunched = p.Launched;
+                Array.Clear(rttSampleBuckets, 0, rttSampleBuckets.Length);
+                rttSampleCount = maxRttSampleMs = 0;
+                nextRttTelemetryAt = 0f;
                 hasSampledYaw = false;
                 match.LocalParticipant = p;
                 MatchView.Register(match);
@@ -100,7 +112,11 @@ namespace Hotdrop.Network
                 game.matchHUD.HideAllPanels();
                 match.OnPingBroadcast += ReceivePing;
                 p.OnLocalShot += (from, to) => Hotdrop.Weapons.ShotTracers.Show(from, to, true);
-                p.OnLocalFired += () => game.mainCamera.AddYawPitch(0f, -p.Weapon.verticalRecoilDegreesPerShot);
+                p.OnLocalFired += shotInMagazine =>
+                {
+                    game.mainCamera.AddRecoilPitch(-p.Weapon.GetVerticalRecoilDegrees(shotInMagazine));
+                    game.touchInput?.PulseFireFeedback();
+                };
                 Telemetry.Track("online_match_joined", ("slot", p.Slot.ToString()));
                 return;
             }
@@ -309,6 +325,23 @@ namespace Hotdrop.Network
             var phase = match.Phase;
             bool preparing = !match.Started;
 
+            // Fusion's measured round trip time is the only source for the live ping label.
+            // Keep the read outside Runtime UI to preserve the one-way assembly dependency.
+            if (Time.unscaledTime >= nextLatencyRefresh)
+            {
+                nextLatencyRefresh = Time.unscaledTime + 0.5f;
+                double rtt = session.Runner.GetPlayerRtt(session.Runner.LocalPlayer);
+                hud.Overlay?.SetLatency(rtt > 0d ? Mathf.RoundToInt((float)(rtt * 1000d)) : 0);
+                var phaseForRtt = match.Phase;
+                if (rtt > 0d && match.Started &&
+                    (phaseForRtt == MatchPhase.InProgress || phaseForRtt == MatchPhase.Overtime) &&
+                    Time.unscaledTime >= nextRttTelemetryAt)
+                {
+                    nextRttTelemetryAt = Time.unscaledTime + 2f;
+                    RecordRttSample(Mathf.RoundToInt((float)(rtt * 1000d)));
+                }
+            }
+
             hud.UpdateScores(match.ScoreA, match.ScoreB);
             hud.UpdateTimer(phase == MatchPhase.InProgress || phase == MatchPhase.Overtime || phase == MatchPhase.Results ? match.MatchClock : 0f);
             if (Math.Abs(local.HealthFraction - lastHealth) > 0.001f)
@@ -325,13 +358,17 @@ namespace Hotdrop.Network
             // and performs the launch on the server when the button is pressed.
             touch.LaunchAvailable = !local.Dead &&
                 NetPad.FindUsableUnder(session.Runner, local.transform.position, NetConfigs.Pad) != null;
+            if (local.Launched && !lastLaunched) HapticFeedback.Pulse();
+            lastLaunched = local.Launched;
 
             // QA-010: every landed hit confirms (marker + sound); eliminations get the stronger cue.
             bool eliminated = local.EliminationCount > lastEliminations;
-            if (eliminated) { hud.ShowHitConfirmed(); GameAudio.Play2D(GameCue.EliminationConfirm); }
-            else if (local.HitConfirmCounter != lastHitConfirms) { hud.ShowHitConfirmed(); GameAudio.Play2D(GameCue.Hit, 0.8f); }
+            bool headshot = local.HeadshotConfirmCounter != lastHeadshotConfirms;
+            if (eliminated) { hud.ShowHitConfirmed(elimination: true); GameAudio.Play2D(GameCue.EliminationConfirm); HapticFeedback.Pulse(0.8f); }
+            else if (local.HitConfirmCounter != lastHitConfirms) { hud.ShowHitConfirmed(headshot: headshot); GameAudio.Play2D(GameCue.Hit, 0.8f); HapticFeedback.Pulse(0.6f); }
             lastEliminations = local.EliminationCount;
             lastHitConfirms = local.HitConfirmCounter;
+            lastHeadshotConfirms = local.HeadshotConfirmCounter;
 
             if (preparing)
             {
@@ -368,7 +405,7 @@ namespace Hotdrop.Network
             if (local.Dead) SpectateTeammate();
             wasDead = local.Dead;
 
-            if (local.AfkWarned) hud.ShowCombatFeedback("MOVE OR YOU'LL BE REPLACED BY A BOT", Hotdrop.UI.MatchHUD.Objective, 1f);
+            if (local.AfkWarned) hud.ShowCombatFeedback("MOVE OR A SQUADMATE WILL TAKE OVER", Hotdrop.UI.MatchHUD.Objective, 1f);
         }
 
         void SpectateTeammate()
@@ -392,7 +429,7 @@ namespace Hotdrop.Network
             bool draw = outcome == MatchOutcome.Draw;
             bool won = !draw && ((outcome == MatchOutcome.TeamAWins && local.Team == 0) || (outcome == MatchOutcome.TeamBWins && local.Team == 1));
             string footer = match.Cancelled ? "MATCH CANCELLED  ·  NO RATING OR REWARDS CHANGED"
-                : match.HasBots ? "BOT-FILLED MATCH  ·  RATING UNCHANGED" : "RANKED 3v3";
+                : match.HasBots ? "MIXED ROSTER  ·  RATING UNCHANGED" : "RANKED 3v3";
             game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, null, match.Participants, footer);
             if (!match.Cancelled) PollRewardReceipt();
             // QA-025: remember who was in this match so the player can report someone by name.
@@ -400,15 +437,33 @@ namespace Hotdrop.Network
             foreach (var p in NetPlayer.All)
                 if (p.Runner == session.Runner && p != local && (!p.BotControlled || p.HadBotSubstitution)) // humans who quit/idled stay reportable
                 {
-                    // C19: the join-time snapshot, not the "[BOT] "-prefixed display alias, so the
-                    // server can still resolve the account (the prefix can also be trimmed).
+                    // C19: resolve support reports from the join-time account alias.
                     string reportAlias = p.ReportAlias;
                     if (string.IsNullOrEmpty(reportAlias)) continue; // a seat that was never human
                     others.Add(new RecentMatch.Entry { alias = reportAlias, slot = p.Slot, team = p.Team });
                 }
             RecentMatch.Remember(MatchId, others, local != null ? local.Team : -1);
             GameAudio.Play2D(draw ? GameCue.ZoneMilestone : won ? GameCue.Victory : GameCue.Defeat);
-            Telemetry.Track("online_match_completed", ("result", draw ? "draw" : won ? "win" : "loss"));
+            Telemetry.Track("online_match_completed",
+                ("result", draw ? "draw" : won ? "win" : "loss"),
+                ("network_rtt_sample_count", rttSampleCount),
+                ("rtt_0_50_ms_count", rttSampleBuckets[0]),
+                ("rtt_51_100_ms_count", rttSampleBuckets[1]),
+                ("rtt_101_150_ms_count", rttSampleBuckets[2]),
+                ("rtt_151_200_ms_count", rttSampleBuckets[3]),
+                ("rtt_201_300_ms_count", rttSampleBuckets[4]),
+                ("rtt_over_300_ms_count", rttSampleBuckets[5]),
+                ("network_rtt_max_ms", maxRttSampleMs));
+        }
+
+        void RecordRttSample(int milliseconds)
+        {
+            if (milliseconds <= 0) return;
+            int bucket = milliseconds <= 50 ? 0 : milliseconds <= 100 ? 1 : milliseconds <= 150 ? 2
+                : milliseconds <= 200 ? 3 : milliseconds <= 300 ? 4 : 5;
+            rttSampleBuckets[bucket]++;
+            rttSampleCount++;
+            maxRttSampleMs = Mathf.Max(maxRttSampleMs, milliseconds);
         }
 
         public string MatchId { get; set; }

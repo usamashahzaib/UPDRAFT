@@ -1,28 +1,27 @@
 namespace Hotdrop
 {
     /// <summary>
-    /// Spec section 14 generated aliases (AmberFox-4821) for offline play. Uses
-    /// the same word lists as the backend AliasGenerator; online aliases always
-    /// come from the server.
+    /// Readable player names for practice opponents and server-filled seats.
+    /// Human online aliases still come from the server.
     /// </summary>
     public static class OfflineAlias
     {
-        static readonly string[] Adjectives =
+        static readonly string[] GivenNames =
         {
-            "Amber", "Swift", "Brisk", "Cobalt", "Copper", "Dusty", "Gentle", "Golden", "Lucky", "Mellow",
-            "Nimble", "Quiet", "Rapid", "Silver", "Steady", "Sunny", "Tidal", "Vivid", "Windy", "Zesty",
+            "Aisha", "Ali", "Amara", "Arman", "Bilal", "Daniyal", "Emaan", "Farah", "Hana", "Haris",
+            "Imran", "Jamal", "Kiran", "Laiba", "Maya", "Nadia", "Omar", "Rafi", "Sana", "Usman",
         };
 
-        static readonly string[] Animals =
+        static readonly string[] FamilyNames =
         {
-            "Fox", "Otter", "Heron", "Lynx", "Falcon", "Badger", "Gecko", "Marten", "Puffin", "Ibex",
-            "Kestrel", "Wombat", "Tapir", "Crane", "Hare", "Raven", "Newt", "Bison", "Koala", "Swift",
+            "Abbasi", "Ahmed", "Akhtar", "Ali", "Bashir", "Farooq", "Hameed", "Hussain", "Iqbal", "Khan",
+            "Malik", "Mir", "Nawaz", "Qureshi", "Raza", "Saeed", "Shah", "Siddiqui", "Tariq", "Yousaf",
         };
 
         public static string Next(int seed)
         {
             var random = new System.Random(seed);
-            return $"{Adjectives[random.Next(Adjectives.Length)]}{Animals[random.Next(Animals.Length)]}-{random.Next(1000, 10000)}";
+            return $"{GivenNames[random.Next(GivenNames.Length)]} {FamilyNames[random.Next(FamilyNames.Length)]}";
         }
     }
 }

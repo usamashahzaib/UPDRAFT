@@ -25,10 +25,9 @@ namespace Hotdrop.Network
         [Networked] public int Slot { get; set; }
         [Networked] public int Team { get; set; }
         [Networked] public NetworkString<_32> Alias { get; set; }
-        // C19: the alias this seat had while it was still a human. MarkBotSubstitution rewrites
-        // Alias to carry a "[BOT] " label (and trims it to fit), so Alias can no longer identify
-        // the account for support reports. This snapshot is written once, on the server, when the
-        // seat is a real player, and is never relabelled — moderation stays resolvable.
+        // C19: the alias this seat had while it was still a human. This snapshot is written once,
+        // on the server, when the seat is a real player, and is never relabelled — moderation
+        // stays resolvable even while a server-controlled teammate temporarily takes over.
         [Networked] public NetworkString<_32> HumanAliasAtJoin { get; set; }
         // Amendment 3: body style | weapon wrap | badge | body rig. Never an account id.
         [Networked] public NetworkString<_64> Cosmetic { get; set; } // QA-024: shown on this avatar to everyone
@@ -51,6 +50,7 @@ namespace Hotdrop.Network
         [Networked] public int Ammo { get; set; }
         [Networked] public TickTimer ReloadTimer { get; set; }
         [Networked] public TickTimer FireCooldown { get; set; }
+        [Networked] public TickTimer LaunchWeaponLockout { get; set; }
         [Networked] public float FireDebt { get; set; }       // QA-009: seconds until the next shot, remainder carried
         [Networked] public int ShotCounter { get; set; }
 
@@ -67,6 +67,7 @@ namespace Hotdrop.Network
 
         [Networked] public int EliminationCount { get; set; }
         [Networked] public int HitConfirmCounter { get; set; } // QA-010: bumps when this player lands damage
+        [Networked] public int HeadshotConfirmCounter { get; set; } // Color-independent headshot marker cue.
         [Networked] public int DeathCount { get; set; }
         [Networked] public int PadLaunchCount { get; set; }
         [Networked] public float ZoneSeconds { get; set; }
@@ -87,7 +88,7 @@ namespace Hotdrop.Network
         public SimpleKCC Kcc { get; private set; }
         public NetInput LastInput { get; private set; }
         public System.Action<Vector3, Vector3> OnLocalShot;      // predicted FX per pellet: muzzle, hit point
-        public System.Action OnLocalFired;                       // once per trigger pull (recoil, fire sound)
+        public System.Action<int> OnLocalFired;                 // shot in magazine for authored recoil presentation
         public System.Action OnLocalDamaged;
 
         PlayerMovementSimulator sim;
@@ -103,20 +104,17 @@ namespace Hotdrop.Network
 
         // ---- IMatchParticipant ----
         public int ParticipantId => Slot;
-        public string DisplayName => Alias.ToString();
+        public string DisplayName => Hotdrop.UI.StreamSafePresentation.PlayerName(Alias.ToString(), Slot);
         /// <summary>
-        /// C19: the alias a support report should use. After a bot substitution the displayed
-        /// alias is prefixed and may be trimmed, so fall back to the join-time snapshot. Returns
-        /// "" for a seat that was never a human (a real bot), which is not reportable.
+        /// C19: the alias a support report should use. After a bot substitution, use the
+        /// join-time human identity. Returns "" for a seat that was never a human (a real bot).
         /// </summary>
         public string ReportAlias
         {
             get
             {
-                string current = Alias.ToString();
-                if (!current.StartsWith("[BOT] ", System.StringComparison.Ordinal)) return current;
-                string human = HumanAliasAtJoin.ToString();
-                return string.IsNullOrEmpty(human) ? "" : human;
+                if (!HadBotSubstitution) return Alias.ToString();
+                return HumanAliasAtJoin.ToString();
             }
         }
         public int TeamId => Team;
@@ -342,6 +340,7 @@ namespace Hotdrop.Network
                 {
                     // Spec 6: launch replaces velocity (never stacks); anyone can use any pad.
                     sim.ApplyLaunchVelocity(pad.LaunchVelocity);
+                    LaunchWeaponLockout = TickTimer.CreateFromSeconds(Runner, P.launchWeaponLockoutSeconds);
                     ActivationLockout = TickTimer.CreateFromSeconds(Runner, P.perPlayerActivationLockoutSeconds);
                     if (HasStateAuthority) { PadLaunchCount++; pad.NotifyUsed(this); }
                     jump = false;
@@ -393,7 +392,8 @@ namespace Hotdrop.Network
                 return;
             }
 
-            bool firing = Match.IsLive && input.IsDown(NetButton.Fire) && !Map.IsInsideSpawnRoom(Team, transform.position);
+            bool firing = Match.IsLive && input.IsDown(NetButton.Fire) && !Map.IsInsideSpawnRoom(Team, transform.position)
+                && (!LaunchWeaponLockout.IsRunning || LaunchWeaponLockout.Expired(Runner));
             float debt = FireDebt;
             bool fires = FireCadence.Step(ref debt, Runner.DeltaTime, firing, weapon.SecondsPerShot);
             FireDebt = debt;
@@ -435,7 +435,7 @@ namespace Hotdrop.Network
                 // Predicted presentation only; the server decides every hit. QA-008: the tracers
                 // run the SAME seeded pellet resolver the server runs (same seed, spread and
                 // movement state), so BRICK shows its eight pellets and ARC/ZIP show their spread.
-                OnLocalFired?.Invoke();
+                OnLocalFired?.Invoke(weapon.magazineSize - Ammo);
                 if (buried) { OnLocalShot?.Invoke(muzzle, buriedAt); return; }
                 int pelletCount = ShotResolver.ResolvePellets(weapon, aim, seed, state, pelletBuffer);
                 for (int i = 0; i < pelletCount; i++)
@@ -552,9 +552,8 @@ namespace Hotdrop.Network
             BotControlled = true;
             HadBotSubstitution = true;
             if (afk) AfkRemoved = true;
-            string alias = Alias.ToString();
-            if (!alias.StartsWith("[BOT] ", System.StringComparison.Ordinal))
-                Alias = "[BOT] " + alias.Substring(0, Mathf.Min(alias.Length, 25));
+            // Keep the established player alias visible while a server-controlled player takes
+            // over. The replicated IsBot state remains internal for scoring and result eligibility.
         }
 
         /// <summary>C04: server-only. Accumulate time spent holding the current weapon.</summary>
@@ -586,6 +585,7 @@ namespace Hotdrop.Network
             Health = M.maxHealth;
             Ammo = Weapon.magazineSize;
             ReloadTimer = TickTimer.None;
+            LaunchWeaponLockout = TickTimer.None;
             Velocity = Vector3.zero;
             Launched = false;
             RespawnTimer = TickTimer.None;

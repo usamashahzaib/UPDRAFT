@@ -104,7 +104,7 @@ namespace Hotdrop.Tutorial
             localPlayer.OnPadPlaced += (pad) => CheckStepCompletion(TutorialStep.PlacePad);
             localPlayer.OnPadActivated += (pad) => CheckPadActivationStep(pad);
             localPlayer.OnPadRejected += reason => matchHUD?.ShowPadRejected(reason);
-            localPlayer.OnHitConfirmed += () => matchHUD?.ShowHitConfirmed();
+            localPlayer.OnHitConfirmed += headshot => matchHUD?.ShowHitConfirmed(headshot: headshot);
             // QA-013: a tutorial death explains who/what eliminated the player and counts down.
             localPlayer.OnEliminated += (killerId, weapon) =>
             {
@@ -292,7 +292,7 @@ namespace Hotdrop.Tutorial
                 tutorialBot.Initialize(1, 1, weaponDefinitions[0], true); // easy difficulty
                 botPlayer.Initialize(1, 1, weaponDefinitions[0]);
                 botPlayer.IsBot = true;
-                botPlayer.DisplayName = "[BOT] Trainer";
+                botPlayer.DisplayName = "Mika Tanaka";
 
                 botPlayer.OnDeath += _ => CheckStepCompletion(TutorialStep.BotFight);
             }
