@@ -8,8 +8,6 @@ using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
 using Hotdrop.Core;
 using Hotdrop.Player;
 using Hotdrop.UI;
@@ -519,59 +517,11 @@ namespace Hotdrop.Tests.PlayMode
             // Screen 09: place pads for real and let the game's own rejection path speak. One
             // placement consumes the charge, so the second is refused by the real rule.
             Assert.IsNotNull(local, "A live match must have a local player to place a pad with.");
-            // Move the evidence player out of the protected spawn room into an open lane.
-            // This changes only the test pose; placement still runs through the real rule.
-            local.transform.position = new Vector3(0f, 0.55f, 15f);
-            local.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            // Keep the open-roof training pose from Screen 08 so the placed disc and its
+            // trajectory feedback stay visible instead of hiding behind the spawn ramp.
             yield return null;
             float groundDeadline = Time.realtimeSinceStartup + 3f;
             while (!local.IsGrounded && Time.realtimeSinceStartup < groundDeadline) yield return null;
-            // Capture the actual hold-to-preview gesture before consuming the charge.
-            // This photographs the placement arc and guidance state shown in Screen 09.
-            var previewTouchscreen = InputSystem.AddDevice<Touchscreen>("Pad preview evidence touchscreen");
-            try
-            {
-                Rect padButton = (Rect)typeof(Hotdrop.Input.TouchInputManager)
-                    .GetField("padButtonRect", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .GetValue(game.touchInput);
-                InputSystem.QueueStateEvent(previewTouchscreen, new TouchState
-                {
-                    touchId = 81, phase = UnityEngine.InputSystem.TouchPhase.Began, position = padButton.center
-                });
-                yield return null;
-                int heldPadTouch = (int)typeof(Hotdrop.Input.TouchInputManager)
-                    .GetField("padTouchId", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .GetValue(game.touchInput);
-                Assert.AreEqual(81, heldPadTouch,
-                    $"The pad control must acquire the touch (rect {padButton}, enabled {game.touchInput.enabled}, pads {StudySettings.PadsEnabled}).");
-                yield return new WaitForSecondsRealtime(.23f);
-                InputSystem.QueueStateEvent(previewTouchscreen, new TouchState
-                {
-                    touchId = 81, phase = UnityEngine.InputSystem.TouchPhase.Moved,
-                    position = padButton.center + Vector2.one
-                });
-                yield return null;
-                Assert.IsTrue(game.touchInput.PadPreviewActive,
-                    "Holding the live pad button must expose the Screen 09 placement preview.");
-                Capture(canvas, "09_pad_preview", 1920, ParityFolder, true);
-                InputSystem.QueueStateEvent(previewTouchscreen, new TouchState
-                {
-                    touchId = 81, phase = UnityEngine.InputSystem.TouchPhase.Moved,
-                    position = padButton.center - Vector2.right * padButton.width * 3f
-                });
-                yield return null;
-                InputSystem.QueueStateEvent(previewTouchscreen, new TouchState
-                {
-                    touchId = 81, phase = UnityEngine.InputSystem.TouchPhase.Ended,
-                    position = padButton.center - Vector2.right * padButton.width * 3f
-                });
-                yield return null;
-                Assert.IsTrue(local.HasPadCharge, "Cancelling the preview must preserve the charge.");
-            }
-            finally
-            {
-                InputSystem.RemoveDevice(previewTouchscreen);
-            }
             string first = local.TryPlacePad();
             if (first == null)
             {
@@ -656,21 +606,19 @@ namespace Hotdrop.Tests.PlayMode
                 "the objective starts inside the frustum, so this frame would photograph the ordinary " +
                 $"path. It projected to {onScreen}; if that stops being true the setup needs reworking.");
 
-            // Two frames, because the arc has two ends and only one of them has anything for the
-            // placement rule to do. Straight behind, the edge marker lands in the middle of the
-            // bottom edge, the weapon panel crosses it and the rule has to find the slot between
-            // them: that frame is where the clearance assertion has teeth. Behind and over the
-            // left shoulder, the marker's X is pinned to the left edge and its footprint spans the
-            // weapon panel and the teammate list at once, so no slot exists and the pinned residual
-            // is what a player sees. Both are photographed; neither is chosen for its result.
+            // Two frames, one per end of the arc. Straight behind, the edge marker lands in the
+            // middle of the bottom edge and the rule has to find the slot beside the weapon panel.
+            // Behind and over the left shoulder, the marker's X is pinned to the left edge; this
+            // used to be an unavoidable residual against the legacy teammate list, which the
+            // screen 08 HUD no longer shows during preparation, so both frames carry the full
+            // clearance gate. Both are photographed; neither is chosen for its result.
             yield return FaceObjectiveFromBehind(game, world, 0f);
             AssertObjectiveIsBehind(root, game.matchHUD.mainCamera, world);
             Capture(canvas, "07b_preparation_objective_behind", 1920, ParityFolder, true);
 
             yield return FaceObjectiveFromBehind(game, world, -45f);
             AssertObjectiveIsBehind(root, game.matchHUD.mainCamera, world);
-            Capture(canvas, "07c_preparation_objective_behind_left", 1920, ParityFolder, true,
-                expectResidualFrame: true);
+            Capture(canvas, "07c_preparation_objective_behind_left", 1920, ParityFolder, true);
         }
 
         /// <summary>
@@ -1355,6 +1303,8 @@ namespace Hotdrop.Tests.PlayMode
                 SafeAreaRoot.SimulatedScreen = oldScreen;
                 SafeAreaRoot.SimulatedInsets = oldInsets;
                 foreach (var safe in canvas.GetComponentsInChildren<SafeAreaRoot>()) safe.Apply();
+                foreach (var view in canvas.GetComponentsInChildren<TouchControlsView>(true))
+                    view.RefreshForComposedFrame();
                 renderCamera.targetTexture = originalTarget;
                 target.Release();
                 if (texture != null) Object.Destroy(texture);

@@ -17,6 +17,17 @@ namespace Hotdrop.Tests
     public class UIDesignFoundationTests
     {
         readonly List<GameObject> spawned = new List<GameObject>();
+        bool hadPresentationProfile;
+        int oldPresentationProfile;
+
+        [SetUp]
+        public void SetUp()
+        {
+            const string key = "Hotdrop.UiPresentationProfile";
+            hadPresentationProfile = PlayerPrefs.HasKey(key);
+            oldPresentationProfile = PlayerPrefs.GetInt(key);
+            UiPresentationProfile.Select(UiPresentationProfileId.Hybrid);
+        }
 
         [TearDown]
         public void TearDown()
@@ -30,6 +41,9 @@ namespace Hotdrop.Tests
             SafeAreaRoot.SimulatedScreen = null;
             SafeAreaRoot.SimulatedInsets = null;
             UiMetrics.TextScale = 1f;
+            const string key = "Hotdrop.UiPresentationProfile";
+            if (hadPresentationProfile) PlayerPrefs.SetInt(key, oldPresentationProfile);
+            else PlayerPrefs.DeleteKey(key);
         }
 
         GameObject NewHost(string name = "Host")
@@ -147,22 +161,23 @@ namespace Hotdrop.Tests
         [Test]
         public void Palette_MatchesTheShippingDesignLanguage()
         {
-            // The eight colours the standing rules in 00_START_HERE.md name, by exact hex.
+            // Hybrid profile: corrected surfaces and separate primary-action/team roles.
             Assert.AreEqual("101827", UIDesignTokens.Hex(UIDesignTokens.Background), "background");
             Assert.AreEqual("1B2940", UIDesignTokens.Hex(UIDesignTokens.SurfacePanel), "panel");
             Assert.AreEqual("263A59", UIDesignTokens.Hex(UIDesignTokens.SurfaceSelected), "selected surface");
             Assert.AreEqual("F4F7FB", UIDesignTokens.Hex(UIDesignTokens.TextPrimary), "primary text");
             Assert.AreEqual("BBC6D8", UIDesignTokens.Hex(UIDesignTokens.TextSecondary), "secondary text");
-            Assert.AreEqual("30D5E8", UIDesignTokens.Hex(UIDesignTokens.ActionCyan), "friendly/action");
-            Assert.AreEqual("FF6376", UIDesignTokens.Hex(UIDesignTokens.HazardCoral), "enemy/danger");
-            Assert.AreEqual("FFD166", UIDesignTokens.Hex(UIDesignTokens.ObjectiveGold), "objective/reward");
+            Assert.AreEqual("3DE0C0", UIDesignTokens.Hex(UIDesignTokens.PrimaryAction), "primary action");
+            Assert.AreEqual("4DA3FF", UIDesignTokens.Hex(UIDesignTokens.Ally), "ally");
+            Assert.AreEqual("FF5A66", UIDesignTokens.Hex(UIDesignTokens.HazardCoral), "enemy");
+            Assert.AreEqual("FFB84D", UIDesignTokens.Hex(UIDesignTokens.ObjectiveGold), "objective/reward");
         }
 
         [Test]
         public void Palette_HasExactlyOneSourceOfTruthForMatchHudAndMenuLayout()
         {
             // The HUD and the menus must not carry a competing palette beside the tokens.
-            Assert.IsTrue(UIDesignTokens.SameColor(MatchHUD.Friendly, UIDesignTokens.ActionCyan), "MatchHUD.Friendly");
+            Assert.IsTrue(UIDesignTokens.SameColor(MatchHUD.Friendly, UIDesignTokens.Ally), "MatchHUD.Friendly");
             Assert.IsTrue(UIDesignTokens.SameColor(MatchHUD.Enemy, UIDesignTokens.HazardCoral), "MatchHUD.Enemy");
             Assert.IsTrue(UIDesignTokens.SameColor(MatchHUD.Objective, UIDesignTokens.ObjectiveGold), "MatchHUD.Objective");
             Assert.IsTrue(UIDesignTokens.SameColor(MatchHUD.MainText, UIDesignTokens.TextPrimary), "MatchHUD.MainText");

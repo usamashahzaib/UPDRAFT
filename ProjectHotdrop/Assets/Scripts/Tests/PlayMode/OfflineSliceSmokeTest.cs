@@ -219,7 +219,7 @@ namespace Hotdrop.Tests.PlayMode
             Assert.IsNotNull(match);
             int bots = 0;
             foreach (var p in match.Players)
-                if (p.IsBot) { bots++; StringAssert.StartsWith("[BOT] ", p.DisplayName, "Bots must always be labeled."); }
+                if (p.IsBot) { bots++; Assert.IsNotEmpty(p.DisplayName, "Each opponent needs a readable name."); StringAssert.DoesNotContain("BOT", p.DisplayName); }
             Assert.AreEqual(5, bots);
             StringAssert.Contains("ARC", game.matchHUD.weaponButtons[0].nameText.text);
             StringAssert.Contains("ZIP", game.matchHUD.weaponButtons[1].nameText.text);
@@ -259,15 +259,16 @@ namespace Hotdrop.Tests.PlayMode
             var screen = InputSystem.AddDevice<Touchscreen>("Ergonomics touchscreen");
             var type = typeof(Hotdrop.Input.TouchInputManager);
             const BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
-            Rect fire = (Rect)type.GetField("fireButtonRect", hidden).GetValue(input);
-            Rect jump = (Rect)type.GetField("jumpButtonRect", hidden).GetValue(input);
-            Rect pad = (Rect)type.GetField("padButtonRect", hidden).GetValue(input);
-            Rect reload = (Rect)type.GetField("reloadButtonRect", hidden).GetValue(input);
             try
             {
                 game.StartOfflinePractice();
                 yield return null;
                 var match = Object.FindFirstObjectByType<MatchController>();
+                // Read after preparation opens: the cluster lifts above the loadout footer.
+                Rect fire = (Rect)type.GetField("fireButtonRect", hidden).GetValue(input);
+                Rect jump = (Rect)type.GetField("jumpButtonRect", hidden).GetValue(input);
+                Rect pad = (Rect)type.GetField("padButtonRect", hidden).GetValue(input);
+                Rect reload = (Rect)type.GetField("reloadButtonRect", hidden).GetValue(input);
 
                 // UI consumption: a touch over a gameplay UGUI control must be
                 // consumed - never fire, never drive movement.
