@@ -17,8 +17,15 @@ public static class MatchmakingEndpoints
         var group = app.MapGroup("/api/matchmaking").RequireAuthorization();
 
         group.MapPost("/enqueue", async (HttpContext ctx, HotdropDbContext db,
-            Microsoft.Extensions.Options.IOptionsMonitor<FeatureFlags> features, CancellationToken cancellationToken) =>
+            Microsoft.Extensions.Options.IOptionsMonitor<FeatureFlags> features,
+            Microsoft.Extensions.Options.IOptionsMonitor<ServiceAvailabilityOptions> availability,
+            CancellationToken cancellationToken) =>
         {
+            var service = availability.CurrentValue;
+            if (service.MaintenanceEnabled)
+                return Results.Json(new { error = "maintenance", message = service.MaintenanceMessage,
+                    etaUtc = service.MaintenanceEtaUtc, compensationNote = service.MaintenanceCompensationNote },
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
             if (!features.CurrentValue.MatchmakingEnabled)
                 return Results.Json(new { error = "matchmaking_disabled" }, statusCode: StatusCodes.Status503ServiceUnavailable);
             var playerId = PlayerId(ctx);
@@ -98,13 +105,25 @@ public static class MatchmakingEndpoints
             return Results.Ok(new { cancelled = true });
         });
 
-        group.MapGet("/status", async (HttpContext ctx, HotdropDbContext db, AllocatorOptions allocator, CancellationToken cancellationToken) =>
+        group.MapGet("/status", async (HttpContext ctx, HotdropDbContext db, AllocatorOptions allocator,
+            Microsoft.Extensions.Options.IOptionsMonitor<ServiceAvailabilityOptions> availability,
+            Microsoft.Extensions.Options.IOptionsMonitor<FeatureFlags> features,
+            CancellationToken cancellationToken) =>
         {
             var playerId = PlayerId(ctx);
             var ticket = await db.MatchmakingTickets
                 .Where(t => t.PlayerId == playerId)
                 .OrderByDescending(t => t.EnqueuedAt)
                 .FirstOrDefaultAsync(cancellationToken);
+            var service = availability.CurrentValue;
+            bool maintenance = service.MaintenanceEnabled;
+            bool queuePaused = !features.CurrentValue.MatchmakingEnabled;
+            if ((maintenance || queuePaused) && ticket?.Status != "matched")
+                return Results.Ok(new { state = maintenance ? "maintenance" : "queue_paused", elapsedSeconds = 0,
+                    region = allocator.FusionRegion,
+                    message = maintenance ? service.MaintenanceMessage : "Matchmaking is paused right now.",
+                    etaUtc = maintenance ? service.MaintenanceEtaUtc : string.Empty,
+                    compensationNote = maintenance ? service.MaintenanceCompensationNote : string.Empty });
             if (ticket is null) return Results.Ok(new { state = "idle", elapsedSeconds = 0, region = allocator.FusionRegion });
 
             var state = ticket.Status switch { "matched" => "matched", "cancelled" => "idle", _ => "searching" };

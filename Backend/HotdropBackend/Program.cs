@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Threading.RateLimiting;
+using Microsoft.Extensions.Options;
 using HotdropBackend.Data;
 using HotdropBackend.Endpoints;
 using HotdropBackend.Services;
@@ -51,6 +52,8 @@ builder.Configuration.GetSection("Allocator").Bind(allocatorOptions);
 builder.Services.AddSingleton(allocatorOptions);
 builder.Services.AddSingleton<MatchTicketService>();
 builder.Services.Configure<FeatureFlags>(builder.Configuration.GetSection("Features"));
+builder.Services.Configure<ServiceAvailabilityOptions>(builder.Configuration.GetSection("ServiceAvailability"));
+builder.Services.Configure<CompatibilityOptions>(builder.Configuration.GetSection("Compatibility"));
 
 // QA-028: outgoing email. Default is a zero-cost local outbox directory; setting
 // Email:Smtp:Host switches to real SMTP delivery without code changes.
@@ -116,7 +119,14 @@ app.Use(async (context, next) =>
         int.TryParse(value, out int protocol) && protocol < minClientProtocol)
     {
         context.Response.StatusCode = StatusCodes.Status426UpgradeRequired;
-        await context.Response.WriteAsJsonAsync(new { error = "update_required", minClientProtocol });
+        var compatibility = context.RequestServices.GetRequiredService<IOptionsMonitor<CompatibilityOptions>>().CurrentValue;
+        string platform = context.Request.Headers["X-Client-Platform"].ToString();
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "update_required",
+            minClientProtocol,
+            storeUrl = compatibility.StoreUrl(platform),
+        });
         return;
     }
     await next();
@@ -131,6 +141,22 @@ app.MapGet("/health/ready", async (HotdropDbContext db, CancellationToken cancel
     await db.Database.CanConnectAsync(cancellationToken)
         ? Results.Ok(new { status = "ready" })
         : Results.Problem("Database is unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable));
+app.MapGet("/api/client/status", (IOptionsMonitor<ServiceAvailabilityOptions> availability,
+    IOptionsMonitor<FeatureFlags> features) =>
+{
+    var service = availability.CurrentValue;
+    bool maintenance = service.MaintenanceEnabled;
+    bool queuePaused = !features.CurrentValue.MatchmakingEnabled;
+    return Results.Ok(new
+    {
+        state = maintenance ? "maintenance" : queuePaused ? "queue_paused" : "available",
+        minClientProtocol,
+        message = maintenance ? service.MaintenanceMessage : queuePaused ? "Matchmaking is paused right now." : string.Empty,
+        etaUtc = maintenance ? service.MaintenanceEtaUtc : string.Empty,
+        compensationNote = maintenance ? service.MaintenanceCompensationNote : string.Empty,
+        maintenance,
+    });
+});
 
 // Spec section 23 API groups. Each maps to its own endpoint file; all share
 // this one process/database rather than being split into microservices.

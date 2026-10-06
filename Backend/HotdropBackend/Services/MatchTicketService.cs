@@ -98,3 +98,12 @@ public sealed class FeatureFlags
     public bool ContractsMasteryEnabled { get; set; } = false;
 }
 
+/// <summary>Operator-controlled service availability shown by the client without inventing ETAs.</summary>
+public sealed class ServiceAvailabilityOptions
+{
+    public bool MaintenanceEnabled { get; set; }
+    public string MaintenanceMessage { get; set; } = "Online matchmaking is temporarily unavailable.";
+    public string MaintenanceEtaUtc { get; set; } = string.Empty;
+    public string MaintenanceCompensationNote { get; set; } = string.Empty;
+}
+
