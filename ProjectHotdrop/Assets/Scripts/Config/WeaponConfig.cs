@@ -34,6 +34,18 @@ namespace Hotdrop.Config
 
         [Header("Recoil")]
         public float verticalRecoilDegreesPerShot = 0.55f;
+        [Tooltip("Authored vertical recoil multiplier across the magazine. One is the configured base recoil.")]
+        public AnimationCurve recoilPattern = AnimationCurve.Linear(0f, 1f, 1f, 1f);
+
+        public float GetVerticalRecoilDegrees(int shotInMagazine)
+        {
+            if (recoilPattern == null || recoilPattern.length == 0)
+                return verticalRecoilDegreesPerShot;
+            int patternLength = Mathf.Max(1, recoilPattern.length);
+            int index = Mathf.Max(0, shotInMagazine - 1) % patternLength;
+            float t = patternLength <= 1 ? 0f : index / (float)(patternLength - 1);
+            return verticalRecoilDegreesPerShot * Mathf.Max(0f, recoilPattern.Evaluate(t));
+        }
 
         public float SecondsPerShot => 60f / roundsPerMinute;
 

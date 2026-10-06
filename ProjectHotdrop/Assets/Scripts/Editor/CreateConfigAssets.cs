@@ -97,6 +97,7 @@ namespace Hotdrop.Editor
             arc.spreadMovingGrounded = 0.75f;
             arc.spreadAirborne = 1.2f;
             arc.verticalRecoilDegreesPerShot = 0.55f;
+            arc.recoilPattern = RecoilPattern(0.85f, 1.00f, 1.12f, 0.95f, 1.08f, 1.15f, 0.90f, 0.95f);
             AssetDatabase.CreateAsset(arc, ConfigPath + "/Weapon_ARC.asset");
 
             // ZIP SMG
@@ -118,6 +119,7 @@ namespace Hotdrop.Editor
             zip.spreadMovingGrounded = 1.3f;
             zip.spreadAirborne = 2.0f;
             zip.verticalRecoilDegreesPerShot = 0.30f;
+            zip.recoilPattern = RecoilPattern(0.70f, 0.85f, 1.00f, 1.15f, 1.25f, 1.20f, 1.00f, 0.85f);
             AssetDatabase.CreateAsset(zip, ConfigPath + "/Weapon_ZIP.asset");
 
             // BRICK Scattergun
@@ -139,6 +141,7 @@ namespace Hotdrop.Editor
             brick.spreadMovingGrounded = 4.0f;
             brick.spreadAirborne = 4.5f;
             brick.verticalRecoilDegreesPerShot = 2.0f;
+            brick.recoilPattern = RecoilPattern(0.85f, 1.15f, 0.95f, 1.05f, 1.15f, 0.95f, 1.05f, 0.85f);
             AssetDatabase.CreateAsset(brick, ConfigPath + "/Weapon_BRICK.asset");
         }
 
@@ -153,6 +156,7 @@ namespace Hotdrop.Editor
             config.diameter = 1.4f;
             config.launchHorizontalVelocity = 14f;
             config.launchUpwardVelocity = 12f;
+            config.launchWeaponLockoutSeconds = 0.3f;
             config.maxActivePadsPerOwner = 1;
             config.maxActivePadsPerMatch = 6;
             config.perPlayerActivationLockoutSeconds = 1f;
@@ -180,6 +184,8 @@ namespace Hotdrop.Editor
             config.loadTimeoutSeconds = 30f;
             config.respawnDelaySeconds = 4f;
             config.botSubstitutionDelaySeconds = 5f;
+            config.pingLifetimeSeconds = 8f;
+            config.pingCooldownSeconds = 2f;
 
             config.schedule = new ZoneScheduleEntry[]
             {
@@ -283,13 +289,24 @@ namespace Hotdrop.Editor
         static void CreateGraphicsConfig()
         {
             var config = ScriptableObject.CreateInstance<GraphicsConfig>();
-            config.lowPresetTargetFps = 30;
-            config.mediumHighPresetTargetFps = 60;
+            config.performanceTargetFps = 60;
+            config.balancedTargetFps = 60;
+            config.cinematicPresetTargetFps = 30;
+            config.performanceRenderScale = 0.8f;
+            config.balancedRenderScale = 1f;
+            config.cinematicRenderScale = 1f;
             config.lowPresetMaxDrawCalls = 150;
             config.lowPresetMaxVisibleTriangles = 250000;
+            config.performanceTextureMipmapLimit = 1;
+            config.performanceLodBias = 0.7f;
+            config.performanceMaximumLodLevel = 1;
+            config.performanceMaximumParticlesPerEffect = 256;
+            config.performanceParticleLifetimeScale = 0.75f;
+            config.performanceParticleSizeScale = 0.9f;
             config.targetDownloadMb = 250;
             config.targetInstalledMb = 600;
-            config.targetClientMemoryMbLow = 750;
+            config.targetClientMemoryMbLow = 1536;
+            config.targetClientMemoryMbStandard = 2500;
             config.targetReturningStartupSeconds = 8f;
             config.targetArenaLoadSeconds = 10f;
             config.targetKbPerSecondPerClient = 100f;
@@ -299,7 +316,6 @@ namespace Hotdrop.Editor
             config.bloomOnLow = false;
             config.motionBlurOnLow = false;
             config.depthOfFieldOnLow = false;
-            config.ssaoOnLow = false;
 
             AssetDatabase.CreateAsset(config, ConfigPath + "/GraphicsConfig.asset");
         }
@@ -363,6 +379,14 @@ namespace Hotdrop.Editor
             config.failedPassesBeforePivotDecision = 2;
 
             AssetDatabase.CreateAsset(config, ConfigPath + "/KpiGateConfig.asset");
+        }
+
+        static AnimationCurve RecoilPattern(params float[] multipliers)
+        {
+            var keys = new Keyframe[multipliers.Length];
+            for (int i = 0; i < multipliers.Length; i++)
+                keys[i] = new Keyframe(multipliers.Length <= 1 ? 0f : i / (float)(multipliers.Length - 1), multipliers[i]);
+            return new AnimationCurve(keys);
         }
     }
 }

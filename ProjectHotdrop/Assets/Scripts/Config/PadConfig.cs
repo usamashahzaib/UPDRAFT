@@ -19,6 +19,8 @@ namespace Hotdrop.Config
         [Header("Launch")]
         public float launchHorizontalVelocity = 14f;
         public float launchUpwardVelocity = 12f;
+        [Tooltip("Brief weapon lockout after a pad launch, allowing counter-play.")]
+        public float launchWeaponLockoutSeconds = 0.3f;
         public int maxActivePadsPerOwner = 1;
         [UnityEngine.Serialization.FormerlySerializedAs("maxPlacementsPerMatch")]
         public int maxActivePadsPerMatch = 6;

@@ -12,13 +12,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 885145d4cef1d474981345682956b652, type: 3}
   m_Name: GraphicsConfig
   m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.GraphicsConfig
-  lowPresetTargetFps: 30
-  mediumHighPresetTargetFps: 60
+  performanceTargetFps: 60
+  balancedTargetFps: 60
+  cinematicPresetTargetFps: 30
+  performanceRenderScale: 0.8
+  balancedRenderScale: 1
+  cinematicRenderScale: 1
   lowPresetMaxDrawCalls: 150
   lowPresetMaxVisibleTriangles: 250000
+  performanceTextureMipmapLimit: 1
+  performanceLodBias: 0.7
+  performanceMaximumLodLevel: 1
+  performanceMaximumParticlesPerEffect: 256
+  performanceParticleLifetimeScale: 0.75
+  performanceParticleSizeScale: 0.9
   targetDownloadMb: 250
   targetInstalledMb: 600
-  targetClientMemoryMbLow: 750
+  targetClientMemoryMbLow: 1536
+  targetClientMemoryMbStandard: 2500
   targetReturningStartupSeconds: 8
   targetArenaLoadSeconds: 10
   targetKbPerSecondPerClient: 100
@@ -28,4 +39,3 @@ MonoBehaviour:
   bloomOnLow: 0
   motionBlurOnLow: 0
   depthOfFieldOnLow: 0
-  ssaoOnLow: 0

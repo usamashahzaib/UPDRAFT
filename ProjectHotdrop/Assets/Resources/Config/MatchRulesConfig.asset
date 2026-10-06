@@ -43,3 +43,5 @@ MonoBehaviour:
   loadTimeoutSeconds: 30
   respawnDelaySeconds: 4
   botSubstitutionDelaySeconds: 5
+  pingLifetimeSeconds: 8
+  pingCooldownSeconds: 2

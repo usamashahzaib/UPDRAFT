@@ -47,6 +47,10 @@ namespace Hotdrop.Config
         [Header("Disconnect")]
         public float botSubstitutionDelaySeconds = 5f;
 
+        [Header("Pings")]
+        public float pingLifetimeSeconds = 8f;
+        public float pingCooldownSeconds = 2f;
+
         public ZoneId? GetActiveZone(float matchTime)
         {
             foreach (var entry in schedule)

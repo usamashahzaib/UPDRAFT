@@ -20,6 +20,7 @@ MonoBehaviour:
   diameter: 1.4
   launchHorizontalVelocity: 14
   launchUpwardVelocity: 12
+  launchWeaponLockoutSeconds: 0.3
   maxActivePadsPerOwner: 1
   maxActivePadsPerMatch: 6
   perPlayerActivationLockoutSeconds: 1

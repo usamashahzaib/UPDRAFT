@@ -301,7 +301,7 @@ namespace Hotdrop.Config
                 new OfflineChallengeEntry
                 {
                     id = "ch_defend_against_bots",
-                    title = "Defend Against Bots",
+                    title = "Defend Against Opponents",
                     description = "Defend the active zone against 2 incoming enemy bots.",
                     chapter = ChallengeChapter.RelayCaptain,
                     indexInChapter = 2,
