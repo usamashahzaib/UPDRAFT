@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "status": "ui_and_switchyard_profiles_available_production_world_art_pending",
+  "source": "HOTDROP_DESIGN_BIBLE.md v1.0 plus amendments v1.1",
+  "identityDecision": "Support A, B, and C as selectable UI and procedural Switchyard world-presentation profiles. Production art and gore remain separately gated.",
+  "note": "A uses the amended v1.0 base palette. B's exact colors are not specified in the bible and use an initial grounded industrial palette. C uses the existing UI base surfaces with the corrected separate action and ally colors. Legacy UI hex literals for shared palette roles resolve to the current profile at use time; the generated Switchyard updates role-based material colors and lighting without changing geometry or collision.",
+  "colors": {
+    "stylized_flight": {"background":"#0C1220","surface":"#17202E","text_primary":"#EDF2F7","text_secondary":"#8A94A6","primary_action":"#3DE0C0","ally":"#4DA3FF","enemy":"#FF5A66","objective":"#FFB84D"},
+    "grounded_tactical_flight": {"background":"#121619","surface":"#20272B","text_primary":"#F0F0EA","text_secondary":"#A6AEAD","primary_action":"#54D2B3","ally":"#66A7D9","enemy":"#D85D61","objective":"#E2B85F"},
+    "hybrid": {"background":"#101827","surface":"#1B2940","text_primary":"#F4F7FB","text_secondary":"#BBC6D8","primary_action":"#3DE0C0","ally":"#4DA3FF","enemy":"#FF5A66","objective":"#FFB84D"}
+  },
+  "world_profiles": {
+    "stylized_flight": {"concrete":"#C3B59E","structure":"#49627B","cover":"#7A8D9D","equipment":"#26384A","safety":"#E0A936","facade":"#68797A","window":"#D6A96B","sky":"#9CC5DC","ambient":"#74899A","sun":"#FFD4A1","zone_west":"#B6A06B","zone_center":"#84998F","zone_east":"#9F8D7D","sun_intensity":1.1},
+    "grounded_tactical_flight": {"concrete":"#969993","structure":"#434B4B","cover":"#737B78","equipment":"#303637","safety":"#D2A94F","facade":"#4C5554","window":"#788B90","sky":"#8F9CA0","ambient":"#717877","sun":"#D9D1BE","zone_west":"#9E9270","zone_center":"#788A84","zone_east":"#8B8B7E","sun_intensity":0.9},
+    "hybrid": {"concrete":"#B1B1A8","structure":"#46545E","cover":"#7F8D92","equipment":"#2E3D48","safety":"#E0AD52","facade":"#5F7076","window":"#92AFC1","sky":"#A3BED0","ambient":"#81939E","sun":"#E6D4B8","zone_west":"#BCA36F","zone_center":"#82968E","zone_east":"#A28B80","sun_intensity":1.0}
+  },
+  "typography": {"display":"44","title":"30","section":"22","ui":"17","body":"14","caption":"12","max_sizes_per_screen":3,"status":"requires font audit and migration"},
+  "spacing": {"unit":"dp","scale":[4,8,12,16,24],"touch_target_min":48},
+  "radius": {"system_dp":12},
+  "motion": {"transition_ms":[180,250],"button_press_scale":0.96,"status":"shared button component applies press scale; screen transition audit remains"}
+}
