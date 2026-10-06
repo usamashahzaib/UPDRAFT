@@ -15,17 +15,17 @@ namespace Hotdrop.UI
     /// </summary>
     public static class OperativeProfileView
     {
-        static readonly Color Lowest = UiDraw.Hex("#060e1d");
-        static readonly Color Low = UiDraw.Hex("#141c2b");
-        static readonly Color Mid = UiDraw.Hex("#18202f");
-        static readonly Color High = UiDraw.Hex("#222a3a");
-        static readonly Color Highest = UiDraw.Hex("#2d3545");
-        static readonly Color Primary = UiDraw.Hex("#7cefff");
-        static readonly Color PrimaryC = UiDraw.Hex("#30d5e8");
-        static readonly Color Tertiary = UiDraw.Hex("#ffda88");
-        static readonly Color OnSurface = UiDraw.Hex("#dbe2f8");
-        static readonly Color OnVariant = UiDraw.Hex("#bbc9cb");
-        static readonly Color Outline = UiDraw.Hex("#859396");
+        static Color Lowest => UiDraw.Hex("#060e1d");
+        static Color Low => UiDraw.Hex("#141c2b");
+        static Color Mid => UiDraw.Hex("#18202f");
+        static Color High => UiDraw.Hex("#222a3a");
+        static Color Highest => UiDraw.Hex("#2d3545");
+        static Color Primary => UiDraw.Hex("#7cefff");
+        static Color PrimaryC => UiDraw.Hex("#30d5e8");
+        static Color Tertiary => UiDraw.Hex("#ffda88");
+        static Color OnSurface => UiDraw.Hex("#dbe2f8");
+        static Color OnVariant => UiDraw.Hex("#bbc9cb");
+        static Color Outline => UiDraw.Hex("#859396");
 
         const float Pad = 24f;
 
@@ -73,7 +73,7 @@ namespace Hotdrop.UI
             TL(UiDraw.Icon(page, "TaglineIcon", "verified", 14f, Primary).rectTransform, Pad, y + 119f, 14f, 14f);
             TL(UiDraw.Text(page, "Tagline", "Authoritative Skill Ledger  •  Zero Public Rating Shaming  •  Permanent Onboarding Track", UiFont.Body, 14f, OnVariant).rectTransform, Pad + 20f, y + 117f, w * .62f, 18f);
             float pillX = Pad + w * .672f;
-            Pill(page, "Insignia", "military_tech", "INSIGNIA: ", profile == null || string.IsNullOrEmpty(profile.badgeId) ? "NONE" : CosmeticLook.DisplayName(profile.badgeId).ToUpperInvariant(), pillX, y + 89f);
+            Pill(page, "Insignia", "military_tech", "INSIGNIA: ", StreamSafePresentation.Enabled ? "HIDDEN" : profile == null || string.IsNullOrEmpty(profile.badgeId) ? "NONE" : CosmeticLook.DisplayName(profile.badgeId).ToUpperInvariant(), pillX, y + 89f);
             Pill(page, "Calibration", "history", "", "PERSISTENT CALIBRATION", pillX, y + 123f);
             y += 160f;
 
@@ -112,10 +112,10 @@ namespace Hotdrop.UI
                 var card = Card(page, "Metric_" + m.id, Mid, Pad + i * (mw + 16f), y, mw, 160f);
                 TL(UiDraw.Text(card, "Title", m.title, UiFont.Heading, 12f, OnVariant, .05f).rectTransform, 14f, 16f, mw - 50f, 16f);
                 UiDraw.Place(UiDraw.Icon(card, "Icon", m.icon, 18f, m.id == "Credits" ? Tertiary : Primary).rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-14f, -24f), new Vector2(18f, 18f));
-                TL(UiDraw.Text(card, "Value", m.value, UiFont.Heading, 40f, m.tone, -.03f).rectTransform, 14f, 42f, mw - 28f, 48f);
-                TL(UiDraw.Text(card, "Source", m.sub, UiFont.Mono, 11f, OnVariant, .1f).rectTransform, 14f, 96f, mw - 28f, 14f);
-                TL(UiDraw.Text(card, "Left", m.left, UiFont.Mono, 11f, Primary, .05f).rectTransform, 14f, 128f, mw * .5f, 14f);
-                var right = UiDraw.Text(card, "Right", m.right, UiFont.Mono, 11f, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
+                TL(UiDraw.Text(card, "Value", StreamSafePresentation.AccountProgress(m.value), UiFont.Heading, 40f, m.tone, -.03f).rectTransform, 14f, 42f, mw - 28f, 48f);
+                TL(UiDraw.Text(card, "Source", StreamSafePresentation.Enabled ? "HIDDEN" : m.sub, UiFont.Mono, 11f, OnVariant, .1f).rectTransform, 14f, 96f, mw - 28f, 14f);
+                TL(UiDraw.Text(card, "Left", StreamSafePresentation.Enabled ? "PRIVATE" : m.left, UiFont.Mono, 11f, Primary, .05f).rectTransform, 14f, 128f, mw * .5f, 14f);
+                var right = UiDraw.Text(card, "Right", StreamSafePresentation.Enabled ? "PRIVATE" : m.right, UiFont.Mono, 11f, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
                 UiDraw.Place(right.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-14f, -135f), new Vector2(mw * .5f, 14f));
             }
             y += 160f + 24f;
@@ -156,16 +156,16 @@ namespace Hotdrop.UI
             {
                 var lvl = UiDraw.Dot(card, "LevelDot", 22f, PrimaryC);
                 TL(lvl.rectTransform, 70f, 104f, 22f, 22f);
-                UiDraw.Fill(UiDraw.Text(lvl.transform, "Level", Mathf.Clamp(profile.level, 1, 20).ToString(), UiFont.Mono, 10f, UiDraw.Hex("#00363c"), 0f, TextAlignmentOptions.Midline).rectTransform);
+                UiDraw.Fill(UiDraw.Text(lvl.transform, "Level", StreamSafePresentation.Enabled ? "•" : Mathf.Clamp(profile.level, 1, 20).ToString(), UiFont.Mono, 10f, UiDraw.Hex("#00363c"), 0f, TextAlignmentOptions.Midline).rectTransform);
             }
-            TL(UiDraw.Text(card, "Alias", profile?.alias?.ToUpperInvariant() ?? "ACCOUNT SYNCING", UiFont.Heading, 28f, OnSurface, -.03f).rectTransform, 100f, 54f, w - 360f, 34f);
-            TL(UiDraw.Text(card, "Account", profile == null ? "Account data is loading." : profile.isGuest ? "Guest account  •  stored on this device" : "Linked account  •  recovery available",
+            TL(UiDraw.Text(card, "Alias", StreamSafePresentation.AccountAlias(profile?.alias ?? "ACCOUNT SYNCING").ToUpperInvariant(), UiFont.Heading, 28f, OnSurface, -.03f).rectTransform, 100f, 54f, w - 360f, 34f);
+            TL(UiDraw.Text(card, "Account", StreamSafePresentation.Enabled ? "PRIVATE ACCOUNT DETAILS" : profile == null ? "Account data is loading." : profile.isGuest ? "Guest account  •  stored on this device" : "Linked account  •  recovery available",
                 UiFont.Mono, 11f, OnVariant, .05f).rectTransform, 100f, 92f, w - 360f, 16f);
             var seals = UiDraw.Text(card, "SealsLabel", "EARNED CREDITS:", UiFont.Heading, 12f, Tertiary, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(seals.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-120f, -66f), new Vector2(140f, 16f));
             var sealPlate = UiDraw.Box(card, "SealsPlate", Mid, 4f);
             UiDraw.Place(sealPlate.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-20f, -66f), new Vector2(92f, 26f));
-            UiDraw.Fill(UiDraw.Text(sealPlate.transform, "Value", wallet == null ? "—" : wallet.credits.ToString("N0") + " CR", UiFont.Mono, 14f, Tertiary, .05f, TextAlignmentOptions.Midline).rectTransform);
+            UiDraw.Fill(UiDraw.Text(sealPlate.transform, "Value", StreamSafePresentation.AccountProgress(wallet == null ? "—" : wallet.credits.ToString("N0") + " CR"), UiFont.Mono, 14f, Tertiary, .05f, TextAlignmentOptions.Midline).rectTransform);
             var footRule = UiDraw.Box(card, "Rule", UiDraw.Hex("#3c494b", .4f));
             UiDraw.Place(footRule.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, .5f), new Vector2(0f, 44f), new Vector2(w - 40f, 1f));
             UiDraw.Place(UiDraw.Dot(card, "PrivacyDot", 6f, PrimaryC).rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(20f, 24f), new Vector2(6f, 6f));
@@ -180,7 +180,7 @@ namespace Hotdrop.UI
             TL(UiDraw.Text(card, "Heading", "PERMANENT ACCREDITATION TRACK", UiFont.Heading, 12f, Primary, .05f).rectTransform, 40f, 19f, 300f, 16f);
             var phase = UiDraw.Text(card, "Phase", "ONBOARDING", UiFont.Mono, 11f, Primary, .1f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(phase.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-20f, -27f), new Vector2(140f, 14f));
-            int level = profile != null ? Mathf.Clamp(profile.level, 1, 20) : 0;
+            int level = profile != null && !StreamSafePresentation.Enabled ? Mathf.Clamp(profile.level, 1, 20) : 0;
             float frac = level / 20f;
             var ring = UiDraw.Place(UiDraw.Node(card, "Ring"), new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(20f, -99f), new Vector2(104f, 104f));
             ring.pivot = new Vector2(0f, .5f);
@@ -189,11 +189,11 @@ namespace Hotdrop.UI
             UiDraw.Fill(fill.rectTransform);
             fill.type = Image.Type.Filled; fill.fillMethod = Image.FillMethod.Radial360; fill.fillOrigin = (int)Image.Origin360.Top; fill.fillClockwise = true; fill.fillAmount = frac;
             UiDraw.Place(UiDraw.Text(ring, "Caption", "ONBOARD", UiFont.Mono, 9f, OnVariant, .05f, TextAlignmentOptions.Midline).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 20f), new Vector2(90f, 12f));
-            UiDraw.Place(UiDraw.Text(ring, "Lvl", profile == null ? "LVL —" : $"LVL {level}", UiFont.Heading, 20f, OnSurface, -.02f, TextAlignmentOptions.Midline).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 0f), new Vector2(90f, 26f));
-            UiDraw.Place(UiDraw.Text(ring, "Pct", profile == null ? "" : $"{frac * 100f:0.0}%", UiFont.Mono, 10f, Primary, .05f, TextAlignmentOptions.Midline).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -20f), new Vector2(90f, 12f));
-            var levelText = UiDraw.Text(card, "Level", profile == null ? "LEVEL —" : $"LEVEL {level}<size=16><color=#bbc9cb> / 20</color></size>", UiFont.Heading, 28f, OnSurface, -.03f);
+            UiDraw.Place(UiDraw.Text(ring, "Lvl", profile == null ? "LVL —" : StreamSafePresentation.Enabled ? "PRIVATE" : $"LVL {level}", UiFont.Heading, 20f, OnSurface, -.02f, TextAlignmentOptions.Midline).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 0f), new Vector2(90f, 26f));
+            UiDraw.Place(UiDraw.Text(ring, "Pct", profile == null || StreamSafePresentation.Enabled ? "" : $"{frac * 100f:0.0}%", UiFont.Mono, 10f, Primary, .05f, TextAlignmentOptions.Midline).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -20f), new Vector2(90f, 12f));
+            var levelText = UiDraw.Text(card, "Level", profile == null ? "LEVEL —" : StreamSafePresentation.Enabled ? "LEVEL HIDDEN" : $"LEVEL {level}<size=16><color=#bbc9cb> / 20</color></size>", UiFont.Heading, 28f, OnSurface, -.03f);
             TL(levelText.rectTransform, 144f, 64f, w - 164f, 34f);
-            TL(UiDraw.Text(card, "XP", profile == null ? "Waiting for account progress" : $"{profile.profileXp:N0} TOTAL PROFILE XP", UiFont.Mono, 14f, Primary, .05f).rectTransform, 144f, 102f, w - 164f, 18f);
+            TL(UiDraw.Text(card, "XP", profile == null ? "Waiting for account progress" : StreamSafePresentation.Enabled ? "PROGRESSION HIDDEN" : $"{profile.profileXp:N0} TOTAL PROFILE XP", UiFont.Mono, 14f, Primary, .05f).rectTransform, 144f, 102f, w - 164f, 18f);
             var bar = UiDraw.Box(card, "XPBar", Highest, 3f);
             TL(bar.rectTransform, 144f, 129f, w - 250f, 6f);
             var bf = UiDraw.Box(bar.transform, "Fill", PrimaryC, 3f);

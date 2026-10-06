@@ -38,6 +38,12 @@ namespace Hotdrop.UI
         TextMeshProUGUI fireLabel, jumpLabel, padLabel, reloadLabel, pingLabel, pauseLabel;
         Image fireFill, jumpFill, padFill, reloadFill, pingFill, pauseFill;
         Image fireBorder, jumpBorder, padBorder, reloadBorder, pingBorder, pauseBorder;
+        RawImage fireWeaponArt;
+        TextMeshProUGUI fireFlash;
+        string shownFireWeapon;
+        float fireFlashUntil;
+
+        public void PulseFire() => fireFlashUntil = Time.unscaledTime + 0.09f;
 
         RectTransform crosshair;
         RectTransform joystickBase, joystickNub;
@@ -152,12 +158,12 @@ namespace Hotdrop.UI
         // ------------------------------------------------------------ build
 
         // UIUX screen 08 palette for the action cluster.
-        static readonly Color Primary = UiDraw.Hex("#7cefff");
-        static readonly Color OnPrimaryContainer = UiDraw.Hex("#005862");
-        static readonly Color High = UiDraw.Hex("#222a3a");
-        static readonly Color OnSurfaceVariant = UiDraw.Hex("#bbc9cb");
-        static readonly Color Outline = UiDraw.Hex("#859396");
-        static readonly Color Tertiary = UiDraw.Hex("#ffda88");
+        static Color Primary => UiDraw.Hex("#7cefff");
+        static Color OnPrimaryContainer => UiDraw.Hex("#005862");
+        static Color High => UiDraw.Hex("#222a3a");
+        static Color OnSurfaceVariant => UiDraw.Hex("#bbc9cb");
+        static Color Outline => UiDraw.Hex("#859396");
+        static Color Tertiary => UiDraw.Hex("#ffda88");
 
         Image jumpPlate, jumpGlow;
         TextMeshProUGUI jumpIcon, reloadWeapon, reloadAmmo, reloadIcon;
@@ -173,11 +179,19 @@ namespace Hotdrop.UI
             BuildDisc("Ping", out pingDisc, out pingFill, out pingBorder, out pingLabel);
             BuildDisc("Pause", out pauseDisc, out pauseFill, out pauseBorder, out pauseLabel);
 
-            // FIRE: 80 px rounded-2xl, cyan gradient with its shadow (rasterised), martial-arts glyph.
+            // FIRE: 80 px rounded-2xl, cyan gradient with its shadow (rasterised), clear firing glyph.
             var fireArt = UiDraw.Art(fireDisc, "Face", "hud_fire", Vector2.zero);
             UiDraw.Place(fireArt.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -20f), new Vector2(160f, 160f));
-            UiDraw.Place(UiDraw.Icon(fireDisc, "Icon", "sports_martial_arts", 34f, OnPrimaryContainer).rectTransform,
-                new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 8f), new Vector2(34f, 34f));
+            // Show the equipped gun on the action that actually fires it. The muzzle flash
+            // appears only while that finger is firing, so the button has clear feedback.
+            fireWeaponArt = UiDraw.Art(fireDisc, "EquippedWeapon", "weapon_arc", Vector2.zero);
+            fireWeaponArt.color = OnPrimaryContainer;
+            UiDraw.Place(fireWeaponArt.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f),
+                new Vector2(-2f, 9f), new Vector2(57f, 24f));
+            fireFlash = UiDraw.Icon(fireDisc, "MuzzleFlash", "flash_on", 17f, Tertiary);
+            UiDraw.Place(fireFlash.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f),
+                new Vector2(26f, 15f), new Vector2(17f, 17f));
+            fireFlash.gameObject.SetActive(false);
             fireLabel.transform.SetAsLastSibling();
             Caption(fireLabel, UiFont.Heading, 13f, OnPrimaryContainer, -.05f, -20f);
 
@@ -258,7 +272,7 @@ namespace Hotdrop.UI
         static void Caption(TextMeshProUGUI label, UiFont font, float size, Color color, float tracking, float y)
         {
             UIFonts.Use(label, font);
-            label.fontSize = size;
+            label.fontSize = UiMetrics.ScaleTextSize(size);
             label.enableAutoSizing = false;
             label.color = color;
             label.characterSpacing = tracking * 100f;
@@ -355,9 +369,18 @@ namespace Hotdrop.UI
             Opacity(pingDisc, input.PingOpacity);
             Opacity(pauseDisc, input.PauseOpacity);
 
-            fireLabel.text = "FIRE";
+            fireLabel.text = "Fire";
+            string gun = input.WeaponLabel ?? "";
+            string weaponArt = gun.IndexOf("ZIP", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "weapon_zip"
+                : gun.IndexOf("BRICK", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "weapon_brick" : "weapon_arc";
+            if (shownFireWeapon != weaponArt)
+            {
+                shownFireWeapon = weaponArt;
+                fireWeaponArt.texture = UiDraw.Texture(weaponArt);
+            }
+            fireFlash.gameObject.SetActive(Time.unscaledTime < fireFlashUntil);
             bool launch = input.LaunchAvailable;
-            jumpLabel.text = launch ? "LAUNCH" : "JUMP";
+            jumpLabel.text = launch ? "Launch" : "Jump";
             jumpPlate.color = launch ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#222a3a", .9f);
             jumpGlow.enabled = launch;
             jumpIcon.color = launch ? OnPrimaryContainer : Primary;
@@ -433,7 +456,7 @@ namespace Hotdrop.UI
                 var rect = input.EditActionRectFor(i);
                 PlaceDisc(editorActions[i], rect);
                 editorActionFills[i].color = i == 5
-                    ? UIDesignTokens.WithAlpha(UIDesignTokens.ActionCyan, 0.95f)
+                    ? UIDesignTokens.WithAlpha(UIDesignTokens.PrimaryAction, 0.95f)
                     : UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, 0.95f);
                 editorActionLabels[i].text = actions[i];
             }

@@ -48,6 +48,7 @@ namespace Hotdrop.UI
         bool loadingFlag;
         bool interactableFlag = true;
         LayoutElement layoutElement;
+        Vector3 restingScale = Vector3.one;
 
         /// <summary>Raised when the press is held past <see cref="HoldThresholdSeconds"/>.</summary>
         public event System.Action Held;
@@ -88,6 +89,7 @@ namespace Hotdrop.UI
 
         void Awake()
         {
+            restingScale = transform.localScale;
             if (button == null) button = GetComponent<Button>();
             // The state machine here owns the visuals; Unity's tint transition would fight it.
             if (button != null)
@@ -101,6 +103,12 @@ namespace Hotdrop.UI
         }
 
         void OnEnable() => EnforceMinimumSize();
+
+        void OnDisable()
+        {
+            pointerDown = false;
+            transform.localScale = restingScale;
+        }
 
         void OnRectTransformDimensionsChange() => EnforceMinimumSize();
 
@@ -219,6 +227,8 @@ namespace Hotdrop.UI
             if (next == HotdropButtonState.Held && !AcceptsPress()) return;
             if (State == next) return;
             State = next;
+            if (next != HotdropButtonState.Pressed && next != HotdropButtonState.Held)
+                transform.localScale = restingScale;
             if (next == HotdropButtonState.Pressed) holdElapsed = 0f;
             ApplyStyle();
         }
@@ -238,6 +248,7 @@ namespace Hotdrop.UI
         {
             if (!AcceptsPress()) return;
             pointerDown = true;
+            if (UIMotion.Animates(MotionChannel.Scale)) transform.localScale = restingScale * UIDesignTokens.ButtonPressScale;
             SetState(HotdropButtonState.Pressed);
         }
 
@@ -245,6 +256,7 @@ namespace Hotdrop.UI
         {
             if (!pointerDown) return;
             pointerDown = false;
+            transform.localScale = restingScale;
             bool wasHeld = State == HotdropButtonState.Held;
             SetState(RestingState());
             if (!wasHeld) Pressed?.Invoke();
@@ -255,6 +267,7 @@ namespace Hotdrop.UI
             // Dragging off a held control releases it, as every native control does.
             if (!pointerDown) return;
             pointerDown = false;
+            transform.localScale = restingScale;
             if (State == HotdropButtonState.Pressed || State == HotdropButtonState.Held) SetState(RestingState());
         }
 
@@ -324,7 +337,7 @@ namespace Hotdrop.UI
 
         Color NormalFill() => variant switch
         {
-            ButtonVariant.Primary => UIDesignTokens.ActionCyan,
+            ButtonVariant.Primary => UIDesignTokens.PrimaryAction,
             ButtonVariant.Destructive => UIDesignTokens.HazardCoral,
             ButtonVariant.Quiet => new Color(0f, 0f, 0f, 0f),
             _ => UIDesignTokens.SurfacePanel,
@@ -336,7 +349,7 @@ namespace Hotdrop.UI
             if (State == HotdropButtonState.Loading || State == HotdropButtonState.Cooldown) return UIDesignTokens.TextSecondary;
             switch (variant)
             {
-                case ButtonVariant.Primary: return UIDesignTokens.TextOn(UIDesignTokens.ActionCyan);
+                case ButtonVariant.Primary: return UIDesignTokens.TextOn(UIDesignTokens.PrimaryAction);
                 case ButtonVariant.Destructive: return UIDesignTokens.TextOn(UIDesignTokens.HazardCoral);
                 case ButtonVariant.Quiet: return State == HotdropButtonState.Normal ? UIDesignTokens.TextSecondary : UIDesignTokens.TextPrimary;
                 default: return UIDesignTokens.TextPrimary;
@@ -349,7 +362,7 @@ namespace Hotdrop.UI
             if (State == HotdropButtonState.Held || State == HotdropButtonState.Pressed)
                 return UIDesignTokens.ForTone(accent);
             if (State == HotdropButtonState.Cooldown) return UIDesignTokens.BorderColor();
-            return variant == ButtonVariant.Primary ? UIDesignTokens.ActionCyan
+            return variant == ButtonVariant.Primary ? UIDesignTokens.PrimaryAction
                 : variant == ButtonVariant.Destructive ? UIDesignTokens.HazardCoral
                 : variant == ButtonVariant.Quiet ? UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceStructural, 0.4f)
                 : UIDesignTokens.BorderColor();

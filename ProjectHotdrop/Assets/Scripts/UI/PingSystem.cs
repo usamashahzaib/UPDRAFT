@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Hotdrop.Pads;
 using Hotdrop.Match;
+using Hotdrop.Config;
 
 namespace Hotdrop.UI
 {
@@ -13,14 +14,17 @@ namespace Hotdrop.UI
     /// Spec section 14 contextual pings. The kind comes from what the crosshair is
     /// on: a visible enemy marks that location (never the player), a usable pad
     /// marks "pad ready", open sky means "group up" on the pinger, anything else
-    /// is "go here". 3 s expiry, one ping per 2 s per player, others' pings mutable.
+    /// is "go here". Lifetime and per-player cooldown are configured in MatchRulesConfig.
     /// </summary>
     public class PingSystem : MonoBehaviour
     {
-        public const float LifetimeSeconds = 3f;
-        public const float CooldownSeconds = 2f;
         public const string MuteKey = "PingsMuted";
         const int MaxVisible = 8;
+        static MatchRulesConfig fallbackRules;
+        static MatchRulesConfig ActiveRules => MatchView.Current?.Rules ??
+            (fallbackRules != null ? fallbackRules : fallbackRules = Resources.Load<MatchRulesConfig>("Config/MatchRulesConfig"));
+        public static float LifetimeSeconds => ActiveRules != null ? Mathf.Max(0.1f, ActiveRules.pingLifetimeSeconds) : 8f;
+        public static float CooldownSeconds => ActiveRules != null ? Mathf.Max(0.1f, ActiveRules.pingCooldownSeconds) : 2f;
 
         /// <summary>
         /// Pings and the objective marker share one exclusion policy, owned by

@@ -142,6 +142,19 @@ namespace Hotdrop.Input
         float dpiScale = 1f;
         /// <summary>Screen 08's bottom inset for the action cluster: 24 px margin + 8 px padding.</summary>
         const float safeBottomDesign = 32f;
+        float reservedBottomDesign;
+
+        /// <summary>
+        /// Design px at the bottom edge occupied by a full-width bar (the preparation footer).
+        /// The action cluster sits above it so neither control steals the other's taps.
+        /// </summary>
+        public void SetReservedBottom(float designPx)
+        {
+            designPx = Mathf.Max(0f, designPx);
+            if (Mathf.Approximately(designPx, reservedBottomDesign)) return;
+            reservedBottomDesign = designPx;
+            RecalculateButtonRects();
+        }
         readonly float[] buttonScale = { 1f, 1f, 1f, 1f, 1f, 1f };
         readonly float[] buttonOpacity = { 0.65f, 0.65f, 0.65f, 0.65f, 0.65f, 0.65f };
         readonly Vector2[] buttonOffsetDp = new Vector2[6];
@@ -586,18 +599,21 @@ namespace Hotdrop.Input
             // UIUX screen 08 (classic preset) in its own CSS px, converted with the canvas scale so
             // the controls land exactly where the HUD draws them: FIRE 80, LAUNCH 64, PAD and
             // RELOAD 56 stacked, all bottom-aligned 32 px up and 24 px in; ping and menu 40 in the
-            // top-right row. Hit rects never drop under 48 px; the drawn control stays its design size.
+            // top-right row. Customization may shrink a hit rect, so retain the 48 dp minimum;
+            // the drawn control stays at its design size.
             var frame = SafeAreaRoot.ScreenSize;
             float u = Hotdrop.UI.UiMetrics.ScaleFor(frame.x, frame.y, 0f);
             dpiScale = u;
-            float S(ControlButton b, float design) => design * buttonScale[(int)b] * u;
+            float S(ControlButton b, float design) => Mathf.Max(Hotdrop.UI.UiMetrics.MinTouchDp,
+                design * buttonScale[(int)b]) * u;
             float fireSize = S(ControlButton.Fire, 80f);
             float jumpSize = S(ControlButton.Jump, 64f);
             float padSize = S(ControlButton.Pad, 56f);
             float reloadSize = S(ControlButton.Reload, 56f);
-            float pingSize = Mathf.Max(48f * u, S(ControlButton.Ping, 40f));
-            float pauseSize = Mathf.Max(48f * u, S(ControlButton.Pause, 40f));
-            float margin = 24f * u, bottom = safeBottomDesign * u;
+            float pingSize = S(ControlButton.Ping, 40f);
+            float pauseSize = S(ControlButton.Pause, 40f);
+            float margin = 24f * u;
+            float bottom = (reservedBottomDesign > 0f ? reservedBottomDesign + 8f : safeBottomDesign) * u;
 
             Rect safe = ComposedSafeRect();
             // Laid out right-handed from the right edge, then mirrored for left-handed play.
@@ -609,7 +625,7 @@ namespace Hotdrop.Input
             // The 40 px drawn controls centre in their (possibly larger) hit rects.
             float top = safe.yMax - margin - 20f * u;
             pauseButtonRect = new Rect(right - 20f * u - pauseSize * .5f, top - pauseSize * .5f, pauseSize, pauseSize);
-            pingButtonRect = new Rect(right - 64f * u - pingSize * .5f, top - pingSize * .5f, pingSize, pingSize);
+            pingButtonRect = new Rect(right - 76f * u - pingSize * .5f, top - pingSize * .5f, pingSize, pingSize);
             if (!PingEnabled) pingButtonRect = Rect.zero;
             if (leftHandedMode)
             {
@@ -690,10 +706,19 @@ namespace Hotdrop.Input
         public void SetButtonLayout(ControlButton button, Vector2 offsetDp, float scale, float opacity)
         {
             int index = (int)button;
+            Vector2 previousOffset = buttonOffsetDp[index];
+            float previousScale = buttonScale[index];
             buttonOffsetDp[index] = offsetDp;
             buttonScale[index] = Mathf.Clamp(scale, 0.6f, 2f);
             buttonOpacity[index] = Mathf.Clamp(opacity, 0.15f, 1f);
             RecalculateButtonRects();
+            KeepOnScreen(button);
+            if (OverlapsAnotherControl(button))
+            {
+                buttonOffsetDp[index] = previousOffset;
+                buttonScale[index] = previousScale;
+                RecalculateButtonRects();
+            }
             SaveSettings();
         }
 
@@ -716,7 +741,7 @@ namespace Hotdrop.Input
         System.Action onLayoutEditDone;
         int editTouchId = -1;
         Vector2 editLastPos;
-        static readonly string[] EditActions = { "SIZE -", "SIZE +", "FADE -", "FADE +", "RESET", "DONE" };
+        static readonly string[] EditActions = { "Size -", "Size +", "Fade -", "Fade +", "Reset", "Done" };
 
         public void BeginLayoutEdit(System.Action onDone)
         {
@@ -778,10 +803,16 @@ namespace Hotdrop.Input
                         if (touch.touchId == editTouchId)
                         {
                             int index = (int)SelectedButton;
+                            Vector2 previousOffset = buttonOffsetDp[index];
                             buttonOffsetDp[index] += (pos - editLastPos) / dpiScale;
                             editLastPos = pos;
                             RecalculateButtonRects();
                             KeepOnScreen(SelectedButton);
+                            if (OverlapsAnotherControl(SelectedButton))
+                            {
+                                buttonOffsetDp[index] = previousOffset;
+                                RecalculateButtonRects();
+                            }
                         }
                         break;
                     case UnityEngine.InputSystem.TouchPhase.Ended:
@@ -806,9 +837,26 @@ namespace Hotdrop.Input
             RecalculateButtonRects();
         }
 
+        bool OverlapsAnotherControl(ControlButton button)
+        {
+            Rect candidate = ButtonRect(button);
+            if (candidate.width <= 0f || candidate.height <= 0f) return false;
+            float gap = 2f * dpiScale;
+            candidate = new Rect(candidate.xMin - gap, candidate.yMin - gap,
+                candidate.width + gap * 2f, candidate.height + gap * 2f);
+            for (int i = 0; i < 6; i++)
+            {
+                if (i == (int)button) continue;
+                Rect other = ButtonRect((ControlButton)i);
+                if (other.width > 0f && other.height > 0f && candidate.Overlaps(other)) return true;
+            }
+            return false;
+        }
+
         void ApplyEditAction(int action)
         {
             int i = (int)SelectedButton;
+            float previousScale = buttonScale[i];
             switch (action)
             {
                 case 0: buttonScale[i] = Mathf.Clamp(buttonScale[i] - 0.1f, 0.6f, 2f); break;
@@ -820,13 +868,18 @@ namespace Hotdrop.Input
             }
             RecalculateButtonRects();
             KeepOnScreen(SelectedButton);
+            if (OverlapsAnotherControl(SelectedButton))
+            {
+                buttonScale[i] = previousScale;
+                RecalculateButtonRects();
+            }
         }
 
         void Vibrate()
         {
 #if UNITY_ANDROID || UNITY_IOS
             // Handheld only exists in mobile player builds; the Linux server build excludes it.
-            if (vibrationEnabled && Application.isMobilePlatform) Handheld.Vibrate();
+            if (vibrationEnabled && Application.isMobilePlatform) Hotdrop.Core.HapticFeedback.Pulse();
 #endif
         }
 
@@ -903,7 +956,16 @@ namespace Hotdrop.Input
             if (canvas == null) canvas = Object.FindFirstObjectByType<Canvas>();
             if (canvas == null) return;
             view = Hotdrop.UI.TouchControlsView.Ensure(canvas, this);
-        }        /// <summary>Radius of the live movement joystick, in screen pixels.</summary>
+        }
+
+        /// <summary>Visual feedback for an actual weapon discharge, including shots stopped by cover.</summary>
+        public void PulseFireFeedback()
+        {
+            EnsureView();
+            view?.PulseFire();
+        }
+
+        /// <summary>Radius of the live movement joystick, in screen pixels.</summary>
         public float JoystickReachPx => JoystickRadiusPx;
 
         /// <summary>
@@ -916,7 +978,7 @@ namespace Hotdrop.Input
             int padSeconds = PadAvailable ? 0 : Mathf.CeilToInt(PadCooldown);
             if (padSeconds == lastPadSeconds) return;
             lastPadSeconds = padSeconds;
-            padLabel = padSeconds == 0 ? "PAD" : $"{padSeconds}s";
+            padLabel = padSeconds == 0 ? "Pad" : $"{padSeconds}s";
         }
 
         /// <summary>
@@ -926,11 +988,11 @@ namespace Hotdrop.Input
         string PadCaptionForFrame()
         {
             UpdatePadLabel();
-            string display = PadCancelled && padTouchId != -1 ? "CANCEL" : padLabel;
+            string display = PadCancelled && padTouchId != -1 ? "Cancel" : padLabel;
             // Keep the control short enough to remain tappable, while exposing the real
             // lifecycle state (the full identity/health readout stays in the HUD).
-            if (!PadPreviewActive && PadAvailable && PadStatusLabel.Contains("ARMING")) display = "PAD\nARMING";
-            else if (!PadPreviewActive && PadAvailable && PadStatusLabel.Contains("ARMED")) display = "PAD\nARMED";
+            if (!PadPreviewActive && PadAvailable && PadStatusLabel.Contains("ARMING")) display = "Pad\nArming";
+            else if (!PadPreviewActive && PadAvailable && PadStatusLabel.Contains("ARMED")) display = "Pad\nArmed";
             return display;
         }
     }

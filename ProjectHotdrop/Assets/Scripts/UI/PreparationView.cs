@@ -14,16 +14,23 @@ namespace Hotdrop.UI
     /// </summary>
     public static class PreparationView
     {
-        static readonly Color Ink = UiDraw.Hex("#101827");
-        static readonly Color Panel = UiDraw.Hex("#1b2940");
-        static readonly Color Edge = UiDraw.Hex("#49627b");
-        static readonly Color Cyan = UiDraw.Hex("#30d5e8");
-        static readonly Color Gold = UiDraw.Hex("#ffd166");
-        static readonly Color Text1 = UiDraw.Hex("#f4f7fb");
-        static readonly Color Text2 = UiDraw.Hex("#bbc6d8");
-        static readonly Color Muted = UiDraw.Hex("#7f8ca3");
+        static Color Ink => UiDraw.Hex("#101827");
+        static Color Panel => UiDraw.Hex("#1b2940");
+        static Color Edge => UiDraw.Hex("#49627b");
+        static Color Cyan => UiDraw.Hex("#30d5e8");
+        static Color Gold => UiDraw.Hex("#ffd166");
+        static Color Text1 => UiDraw.Hex("#f4f7fb");
+        static Color Text2 => UiDraw.Hex("#bbc6d8");
+        static Color Muted => UiDraw.Hex("#7f8ca3");
 
         const float CardWidth = 368f, CardHeight = 425f, CardGap = 24f;
+        const float FooterHeight = 73f;
+
+        static void ReserveTouchClusterSpace(float designPx)
+        {
+            var input = UnityEngine.Object.FindFirstObjectByType<Hotdrop.Input.TouchInputManager>();
+            if (input != null) input.SetReservedBottom(designPx);
+        }
 
         static WeaponDefinition[] lastWeapons;
         static Action<int> lastChoose;
@@ -33,6 +40,7 @@ namespace Hotdrop.UI
         {
             var root = hud != null ? hud.transform.Find("PreparationVisual") : null;
             if (root == null) return;
+            ReserveTouchClusterSpace(0f);
             if (Application.isPlaying) UnityEngine.Object.Destroy(root.gameObject);
             else UnityEngine.Object.DestroyImmediate(root.gameObject);
         }
@@ -54,6 +62,7 @@ namespace Hotdrop.UI
             for (int i = 0; i < count; i++)
                 WeaponCard(row, weapons[i], i, i == selected, choose, (i - (count - 1) / 2f) * (CardWidth + CardGap));
             BuildFooter(root, selected, choose);
+            ReserveTouchClusterSpace(FooterHeight);
             SetCountdown(hud, seconds);
         }
 
@@ -142,7 +151,7 @@ namespace Hotdrop.UI
         {
             var footer = UiDraw.Box(root, "Footer", UiDraw.Hex("#101827", .9f)).rectTransform;
             footer.anchorMin = Vector2.zero; footer.anchorMax = new Vector2(1f, 0f); footer.pivot = new Vector2(.5f, 0f);
-            footer.sizeDelta = new Vector2(0f, 73f); footer.anchoredPosition = Vector2.zero;
+            footer.sizeDelta = new Vector2(0f, FooterHeight); footer.anchoredPosition = Vector2.zero;
             UiDraw.HRule(footer, "FooterRule", UiDraw.Hex("#49627b", .4f), 0f);
             UiDraw.Place(UiDraw.Icon(footer, "Verified", "verified", 14f, Cyan).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(14f, 14f));
             UiDraw.Place(UiDraw.Text(footer, "UnlockNote", "All 3 weapons fully unlocked from day one • Cosmetics never change weapon power or spread.", UiFont.Body, 12f, Text2).rectTransform,

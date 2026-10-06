@@ -9,12 +9,12 @@ namespace Hotdrop.UI
     /// <summary>Isolated visual concept. No billing, offers, prices or entitlements are exposed.</summary>
     public static class ShopConceptView
     {
-        static readonly Color Ink = new Color(.045f, .073f, .12f);
-        static readonly Color Card = new Color(.105f, .155f, .235f);
-        static readonly Color Raised = new Color(.15f, .21f, .3f);
-        static readonly Color Cyan = new Color(.22f, .84f, .92f);
-        static readonly Color Muted = new Color(.67f, .75f, .84f);
-        static readonly Color Coral = new Color(.55f, .07f, .18f);
+        static Color Ink => UIDesignTokens.Background;
+        static Color Card => UIDesignTokens.SurfacePanel;
+        static Color Raised => UIDesignTokens.SurfaceSelected;
+        static Color Cyan => UIDesignTokens.PrimaryAction;
+        static Color Muted => UIDesignTokens.TextSecondary;
+        static Color Coral => UIDesignTokens.HazardCoral;
 
         public static void Show(GameObject owner, Action back)
         {
@@ -28,7 +28,7 @@ namespace Hotdrop.UI
             var root = Rect(owner.transform, "ShopConceptVisual", 0, 0, 1, 1);
             Fill(root, Ink);
             var header = Rect(root, "Header", 0, .925f, 1, 1);
-            Fill(header, new Color(.035f, .06f, .105f));
+            Fill(header, UIDesignTokens.Background);
             Label(header, "Brand", "HOTDROP", .025f, .16f, .18f, .84f, 24, Color.white);
             Label(header, "Page", "COSMETIC REQUISITIONS", .2f, .15f, .7f, .85f, 21, Cyan);
             Label(header, "State", "ISOLATED CONCEPT", .75f, .15f, .975f, .85f,
@@ -78,7 +78,7 @@ namespace Hotdrop.UI
             Label(transparency, "Policy", "TRANSPARENCY  //  Billing products, localized prices, ownership and restore are shown only when backed by the store.",
                 .025f, .1f, .975f, .9f, 14, Muted);
             var footer = Rect(root, "Footer", 0, 0, 1, .08f);
-            Fill(footer, new Color(.035f, .06f, .105f));
+            Fill(footer, UIDesignTokens.Background);
             Button(footer, "Back", "RETURN HOME", .025f, .17f, .21f, .83f,
                 Raised, Color.white, back);
             Label(footer, "State", "CONCEPT ONLY  ·  NO PURCHASE ACTIONS", .25f, .18f,
@@ -108,8 +108,10 @@ namespace Hotdrop.UI
             label.transform.SetParent(parent, false); label.rectTransform.anchorMin = new Vector2(x0, y0);
             label.rectTransform.anchorMax = new Vector2(x1, y1);
             label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
-            label.text = value; label.fontSize = size; label.color = color; label.alignment = align;
-            label.enableAutoSizing = true; label.fontSizeMin = 10; label.fontSizeMax = size;
+            label.text = value; label.fontSize = UiMetrics.ScaleTextSize(size);
+            label.color = color == Color.white ? UIDesignTokens.TextPrimary : color;
+            label.alignment = align;
+            label.enableAutoSizing = true; label.fontSizeMin = UiMetrics.ScaleTextSize(10); label.fontSizeMax = UiMetrics.ScaleTextSize(size);
             label.enableWordWrapping = false; label.raycastTarget = false;
         }
         static void Button(Transform parent, string name, string caption, float x0, float y0, float x1, float y1,

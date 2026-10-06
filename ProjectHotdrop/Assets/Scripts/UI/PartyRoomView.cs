@@ -14,14 +14,14 @@ namespace Hotdrop.UI
     /// </summary>
     public static class PartyRoomView
     {
-        static readonly Color Ink = UiDraw.Hex("#101827");
-        static readonly Color Panel = UiDraw.Hex("#1b2940");
-        static readonly Color Edge = UiDraw.Hex("#49627b");
-        static readonly Color Cyan = UiDraw.Hex("#30d5e8");
-        static readonly Color Gold = UiDraw.Hex("#ffd166");
-        static readonly Color Text1 = UiDraw.Hex("#f4f7fb");
-        static readonly Color Text2 = UiDraw.Hex("#bbc6d8");
-        static readonly Color Muted = UiDraw.Hex("#7f8ca3");
+        static Color Ink => UiDraw.Hex("#101827");
+        static Color Panel => UiDraw.Hex("#1b2940");
+        static Color Edge => UiDraw.Hex("#49627b");
+        static Color Cyan => UiDraw.Hex("#30d5e8");
+        static Color Gold => UiDraw.Hex("#ffd166");
+        static Color Text1 => UiDraw.Hex("#f4f7fb");
+        static Color Text2 => UiDraw.Hex("#bbc6d8");
+        static Color Muted => UiDraw.Hex("#7f8ca3");
 
         const float CardW = 368f, CardH = 360f, CardGap = 24f;
 
@@ -76,7 +76,8 @@ namespace Hotdrop.UI
 
             // Party code pill: label, the code split 4-4, copy and refresh.
             string code = party.code ?? "";
-            string shown = code.Length == 8 ? code.Substring(0, 4) + "-" + code.Substring(4) : code;
+            string shown = StreamSafePresentation.Enabled ? StreamSafePresentation.PrivateCode(code)
+                : code.Length == 8 ? code.Substring(0, 4) + "-" + code.Substring(4) : code;
             var pill = UiDraw.Box(header, "PartyCode", Panel, 8f, Edge);
             var heading = UiDraw.Text(pill.transform, "CodeHeading", "PARTY CODE:", UiFont.HeadingSemiBold, 11f, Muted, .05f);
             var value = UiDraw.Text(pill.transform, "CodeValue", shown, UiFont.Mono, 16f, Cyan, .1f);
@@ -225,7 +226,8 @@ namespace Hotdrop.UI
             var outline = UiDraw.Ring(ring.transform, "Rim", 112f, leader || self ? 2f : 1f, leader || self ? UiDraw.Hex("#30d5e8", .6f) : Edge);
             outline.rectTransform.anchoredPosition = Vector2.zero;
 
-            UiDraw.Place(UiDraw.Text(card, "Alias", open ? "AWAITING PLAYER" : alias.ToUpperInvariant(), UiFont.Heading, 18f, open ? Muted : Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
+            string visibleAlias = open ? "AWAITING PLAYER" : StreamSafePresentation.PlayerName(alias, index).ToUpperInvariant();
+            UiDraw.Place(UiDraw.Text(card, "Alias", visibleAlias, UiFont.Heading, 18f, open ? Muted : Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -232f), new Vector2(CardW - 2f * pad, 28f));
             UiDraw.Place(UiDraw.Text(card, "SeatDescription", open ? "Share the party code to fill this seat" : self && !present ? "Create a party to host this room" : self ? "YOU" : ready ? "READY TO LAUNCH" : "AWAITING READY",
                     UiFont.MonoRegular, 12f, open ? Muted : self ? Cyan : Text2, 0f, TextAlignmentOptions.Midline).rectTransform,
@@ -298,6 +300,7 @@ namespace Hotdrop.UI
             input.textComponent = text;
             input.placeholder = placeholder;
             input.characterLimit = 8;
+            if (StreamSafePresentation.Enabled) input.contentType = TMP_InputField.ContentType.Password;
             input.characterValidation = TMP_InputField.CharacterValidation.Alphanumeric;
             input.onValidateInput = (s, i, c) => char.ToUpperInvariant(c);
             input.caretColor = Cyan;

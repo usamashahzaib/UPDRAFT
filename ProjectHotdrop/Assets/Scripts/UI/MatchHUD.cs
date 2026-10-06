@@ -20,12 +20,12 @@ namespace Hotdrop.UI
         // UI foundation (Prompt 01): the HUD reads the central semantic tokens instead of
         // carrying its own literals. Field names are unchanged, so every existing caller -
         // scene wiring, HUD code and tests alike - keeps working.
-        public static readonly Color Friendly = UIDesignTokens.ActionCyan;
-        public static readonly Color Enemy = UIDesignTokens.HazardCoral;
-        public static readonly Color Objective = UIDesignTokens.ObjectiveGold;
-        public static readonly Color MainText = UIDesignTokens.TextPrimary;
-        public static readonly Color SecondaryText = UIDesignTokens.TextSecondary;
-        public static readonly Color PanelBg = UIDesignTokens.PanelBg;
+        public static Color Friendly => UIDesignTokens.Ally;
+        public static Color Enemy => UIDesignTokens.HazardCoral;
+        public static Color Objective => UIDesignTokens.ObjectiveGold;
+        public static Color MainText => UIDesignTokens.TextPrimary;
+        public static Color SecondaryText => UIDesignTokens.TextSecondary;
+        public static Color PanelBg => UIDesignTokens.PanelBg;
 
         [Header("Config")]
         [SerializeField] public GraphicsConfig graphicsConfig;
@@ -150,6 +150,12 @@ namespace Hotdrop.UI
                 AppendPanelRect(into, panel == null ? null : panel.transform);
             foreach (string name in HudAppearance.FloatingPanels)
                 AppendPanelRect(into, canvasRect.Find(name));
+            if (uiux != null)
+            {
+                overlayPanels.Clear();
+                uiux.ReadablePanels(overlayPanels);
+                foreach (var panel in overlayPanels) AppendPanelRect(into, panel);
+            }
             // The transient combat-feedback channel is a real element a player reads, and it is not
             // a panel, so nothing else published its footprint. Measured at runtime y 97.71..122.29
             // in the screen 09 capture - inside the gap markers occupy - which is exactly the class of
@@ -186,6 +192,8 @@ namespace Hotdrop.UI
         /// hidden or are not a RectTransform. Takes a <see cref="Transform"/> so both a direct
         /// GameObject field and a <c>RectTransform.Find</c> result can be measured the same way.
         /// </summary>
+        readonly List<RectTransform> overlayPanels = new List<RectTransform>();
+
         void AppendPanelRect(List<Rect> into, Transform panel)
         {
             if (panel == null || !panel.gameObject.activeInHierarchy) return;
@@ -295,6 +303,7 @@ namespace Hotdrop.UI
 
             // Hit marker at the crosshair.
             hitMarkerText = Ui.Text("HitMarker", transform, "X", 34, MainText);
+            UIFonts.Use(hitMarkerText, UiFont.IconFilled);
             hitMarkerText.rectTransform.anchorMin = hitMarkerText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             hitMarkerText.rectTransform.sizeDelta = new Vector2(60, 60);
             hitMarkerText.gameObject.SetActive(false);
@@ -534,7 +543,7 @@ namespace Hotdrop.UI
                 var image = weaponButtons[i]?.button != null ? weaponButtons[i].button.GetComponent<Image>() : null;
                 if (image == null) continue;
                 bool selected = i == index;
-                image.color = selected ? UIDesignTokens.WithAlpha(UIDesignTokens.ActionCyan, 0.35f) : PanelBg;
+                image.color = selected ? UIDesignTokens.WithAlpha(UIDesignTokens.PrimaryAction, 0.35f) : PanelBg;
                 if (weaponButtons[i].nameText != null)
                     weaponButtons[i].nameText.text = weapons != null && i < weapons.Length
                         ? (selected ? "> " : "") + weapons[i].displayName.ToUpperInvariant() + (selected ? " <" : "")
@@ -700,7 +709,7 @@ namespace Hotdrop.UI
             int seconds = Mathf.CeilToInt(localPlayer.RespawnRemaining);
             deathCountdown.text = hasMatch ? $"RESPAWN IN {seconds}   ·   CHANGE WEAPON BELOW" : $"RESPAWN IN {seconds}";
             var spectated = MatchView.Current?.SpectatedTeammate;
-            deathSpectate.text = !hasMatch ? "TIP: STRAFE WHILE FIRING AND FIGHT FROM COVER — THE BOT AIMS WHERE YOU WERE"
+            deathSpectate.text = !hasMatch ? "TIP: STRAFE WHILE FIRING AND FIGHT FROM COVER — OPPONENTS AIM AT YOUR LAST POSITION"
                 : spectated != null ? $"WATCHING {spectated.DisplayName}" : "";
         }
 
@@ -833,11 +842,14 @@ namespace Hotdrop.UI
 
         public void ShowPadRejected(string reason) => ShowCombatFeedback($"CAN'T PLACE PAD — {reason}", SecondaryText, 1.2f);
 
-        public void ShowBlockedShot() => ShowCombatFeedback("SHOT BLOCKED", new Color(1f, 0.65f, 0.2f), 0.7f);
+        public void ShowBlockedShot() => ShowCombatFeedback("SHOT BLOCKED", UIDesignTokens.SignalWarning, 0.7f);
 
-        public void ShowHitConfirmed()
+        public void ShowHitConfirmed(bool headshot = false, bool elimination = false)
         {
             if (hitMarkerText == null) return;
+            hitMarkerText.text = elimination ? UIIcons.Glyph("stars") : headshot ? UIIcons.Glyph("diamond") : "X";
+            hitMarkerText.color = elimination ? Objective : headshot ? Friendly : MainText;
+            hitMarkerText.fontSize = elimination ? 38f : headshot ? 32f : 34f;
             hitMarkerText.gameObject.SetActive(true);
             hitMarkerUntil = Time.unscaledTime + 0.15f;
         }
@@ -984,7 +996,7 @@ namespace Hotdrop.UI
         }
 
         public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, string endCondition) =>
-            ShowResults(isWin, isDraw, scoreA, scoreB, endCondition, null, "LOCAL PRACTICE — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY");
+            ShowResults(isWin, isDraw, scoreA, scoreB, endCondition, null, "PRACTICE MATCH — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY");
 
         public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, string endCondition, System.Collections.Generic.IReadOnlyList<IMatchParticipant> players, string footer, string nextGoal = null)
         {
@@ -1112,9 +1124,10 @@ namespace Hotdrop.UI
         {
             var rt = Rect(name, parent, new Vector2(400, size + 12));
             var tmp = rt.gameObject.AddComponent<TextMeshProUGUI>();
-            tmp.text = text; tmp.fontSize = size; tmp.color = color;
+            tmp.text = text; tmp.fontSize = UiMetrics.ScaleTextSize(size);
+            tmp.color = color == Color.white ? UIDesignTokens.TextPrimary : color;
             tmp.alignment = TextAlignmentOptions.Center; tmp.raycastTarget = false;
-            tmp.enableAutoSizing = true; tmp.fontSizeMin = 12; tmp.fontSizeMax = size;
+            tmp.enableAutoSizing = true; tmp.fontSizeMin = UiMetrics.ScaleTextSize(12); tmp.fontSizeMax = UiMetrics.ScaleTextSize(size);
             return tmp;
         }
     }

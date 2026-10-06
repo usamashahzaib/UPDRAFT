@@ -13,18 +13,18 @@ namespace Hotdrop.UI
     /// </summary>
     public static class AppearanceLockerView
     {
-        static readonly Color Lowest = UiDraw.Hex("#060e1d");
-        static readonly Color Low = UiDraw.Hex("#141c2b");
-        static readonly Color Mid = UiDraw.Hex("#18202f");
-        static readonly Color High = UiDraw.Hex("#222a3a");
-        static readonly Color Highest = UiDraw.Hex("#2d3545");
-        static readonly Color Primary = UiDraw.Hex("#7cefff");
-        static readonly Color PrimaryC = UiDraw.Hex("#30d5e8");
-        static readonly Color Tertiary = UiDraw.Hex("#ffda88");
-        static readonly Color OnSurface = UiDraw.Hex("#dbe2f8");
-        static readonly Color OnVariant = UiDraw.Hex("#bbc9cb");
-        static readonly Color Outline = UiDraw.Hex("#859396");
-        static readonly Color Ink = UiDraw.Hex("#101827");
+        static Color Lowest => UiDraw.Hex("#060e1d");
+        static Color Low => UiDraw.Hex("#141c2b");
+        static Color Mid => UiDraw.Hex("#18202f");
+        static Color High => UiDraw.Hex("#222a3a");
+        static Color Highest => UiDraw.Hex("#2d3545");
+        static Color Primary => UiDraw.Hex("#7cefff");
+        static Color PrimaryC => UiDraw.Hex("#30d5e8");
+        static Color Tertiary => UiDraw.Hex("#ffda88");
+        static Color OnSurface => UiDraw.Hex("#dbe2f8");
+        static Color OnVariant => UiDraw.Hex("#bbc9cb");
+        static Color Outline => UiDraw.Hex("#859396");
+        static Color Ink => UiDraw.Hex("#101827");
 
         const float Pad = 24f;
 

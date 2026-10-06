@@ -98,7 +98,12 @@ namespace Hotdrop.UI
         {
             NewMenu("ChallengePause", "OFFLINE CHALLENGE PAUSED", presenter.OnUserUnpauseChallenge);
             MenuLayout.AddText(menu.Content, entry.title + "\nThis local game is paused. Online matches cannot pause.", 28, MatchHUD.MainText);
-            MenuLayout.AddButton(menu.Content, "RESUME", presenter.OnUserUnpauseChallenge, "ChallengePauseResume", variant: ButtonVariant.Primary);
+            // Not ButtonVariant.Primary: that variant's background never actually paints on a
+            // HotdropButton built through MenuLayout (the border tints correctly; the fill stays
+            // whatever the panel behind it is), so the dark TextOnAccent caption this variant
+            // selects renders unreadable on an unpainted dark button. Secondary is the variant
+            // every sibling row in this same menu already uses and is confirmed to render.
+            MenuLayout.AddButton(menu.Content, "RESUME", presenter.OnUserUnpauseChallenge, "ChallengePauseResume");
             MenuLayout.AddButton(menu.Content, "RESTART", presenter.OnUserRestartChallenge, "ChallengePauseRestart");
             MenuLayout.AddButton(menu.Content, "SETTINGS", () => game.GetComponent<OfflinePauseMenu>().OpenSettings(), "ChallengePauseSettings");
             MenuLayout.AddButton(menu.Content, "LIBRARY", presenter.OnUserReturnToLibrary, "ChallengePauseLibrary");
@@ -128,9 +133,12 @@ namespace Hotdrop.UI
                 : !result.saveSucceeded ? "NOT SAVED — storage unavailable. Retry when storage is available." : "Records stay on this device. No online rewards.", 24, MatchHUD.SecondaryText);
             var entries = runtime.Controller.config.entries;
             bool last = entries.Count > 0 && entries[entries.Count - 1].id == result.entry.id;
+            // See the Resume button above: ButtonVariant.Primary renders unreadable here, so the
+            // emphasised action stays Secondary like the rest of this menu rather than losing its
+            // caption.
             if (result.isSuccess)
-                MenuLayout.AddButton(menu.Content, last ? "BACK TO CHALLENGES" : "NEXT CHALLENGE", presenter.OnUserNextChallenge, "ChallengeNext", variant: ButtonVariant.Primary);
-            MenuLayout.AddButton(menu.Content, "RETRY", presenter.OnUserRetryChallenge, "ChallengeRetry", variant: result.isSuccess ? ButtonVariant.Secondary : ButtonVariant.Primary);
+                MenuLayout.AddButton(menu.Content, last ? "BACK TO CHALLENGES" : "NEXT CHALLENGE", presenter.OnUserNextChallenge, "ChallengeNext");
+            MenuLayout.AddButton(menu.Content, "RETRY", presenter.OnUserRetryChallenge, "ChallengeRetry");
             if (!result.isSuccess)
                 MenuLayout.AddButton(menu.Content, last ? "BACK TO CHALLENGES" : "NEXT CHALLENGE", presenter.OnUserNextChallenge, "ChallengeNext");
             MenuLayout.AddButton(menu.Content, "LIBRARY", presenter.OnUserReturnToLibrary, "ChallengeResultLibrary");

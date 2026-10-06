@@ -23,24 +23,24 @@ namespace Hotdrop.UI
     /// </summary>
     public static class SupportHubView
     {
-        static readonly Color Surface = UiDraw.Hex("#0b1322");
-        static readonly Color Lowest = UiDraw.Hex("#060e1d");
-        static readonly Color Low = UiDraw.Hex("#141c2b");
-        static readonly Color Mid = UiDraw.Hex("#18202f");
-        static readonly Color High = UiDraw.Hex("#222a3a");
-        static readonly Color Highest = UiDraw.Hex("#2d3545");
-        static readonly Color Primary = UiDraw.Hex("#7cefff");
-        static readonly Color PrimaryC = UiDraw.Hex("#30d5e8");
-        static readonly Color OnPrimary = UiDraw.Hex("#00363c");
-        static readonly Color OnPrimaryC = UiDraw.Hex("#005862");
-        static readonly Color Secondary = UiDraw.Hex("#ffb2b7");
-        static readonly Color SecondaryC = UiDraw.Hex("#930d2d");
-        static readonly Color OnSecondary = UiDraw.Hex("#67001b");
-        static readonly Color OnSecondaryC = UiDraw.Hex("#ff9da4");
-        static readonly Color Tertiary = UiDraw.Hex("#ffda88");
-        static readonly Color OnSurface = UiDraw.Hex("#dbe2f8");
-        static readonly Color OnVariant = UiDraw.Hex("#bbc9cb");
-        static readonly Color OutlineVariant = UiDraw.Hex("#3c494b");
+        static Color Surface => UiDraw.Hex("#0b1322");
+        static Color Lowest => UiDraw.Hex("#060e1d");
+        static Color Low => UiDraw.Hex("#141c2b");
+        static Color Mid => UiDraw.Hex("#18202f");
+        static Color High => UiDraw.Hex("#222a3a");
+        static Color Highest => UiDraw.Hex("#2d3545");
+        static Color Primary => UiDraw.Hex("#7cefff");
+        static Color PrimaryC => UiDraw.Hex("#30d5e8");
+        static Color OnPrimary => UiDraw.Hex("#00363c");
+        static Color OnPrimaryC => UiDraw.Hex("#005862");
+        static Color Secondary => UiDraw.Hex("#ffb2b7");
+        static Color SecondaryC => UiDraw.Hex("#930d2d");
+        static Color OnSecondary => UiDraw.Hex("#67001b");
+        static Color OnSecondaryC => UiDraw.Hex("#ff9da4");
+        static Color Tertiary => UiDraw.Hex("#ffda88");
+        static Color OnSurface => UiDraw.Hex("#dbe2f8");
+        static Color OnVariant => UiDraw.Hex("#bbc9cb");
+        static Color OutlineVariant => UiDraw.Hex("#3c494b");
 
         const float Pad = 24f, Gap = 12f, BarH = 64f;
         const string Root = "SupportHubVisual";
@@ -210,13 +210,13 @@ namespace Hotdrop.UI
             UiDraw.Fill(UiDraw.Icon(avatar.transform, "Icon", "person", 18f, OnPrimary).rectTransform);
             rx -= 32f + 12f;
             var op = UiDraw.Box(bar, "Operative", High, 4f);
-            var opText = UiDraw.Text(op.transform, "Text", "<color=#bbc9cb>OP:</color> " + (profile?.alias ?? "SYNCING").ToUpperInvariant(), UiFont.MonoMedium, 11f, Primary, .05f);
+            var opText = UiDraw.Text(op.transform, "Text", "<color=#bbc9cb>OP:</color> " + StreamSafePresentation.AccountAlias(profile?.alias ?? "SYNCING").ToUpperInvariant(), UiFont.MonoMedium, 11f, Primary, .05f);
             float ow = UiDraw.Width(opText) + 16f;
             UiDraw.Place(op.rectTransform, new Vector2(0f, .5f), new Vector2(1f, .5f), new Vector2(rx, 0f), new Vector2(ow, 26f));
             UiDraw.Fill(opText.rectTransform, 8f, 0f, 8f, 0f);
             rx -= ow + 12f;
             var credits = UiDraw.Box(bar, "Credits", High, 4f);
-            var crText = UiDraw.Text(credits.transform, "Value", wallet == null ? "—" : wallet.credits.ToString("N0"), UiFont.Mono, 14f, Tertiary, .03f);
+            var crText = UiDraw.Text(credits.transform, "Value", StreamSafePresentation.AccountProgress(wallet == null ? "—" : wallet.credits.ToString("N0")), UiFont.Mono, 14f, Tertiary, .03f);
             float crw = 8f + 18f + 4f + UiDraw.Width(crText) + 8f;
             UiDraw.Place(credits.rectTransform, new Vector2(0f, .5f), new Vector2(1f, .5f), new Vector2(rx, 0f), new Vector2(crw, 26f));
             UiDraw.Place(UiDraw.Icon(credits.transform, "Icon", "toll", 18f, Tertiary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(18f, 18f));
@@ -264,7 +264,7 @@ namespace Hotdrop.UI
             var card = Card(page, "Account", Mid, x, y, w, 100f);
             float iw = w - 40f, cy = 20f;
             Header(card, "badge", "CALLSIGN IDENTITY", Primary, cy, w);
-            Badge(card, "Tier", profile == null ? "SYNCING" : $"LEVEL {Mathf.Clamp(profile.level, 1, 20)} PILOT", High, Primary, w - 20f, cy);
+            Badge(card, "Tier", profile == null ? "SYNCING" : StreamSafePresentation.Enabled ? "PRIVATE PROFILE" : $"LEVEL {Mathf.Clamp(profile.level, 1, 20)} PILOT", High, Primary, w - 20f, cy);
             cy += 18f + 12f;
 
             var brief = UiDraw.Box(card, "Dossier", Low, 8f);
@@ -274,10 +274,10 @@ namespace Hotdrop.UI
             UiDraw.Fill(UiDraw.Icon(avatar.transform, "Icon", "shield_person", 32f, Primary).rectTransform);
             var stripe = UiDraw.Box(avatar.transform, "Stripe", Primary);
             UiDraw.Place(stripe.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f), Vector2.zero, new Vector2(48f, 4f));
-            var alias = UiDraw.Text(brief.transform, "Alias", (profile?.alias ?? "ACCOUNT SYNCING").ToUpperInvariant(), UiFont.HeadingSemiBold, 20f, OnSurface);
+            var alias = UiDraw.Text(brief.transform, "Alias", StreamSafePresentation.AccountAlias(profile?.alias ?? "ACCOUNT SYNCING").ToUpperInvariant(), UiFont.HeadingSemiBold, 20f, OnSurface);
             alias.overflowMode = TextOverflowModes.Ellipsis;
             TL(alias.rectTransform, 76f, 12f, iw - 88f, 26f);
-            TL(UiDraw.Text(brief.transform, "Account", profile == null ? "Account data is loading." : linked ? "LINKED  •  GOOGLE PLAY GAMES" : "GUEST  •  STORED ON THIS DEVICE",
+            TL(UiDraw.Text(brief.transform, "Account", StreamSafePresentation.Enabled ? "PRIVATE ACCOUNT DETAILS" : profile == null ? "Account data is loading." : linked ? "LINKED  •  GOOGLE PLAY GAMES" : "GUEST  •  STORED ON THIS DEVICE",
                 UiFont.Body, 12f, OnVariant, .01f).rectTransform, 76f, 40f, iw - 88f, 16f);
             cy += 72f + 12f;
 
@@ -394,7 +394,7 @@ namespace Hotdrop.UI
                     var tint = UiDraw.Box(button.transform, "Selected", UiDraw.Hex("#30d5e8", .2f), 8f);
                     UiDraw.Fill(tint.rectTransform);
                     tint.enabled = false;
-                    var name = UiDraw.Text(button.transform, "Name", entry.alias ?? "PLAYER", UiFont.HeadingSemiBold, 12f, OnSurface, 0f, TextAlignmentOptions.Midline);
+                    var name = UiDraw.Text(button.transform, "Name", StreamSafePresentation.PlayerName(entry.alias ?? "PLAYER", i), UiFont.HeadingSemiBold, 12f, OnSurface, 0f, TextAlignmentOptions.Midline);
                     name.overflowMode = TextOverflowModes.Ellipsis;
                     UiDraw.Place(name.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 8f), new Vector2(cw - 8f, 16f));
                     string side = localTeam < 0 ? $"SLOT {entry.slot + 1}" : entry.team == localTeam ? "ALLIED WINGMAN" : "CORAL OPPONENT";

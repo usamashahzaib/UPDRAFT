@@ -17,28 +17,33 @@ namespace Hotdrop.UI
     public sealed class UiuxHud : MonoBehaviour
     {
         const float Margin = 24f;
-        static readonly Color Primary = UiDraw.Hex("#7cefff");
-        static readonly Color PrimaryContainer = UiDraw.Hex("#30d5e8");
-        static readonly Color Secondary = UiDraw.Hex("#ffb2b7");
-        static readonly Color Tertiary = UiDraw.Hex("#ffda88");
-        static readonly Color TertiaryDim = UiDraw.Hex("#edc157");
-        static readonly Color OnSurface = UiDraw.Hex("#dbe2f8");
-        static readonly Color OnSurfaceVariant = UiDraw.Hex("#bbc9cb");
-        static readonly Color Outline = UiDraw.Hex("#859396");
-        static readonly Color Lowest = UiDraw.Hex("#060e1d");
-        static readonly Color Low = UiDraw.Hex("#141c2b");
-        static readonly Color High = UiDraw.Hex("#222a3a");
-        static readonly Color Highest = UiDraw.Hex("#2d3545");
-        static readonly Color Coral = UiDraw.Hex("#ff6376");
+        static Color Primary => UiDraw.Hex("#7cefff");
+        static Color PrimaryContainer => UiDraw.Hex("#30d5e8");
+        static Color Secondary => UiDraw.Hex("#ffb2b7");
+        static Color Tertiary => UiDraw.Hex("#ffda88");
+        static Color TertiaryDim => UiDraw.Hex("#edc157");
+        static Color OnSurface => UiDraw.Hex("#dbe2f8");
+        static Color OnSurfaceVariant => UiDraw.Hex("#bbc9cb");
+        static Color Outline => UiDraw.Hex("#859396");
+        static Color Lowest => UiDraw.Hex("#060e1d");
+        static Color Low => UiDraw.Hex("#141c2b");
+        static Color High => UiDraw.Hex("#222a3a");
+        static Color Highest => UiDraw.Hex("#2d3545");
+        static Color Coral => UiDraw.Hex("#ff6376");
 
         RectTransform root, roster, board, zonePanel, topRight, radar, armor;
+        RectTransform soundCaptionRoot;
+        TextMeshProUGUI soundCaptionText;
+        float soundCaptionRemaining;
+        CanvasGroup rosterFade, topRightFade;
         TextMeshProUGUI rosterCount, allyScore, enemyScore, clock, zoneName, zoneState, zoneNext, regionText, armorValue, armorZone, armorPad;
         RectTransform tugAlly, tugEnemy, tugMark;
         readonly List<Image> armorSegments = new List<Image>();
         readonly List<RosterCard> cards = new List<RosterCard>();
-        RectTransform radarSelf, radarObjective, radarField;
+        RectTransform radarSelf, radarObjective, radarField, radarMap;
         readonly List<RectTransform> radarMates = new List<RectTransform>();
-        TextMeshProUGUI radarHeading, radarSector;
+        readonly List<(RectTransform root, Image icon, RectTransform[] triangle)> radarPings = new List<(RectTransform, Image, RectTransform[])>();
+        TextMeshProUGUI radarHeading, radarSector, latencyText, performanceText, identityText;
         RectTransform spinRing;
 
         int ally, rival;
@@ -65,6 +70,14 @@ namespace Hotdrop.UI
             return hud;
         }
 
+        /// <summary>Readable live-match panels that world markers and pings must not cover.</summary>
+        public void ReadablePanels(List<RectTransform> into)
+        {
+            into.Add(roster); into.Add(board); into.Add(zonePanel); into.Add(armor);
+            // The container stays active outside a live match while its contents are hidden.
+            if (liveMatch) into.Add(topRight);
+        }
+
         void Build()
         {
             root = (RectTransform)transform;
@@ -72,6 +85,9 @@ namespace Hotdrop.UI
             BuildBoard();
             BuildTopRight();
             BuildArmor();
+            BuildSoundCaptions();
+            rosterFade = roster.gameObject.AddComponent<CanvasGroup>();
+            topRightFade = topRight.gameObject.AddComponent<CanvasGroup>();
             SetLiveMatch(false);
         }
 
@@ -176,7 +192,18 @@ namespace Hotdrop.UI
             regionText = UiDraw.Text(chip.transform, "Region", "", UiFont.MonoMedium, 11f, OnSurfaceVariant, .05f);
             UiDraw.Place(UiDraw.Dot(chip.transform, "Live", 8f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(8f, 8f));
             UiDraw.Place(regionText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(22f, 0f), new Vector2(150f, 14f));
-            SetRegion("PRACTICE // LOCAL");
+            SetRegion("PRACTICE");
+
+            // Live facts sit in the narrow column beside the radar; they never cover the map
+            // or the two 40 px controls above it. Offline sessions have no network latency.
+            latencyText = UiDraw.Text(topRight, "Latency", "Ping —", UiFont.MonoMedium, 10f, Primary);
+            UiDraw.Place(latencyText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -51f), new Vector2(92f, 15f));
+            performanceText = UiDraw.Text(topRight, "Performance", "K/D 0/0", UiFont.MonoMedium, 10f, Tertiary);
+            UiDraw.Place(performanceText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -70f), new Vector2(92f, 15f));
+            identityText = UiDraw.Text(topRight, "Identity", "", UiFont.BodySemiBold, 10f, OnSurface);
+            UiDraw.Place(identityText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -89f), new Vector2(92f, 30f));
+            identityText.textWrappingMode = TextWrappingModes.Normal;
+            identityText.overflowMode = TextOverflowModes.Ellipsis;
 
             var radarBox = UiDraw.Box(topRight, "Radar", UiDraw.Hex("#060e1d", .9f), 12f);
             radar = UiDraw.Place(radarBox.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(0f, -44f), new Vector2(144f, 144f));
@@ -184,11 +211,13 @@ namespace Hotdrop.UI
             var grid = UiDraw.Node(radar, "DotGrid").gameObject.AddComponent<RawImage>();
             UiDraw.Fill(grid.rectTransform);
             grid.texture = DotGridTexture();
+            grid.color = UIDesignTokens.PrimaryAction;
             grid.uvRect = new Rect(0f, 0f, 144f / 14f, 144f / 14f);
             grid.raycastTarget = false;
             UiDraw.Place(UiDraw.Ring(radar, "OuterRing", 112f, 1f, UiDraw.Hex("#7cefff", .2f)).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(112f, 112f));
             spinRing = UiDraw.Ring(radar, "SweepRing", 64f, 1f, UiDraw.Hex("#859396", .3f), 16).rectTransform;
             UiDraw.Place(spinRing, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(64f, 64f));
+            radarMap = UiDraw.Place(UiDraw.Node(radar, "MapFootprint"), new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(144f, 144f));
             radarField = UiDraw.Place(UiDraw.Node(radar, "Field"), new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(144f, 144f));
             radarObjective = UiDraw.Place(UiDraw.Node(radarField, "Objective"), new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(20f, 20f));
             UiDraw.Fill(UiDraw.Dot(radarObjective, "Halo", 20f, UiDraw.Hex("#ffda88", .2f)).rectTransform);
@@ -199,6 +228,24 @@ namespace Hotdrop.UI
                 var mate = UiDraw.Dot(radarField, "Mate" + i, 8f, Primary).rectTransform;
                 mate.anchorMin = mate.anchorMax = new Vector2(.5f, .5f);
                 radarMates.Add(mate);
+            }
+            for (int i = 0; i < 8; i++)
+            {
+                var icon = UiDraw.Box(radarField, "Ping" + i, Color.white, 1f);
+                var rect = icon.rectTransform;
+                rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+                rect.sizeDelta = new Vector2(9f, 9f);
+                var triangle = new RectTransform[3];
+                for (int j = 0; j < triangle.Length; j++)
+                {
+                    var edge = UiDraw.Box(rect, "TriangleEdge" + j, Color.white, .5f).rectTransform;
+                    edge.anchorMin = edge.anchorMax = new Vector2(.5f, .5f);
+                    edge.sizeDelta = new Vector2(3f, 3f);
+                    triangle[j] = edge;
+                    edge.gameObject.SetActive(false);
+                }
+                rect.gameObject.SetActive(false);
+                radarPings.Add((rect, icon, triangle));
             }
             radarSelf = UiDraw.Place(UiDraw.Dot(radar, "Self", 12f, Primary).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(12f, 12f));
             UiDraw.Fill(UiDraw.Icon(radarSelf, "Heading", "navigation", 10f, UiDraw.Hex("#00363c"), true).rectTransform);
@@ -219,7 +266,8 @@ namespace Hotdrop.UI
             for (int x = 0; x < n; x++)
             {
                 float d = Vector2.Distance(new Vector2(x + .5f, y + .5f), new Vector2(n / 2f, n / 2f));
-                dotGrid.SetPixel(x, y, new Color(.19f, .84f, .91f, .12f * Mathf.Clamp01(2.5f - d)));
+                float alpha = .12f * Mathf.Clamp01(2.5f - d);
+                dotGrid.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
             }
             dotGrid.Apply(false, true);
             return dotGrid;
@@ -231,8 +279,36 @@ namespace Hotdrop.UI
             regionText.text = value;
             var chip = (RectTransform)regionText.transform.parent;
             float w = 22f + UiDraw.Width(regionText) + 8f;
-            // Left of the two 40 px controls (4 px gaps) on the same 40 px row.
-            UiDraw.Place(chip, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-88f, -20f), new Vector2(w, 22f));
+            // Left of both touch targets, including their larger hit rectangles.
+            UiDraw.Place(chip, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-112f, -20f), new Vector2(w, 22f));
+        }
+
+        void BuildSoundCaptions()
+        {
+            var plate = UiDraw.Box(root, "GameplaySoundCaption", UiDraw.Hex("#060e1d", .92f), 8f);
+            soundCaptionRoot = UiDraw.Place(plate.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f),
+                new Vector2(0f, 112f), new Vector2(320f, 42f));
+            soundCaptionText = UiDraw.Text(soundCaptionRoot, "Caption", "", UiFont.HeadingSemiBold, 16f,
+                UiDraw.Hex("#f4f7fb"), .04f, TextAlignmentOptions.Midline);
+            UiDraw.Fill(soundCaptionText.rectTransform, 12f, 0f, 12f, 0f);
+            soundCaptionText.alignment = TextAlignmentOptions.Midline;
+            soundCaptionRoot.gameObject.SetActive(false);
+        }
+
+        void OnEnable() => Hotdrop.Core.GameAudio.OnCriticalCaption += ShowSoundCaption;
+        void OnDisable() => Hotdrop.Core.GameAudio.OnCriticalCaption -= ShowSoundCaption;
+
+        void ShowSoundCaption(string caption)
+        {
+            if (!liveMatch || PlayerPrefs.GetInt(Hotdrop.Core.GameAudio.SoundCaptionsKey, 1) != 1 || soundCaptionRoot == null) return;
+            soundCaptionText.text = caption;
+            soundCaptionRemaining = 1.6f;
+            soundCaptionRoot.gameObject.SetActive(true);
+        }
+
+        public void SetLatency(int milliseconds)
+        {
+            if (latencyText != null) latencyText.text = milliseconds > 0 ? $"Ping {milliseconds}ms" : "Ping —";
         }
 
         // ------------------------------------------------------------ armor (bottom centre)
@@ -269,11 +345,18 @@ namespace Hotdrop.UI
         public void SetLiveMatch(bool live)
         {
             liveMatch = live;
+            if (!live && soundCaptionRoot != null) soundCaptionRoot.gameObject.SetActive(false);
+            if (live) BuildMapFootprint(MatchView.Current?.MapConfig);
+            if (rosterFade != null) rosterFade.alpha = 1f;
+            if (topRightFade != null) topRightFade.alpha = 1f;
             roster.gameObject.SetActive(live);
             board.gameObject.SetActive(live);
             zonePanel.gameObject.SetActive(live);
             radar.gameObject.SetActive(live);
             regionText.transform.parent.gameObject.SetActive(live);
+            latencyText.gameObject.SetActive(live);
+            performanceText.gameObject.SetActive(live);
+            identityText.gameObject.SetActive(live);
             if (!live) armorZone.text = "ZONE: TRAINING";
         }
 
@@ -341,6 +424,11 @@ namespace Hotdrop.UI
 
         void LateUpdate()
         {
+            if (soundCaptionRemaining > 0f)
+            {
+                soundCaptionRemaining -= Time.unscaledDeltaTime;
+                if (soundCaptionRemaining <= 0f && soundCaptionRoot != null) soundCaptionRoot.gameObject.SetActive(false);
+            }
             if (spinRing != null) spinRing.localRotation = Quaternion.Euler(0f, 0f, -Time.unscaledTime * 20f);
             if (Touch != null)
             {
@@ -352,8 +440,35 @@ namespace Hotdrop.UI
             var view = MatchView.Current;
             if (!liveMatch || view == null || Local == null) return;
             if (Local is Object unityLocal && unityLocal == null) return;
+            performanceText.text = $"K/D {Local.Eliminations}/{Local.Deaths}";
+            identityText.text = Local.DisplayName;
             UpdateRoster(view);
             UpdateRadar(view);
+            UpdateCombatFade(view);
+        }
+
+        void UpdateCombatFade(IMatchView view)
+        {
+            bool combatNearby = Touch != null && Touch.FireHeld;
+            if (!combatNearby)
+            {
+                for (int i = 0; i < view.Participants.Count; i++)
+                {
+                    var player = view.Participants[i];
+                    if (player == null || !player.IsAlive || player.TeamId == Local.TeamId) continue;
+                    if (Vector3.Distance(Local.Position, player.Position) <= 30f)
+                    {
+                        combatNearby = true;
+                        break;
+                    }
+                }
+            }
+
+            float target = PlayerPrefs.GetInt(Hotdrop.Core.OfflinePauseMenu.CockpitModeKey, 1) == 1 && combatNearby
+                ? 0.15f : 1f;
+            float step = 0.85f * Time.unscaledDeltaTime / 0.2f;
+            if (rosterFade != null) rosterFade.alpha = Mathf.MoveTowards(rosterFade.alpha, target, step);
+            if (topRightFade != null) topRightFade.alpha = Mathf.MoveTowards(topRightFade.alpha, target, step);
         }
 
         void UpdateRoster(IMatchView view)
@@ -400,6 +515,14 @@ namespace Hotdrop.UI
                 var p = new Vector2(flat.x, flat.z) / range * 56f;
                 return Vector2.ClampMagnitude(p, 64f);
             }
+            var map = view.MapConfig;
+            if (map != null && radarMap != null)
+            {
+                var center = new Vector3((map.boundsMin.x + map.boundsMax.x) * .5f, 0f,
+                    (map.boundsMin.y + map.boundsMax.y) * .5f);
+                radarMap.anchoredPosition = ToRadar(center);
+                radarMap.localRotation = Quaternion.Euler(0f, 0f, yaw);
+            }
             radarObjective.anchoredPosition = ToRadar(view.ActiveObjectivePosition);
             int slot = 0;
             foreach (var p in view.Participants)
@@ -409,6 +532,87 @@ namespace Hotdrop.UI
                 radarMates[slot++].anchoredPosition = ToRadar(p.Position);
             }
             for (int i = slot; i < radarMates.Count; i++) radarMates[i].gameObject.SetActive(false);
+            UpdateRadarPings(view, ToRadar);
+        }
+
+        void UpdateRadarPings(IMatchView view, System.Func<Vector3, Vector2> toRadar)
+        {
+            var pings = PingSystem.Instance != null ? PingSystem.Instance.ActivePings : null;
+            int slot = 0;
+            if (pings != null)
+            {
+                for (int i = 0; i < pings.Count && slot < radarPings.Count; i++)
+                {
+                    var ping = pings[i];
+                    if (ping.teamId != Local.TeamId || Time.time >= ping.expiresAt) continue;
+                    var marker = radarPings[slot++];
+                    marker.root.gameObject.SetActive(true);
+                    marker.root.anchoredPosition = toRadar(ping.position);
+                    marker.root.localRotation = ping.kind == PingKind.EnemyHere
+                        ? Quaternion.Euler(0f, 0f, 45f) : Quaternion.identity;
+                    marker.icon.sprite = ping.kind == PingKind.GroupUp
+                        ? UIRoundedSprites.RoundedRect(4f) : UIRoundedSprites.RoundedRect(1f);
+                    marker.icon.type = Image.Type.Sliced;
+                    Color color = ping.kind switch
+                    {
+                        PingKind.EnemyHere => UIDesignTokens.HazardCoral,
+                        PingKind.GroupUp => UIDesignTokens.Ally,
+                        PingKind.PadReady => UIDesignTokens.ObjectiveGold,
+                        _ => UIDesignTokens.PrimaryAction,
+                    };
+                    marker.icon.color = color;
+                    for (int j = 0; j < marker.triangle.Length; j++)
+                    {
+                        marker.triangle[j].gameObject.SetActive(ping.kind == PingKind.PadReady);
+                        marker.triangle[j].GetComponent<Image>().color = color;
+                        marker.triangle[j].localRotation = Quaternion.Euler(0f, 0f, j * 120f);
+                        marker.triangle[j].anchoredPosition = Quaternion.Euler(0f, 0f, j * 120f) * new Vector2(0f, 2.5f);
+                    }
+                }
+            }
+            for (int i = slot; i < radarPings.Count; i++) radarPings[i].root.gameObject.SetActive(false);
+        }
+
+        void BuildMapFootprint(Hotdrop.Config.MapConfig map)
+        {
+            if (map == null || radarMap == null || radarMap.childCount > 0) return;
+            const float pixelsPerMetre = 56f / 40f;
+            Vector2 center = (map.boundsMin + map.boundsMax) * .5f;
+            Vector2 MapPosition(Vector3 world) => new Vector2(
+                (world.x - center.x) * pixelsPerMetre,
+                (world.z - center.y) * pixelsPerMetre);
+
+            DrawFootprint("ArenaBoundary", new Vector2((map.boundsMax.x - map.boundsMin.x) * pixelsPerMetre,
+                (map.boundsMax.y - map.boundsMin.y) * pixelsPerMetre), Vector2.zero, UIDesignTokens.WithAlpha(UIDesignTokens.TextSecondary, .28f));
+            DrawFootprint("NorthSpawn", new Vector2(map.spawnRoomSize.x * pixelsPerMetre, map.spawnRoomSize.y * pixelsPerMetre),
+                MapPosition(map.northSpawnCenter), UIDesignTokens.WithAlpha(UIDesignTokens.Ally, .22f));
+            DrawFootprint("SouthSpawn", new Vector2(map.spawnRoomSize.x * pixelsPerMetre, map.spawnRoomSize.y * pixelsPerMetre),
+                MapPosition(map.southSpawnCenter), UIDesignTokens.WithAlpha(UIDesignTokens.Ally, .22f));
+            if (map.platformCenters != null)
+            {
+                for (int i = 0; i < map.platformCenters.Length; i++)
+                {
+                    var platform = map.platformCenters[i];
+                    var plate = DrawFootprint("RaisedPlatform_" + i,
+                        new Vector2(map.platformSize.x * pixelsPerMetre, map.platformSize.y * pixelsPerMetre),
+                        MapPosition(platform), UIDesignTokens.WithAlpha(UIDesignTokens.ObjectiveGold, .34f));
+                    if (platform.y > map.groundLevelY)
+                    {
+                        var level = UiDraw.Box(plate, "ElevationCue", UIDesignTokens.WithAlpha(UIDesignTokens.ObjectiveGold, .75f), 1f);
+                        UiDraw.Place(level.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(7f, 7f));
+                        level.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                    }
+                }
+            }
+        }
+
+        RectTransform DrawFootprint(string name, Vector2 size, Vector2 position, Color accent)
+        {
+            var box = UiDraw.Box(radarMap, name, UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceStructural, .12f),
+                2f, accent, 1f);
+            var rect = box.rectTransform;
+            UiDraw.Place(rect, new Vector2(.5f, .5f), new Vector2(.5f, .5f), position, size);
+            return rect;
         }
     }
 }

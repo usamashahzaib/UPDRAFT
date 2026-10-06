@@ -12,14 +12,14 @@ namespace Hotdrop.UI
     /// </summary>
     public static class MatchSearchView
     {
-        static readonly Color Ink = UiDraw.Hex("#101827");
-        static readonly Color Panel = UiDraw.Hex("#1b2940");
-        static readonly Color Edge = UiDraw.Hex("#49627b");
-        static readonly Color Cyan = UiDraw.Hex("#30d5e8");
-        static readonly Color Coral = UiDraw.Hex("#ff6376");
-        static readonly Color Text1 = UiDraw.Hex("#f4f7fb");
-        static readonly Color Text2 = UiDraw.Hex("#bbc6d8");
-        static readonly Color Muted = UiDraw.Hex("#7f8ca3");
+        static Color Ink => UiDraw.Hex("#101827");
+        static Color Panel => UiDraw.Hex("#1b2940");
+        static Color Edge => UiDraw.Hex("#49627b");
+        static Color Cyan => UiDraw.Hex("#30d5e8");
+        static Color Coral => UiDraw.Hex("#ff6376");
+        static Color Text1 => UiDraw.Hex("#f4f7fb");
+        static Color Text2 => UiDraw.Hex("#bbc6d8");
+        static Color Muted => UiDraw.Hex("#7f8ca3");
         static Texture2D dots;
 
         public static void Clear(GameObject owner)
@@ -118,7 +118,8 @@ namespace Hotdrop.UI
                 var seat = UiDraw.Box(sq, "Seat_" + i, Ink, 8f, i == 0 ? UiDraw.Hex("#30d5e8", .4f) : Edge);
                 UiDraw.Place(seat.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(17f + i * (seatW + 12f), -54f), new Vector2(seatW, 46f));
                 UiDraw.Place(UiDraw.Dot(seat.transform, "Dot", 8f, filled ? Cyan : Edge).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(9f, 0f), new Vector2(8f, 8f));
-                var name = UiDraw.Text(seat.transform, "Alias", alias, UiFont.Heading, 12f, filled ? Text1 : Muted);
+                var name = UiDraw.Text(seat.transform, "Alias", filled ? StreamSafePresentation.PlayerName(alias, i) : alias,
+                    UiFont.Heading, 12f, filled ? Text1 : Muted);
                 name.overflowMode = TextOverflowModes.Ellipsis;
                 UiDraw.Place(name.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(25f, 7f), new Vector2(seatW - 34f, 16f));
                 UiDraw.Place(UiDraw.Text(seat.transform, "Status", self || solo ? (party != null && i == 0 ? "HOST" : "YOU") : member == null ? "WAITING" : member.isReady ? "READY" : "NOT READY",

@@ -17,18 +17,18 @@ namespace Hotdrop.UI
     /// </summary>
     public static class ResultsView
     {
-        static readonly Color Lowest = UiDraw.Hex("#060e1d");
-        static readonly Color Low = UiDraw.Hex("#141c2b");
-        static readonly Color Mid = UiDraw.Hex("#18202f");
-        static readonly Color High = UiDraw.Hex("#222a3a");
-        static readonly Color Highest = UiDraw.Hex("#2d3545");
-        static readonly Color Primary = UiDraw.Hex("#7cefff");
-        static readonly Color Secondary = UiDraw.Hex("#ffb2b7");
-        static readonly Color Tertiary = UiDraw.Hex("#ffda88");
-        static readonly Color OnSurface = UiDraw.Hex("#dbe2f8");
-        static readonly Color OnVariant = UiDraw.Hex("#bbc9cb");
-        static readonly Color Outline = UiDraw.Hex("#859396");
-        static readonly Color OnPrimary = UiDraw.Hex("#00363c");
+        static Color Lowest => UiDraw.Hex("#060e1d");
+        static Color Low => UiDraw.Hex("#141c2b");
+        static Color Mid => UiDraw.Hex("#18202f");
+        static Color High => UiDraw.Hex("#222a3a");
+        static Color Highest => UiDraw.Hex("#2d3545");
+        static Color Primary => UiDraw.Hex("#7cefff");
+        static Color Secondary => UiDraw.Hex("#ffb2b7");
+        static Color Tertiary => UiDraw.Hex("#ffda88");
+        static Color OnSurface => UiDraw.Hex("#dbe2f8");
+        static Color OnVariant => UiDraw.Hex("#bbc9cb");
+        static Color Outline => UiDraw.Hex("#859396");
+        static Color OnPrimary => UiDraw.Hex("#00363c");
 
         const float Pad = 24f, Gap = 12f;
 
@@ -64,7 +64,7 @@ namespace Hotdrop.UI
             var surface = UiDraw.Hex("#0b1322");
             UiDraw.VerticalGradient(root, "Shade", surface, new Color(surface.r, surface.g, surface.b, .8f), new Color(surface.r, surface.g, surface.b, .9f));
 
-            bool localPractice = !string.IsNullOrEmpty(footer) && footer.Contains("LOCAL PRACTICE");
+            bool localPractice = !string.IsNullOrEmpty(footer) && footer.Contains("PRACTICE MATCH");
             float width = root.rect.width > 0f ? root.rect.width : hud.GetComponent<RectTransform>().rect.width;
             if (width <= 0f) width = 1280f;
             float contentW = width - Pad * 2f;
@@ -102,7 +102,7 @@ namespace Hotdrop.UI
         {
             var box = Card(page, "Outcome", UiDraw.Hex("#141c2b", .9f), Pad, y, w, 88f);
             float x = 12f;
-            var tag = UiDraw.Text(box, "Eyebrow", localPractice ? "LOCAL PRACTICE // MATCH COMPLETE" : "MATCH COMPLETE // SERVER RECEIPT",
+            var tag = UiDraw.Text(box, "Eyebrow", localPractice ? "PRACTICE MATCH // COMPLETE" : "MATCH COMPLETE // SERVER RECEIPT",
                 UiFont.Heading, 12f, Primary, .1f);
             float tw = UiDraw.Width(tag);
             var tagPlate = UiDraw.Box(box, "EyebrowPlate", High, 4f);
@@ -141,7 +141,7 @@ namespace Hotdrop.UI
             string name = local?.DisplayName ?? "PLAYER";
             string gun = local is PlayerController pc && pc.CurrentWeapon != null ? pc.CurrentWeapon.displayName : "";
             var n = UiDraw.Text(card.transform, "Name", name, UiFont.BodyBold, 16f, OnSurface, .01f, TextAlignmentOptions.MidlineRight);
-            var sub = UiDraw.Text(card.transform, "Spec", localPractice ? $"LOCAL • {gun}" : gun, UiFont.MonoMedium, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight);
+            var sub = UiDraw.Text(card.transform, "Spec", gun, UiFont.MonoMedium, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight);
             float cw = Mathf.Max(UiDraw.Width(n), UiDraw.Width(sub)) + 12f + 12f + 40f + 12f;
             UiDraw.Place(card.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-12f, 0f), new Vector2(cw, 56f));
             UiDraw.Place(n.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-64f, 9f), new Vector2(cw - 76f, 22f));
@@ -189,7 +189,7 @@ namespace Hotdrop.UI
             TopLeft(quality.rectTransform, 12f, cy + 8f, inner, 26f);
             UiDraw.Place(UiDraw.Text(quality.transform, "Label", "MATCH MODE", UiFont.MonoMedium, 11f, Outline, .05f).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(160f, 14f));
-            UiDraw.Place(UiDraw.Text(quality.transform, "Value", localPractice ? "LOCAL PRACTICE" : "REGULATION 3V3", UiFont.Mono, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
+                UiDraw.Place(UiDraw.Text(quality.transform, "Value", localPractice ? "PRACTICE MATCH" : "REGULATION 3V3", UiFont.Mono, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-8f, 0f), new Vector2(180f, 14f));
             float h = cy + 8f + 26f + 12f;
             box.sizeDelta = new Vector2(w, h);
@@ -244,7 +244,7 @@ namespace Hotdrop.UI
                 chip.transform.SetSiblingIndex(chipText.transform.GetSiblingIndex());
                 TopLeft(chip.rectTransform, 30f + tn + 8f, cy + 4f, cw, 18f);
                 TopLeft(chipText.rectTransform, 30f + tn + 8f, cy + 4f, cw, 18f);
-                var note = UiDraw.Text(box, "TeamNote_" + group, group == 0 ? (localPractice ? "LOCAL MATCH RECORD" : "MATCH RECORD") : "EQUAL COMPETITION ROSTER",
+                var note = UiDraw.Text(box, "TeamNote_" + group, group == 0 ? (localPractice ? "MATCH RECORD" : "MATCH RECORD") : "EQUAL COMPETITION ROSTER",
                     UiFont.MonoMedium, 11f, Outline, .05f, TextAlignmentOptions.MidlineRight);
                 UiDraw.Place(note.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-12f, -(cy + 13f)), new Vector2(260f, 14f));
                 cy += 26f + 12f;
@@ -268,9 +268,9 @@ namespace Hotdrop.UI
                         TopLeft(row.rectTransform, 12f, cy, inner, 52f);
                         var r = row.rectTransform;
                         float nameX = 8f;
-                        if (self || p.IsBot)
+                        if (self)
                         {
-                            var badge = UiDraw.Text(r, "Badge", self ? "YOU" : "BOT", UiFont.Heading, 12f, self ? OnPrimary : Outline, .08f, TextAlignmentOptions.Midline);
+                            var badge = UiDraw.Text(r, "Badge", "YOU", UiFont.Heading, 12f, OnPrimary, .08f, TextAlignmentOptions.Midline);
                             float bw = UiDraw.Width(badge) + 12f;
                             var plate = UiDraw.Box(r, "BadgePlate", self ? Primary : Highest, 4f);
                             plate.transform.SetSiblingIndex(badge.transform.GetSiblingIndex());
@@ -284,7 +284,7 @@ namespace Hotdrop.UI
                                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(nameX, 0f), new Vector2(8f, 8f));
                             nameX += 12f;
                         }
-                        string display = p.DisplayName.Replace("[BOT] ", "");
+                        string display = p.DisplayName;
                         var nm = UiDraw.Text(r, "Name", display + (!p.IsConnected ? "  (LEFT)" : ""), self ? UiFont.BodyBold : UiFont.BodySemiBold, 16f, OnSurface, .01f);
                         nm.overflowMode = TextOverflowModes.Ellipsis;
                         UiDraw.Place(nm.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(nameX, 7f), new Vector2(col * 4f - nameX, 22f));
@@ -294,7 +294,7 @@ namespace Hotdrop.UI
                         RowCell(r, "Zone", $"{held / 60:00}:{held % 60:00}", UiFont.Mono, 14f, group == 0 || self ? OnSurface : OnVariant, TextAlignmentOptions.Midline, col, 5f);
                         RowCell(r, "KD", $"{p.Eliminations} / {p.Deaths}", UiFont.Mono, 14f, self ? Primary : group == 1 ? Secondary : OnVariant, TextAlignmentOptions.Midline, col, 7f);
                         RowCell(r, "Pads", p.PadLaunches.ToString(), UiFont.MonoMedium, 14f, OnSurface, TextAlignmentOptions.Midline, col, 9f);
-                        RowCell(r, "Role", self ? "YOU" : p.IsBot ? "BOT" : "PLAYER", UiFont.MonoMedium, 11f, self ? Primary : OnVariant, TextAlignmentOptions.MidlineRight, col, 12f);
+                        RowCell(r, "Role", self ? "YOU" : group == 0 ? "ALLY" : "RIVAL", UiFont.MonoMedium, 11f, self ? Primary : OnVariant, TextAlignmentOptions.MidlineRight, col, 12f);
                         cy += 52f + 4f;
                     }
                 cy += 8f;
@@ -326,7 +326,7 @@ namespace Hotdrop.UI
             var box = Card(page, "Progression", Low, x, y, w, 100f);
             float inner = w - 24f;
             UiDraw.Place(UiDraw.Icon(box, "Icon", "military_tech", 18f, Tertiary).rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(12f, -21f), new Vector2(18f, 18f));
-            TopLeft(UiDraw.Text(box, "Heading", localPractice ? "LOCAL PROGRESSION" : "EARNED PROGRESSION BREAKDOWN", UiFont.Heading, 12f, OnSurface, .08f).rectTransform, 34f, 12f, 320f, 18f);
+            TopLeft(UiDraw.Text(box, "Heading", localPractice ? "PRACTICE PROGRESSION" : "EARNED PROGRESSION BREAKDOWN", UiFont.Heading, 12f, OnSurface, .08f).rectTransform, 34f, 12f, 320f, 18f);
             var receipt = UiDraw.Text(box, "Receipt", footer ?? "", UiFont.Mono, 12f, Tertiary, .05f);
             receipt.textWrappingMode = TextWrappingModes.Normal;
             receipt.alignment = TextAlignmentOptions.TopLeft;

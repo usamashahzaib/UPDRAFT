@@ -16,21 +16,21 @@ namespace Hotdrop.UI
     /// </summary>
     public static class OfflineChallengeLibraryView
     {
-        static readonly Color Lowest = UiDraw.Hex("#060e1d");
-        static readonly Color Low = UiDraw.Hex("#141c2b");
-        static readonly Color Mid = UiDraw.Hex("#18202f");
-        static readonly Color High = UiDraw.Hex("#222a3a");
-        static readonly Color Selected = UiDraw.Hex("#263a59");
-        static readonly Color Primary = UiDraw.Hex("#7cefff");
-        static readonly Color PrimaryC = UiDraw.Hex("#30d5e8");
-        static readonly Color Gold = UiDraw.Hex("#ffd166");
-        static readonly Color Tertiary = UiDraw.Hex("#ffda88");
-        static readonly Color Bronze = UiDraw.Hex("#c8a050");
-        static readonly Color Silver = UiDraw.Hex("#c9d1d9");
-        static readonly Color OnSurface = UiDraw.Hex("#dbe2f8");
-        static readonly Color OnVariant = UiDraw.Hex("#bbc9cb");
-        static readonly Color Outline = UiDraw.Hex("#859396");
-        static readonly Color Ink = UiDraw.Hex("#101827");
+        static Color Lowest => UiDraw.Hex("#060e1d");
+        static Color Low => UiDraw.Hex("#141c2b");
+        static Color Mid => UiDraw.Hex("#18202f");
+        static Color High => UiDraw.Hex("#222a3a");
+        static Color Selected => UiDraw.Hex("#263a59");
+        static Color Primary => UiDraw.Hex("#7cefff");
+        static Color PrimaryC => UiDraw.Hex("#30d5e8");
+        static Color Gold => UiDraw.Hex("#ffd166");
+        static Color Tertiary => UiDraw.Hex("#ffda88");
+        static Color Bronze => UiDraw.Hex("#c8a050");
+        static Color Silver => UiDraw.Hex("#c9d1d9");
+        static Color OnSurface => UiDraw.Hex("#dbe2f8");
+        static Color OnVariant => UiDraw.Hex("#bbc9cb");
+        static Color Outline => UiDraw.Hex("#859396");
+        static Color Ink => UiDraw.Hex("#101827");
 
         const float Pad = 24f, Gap = 24f;
 
@@ -297,12 +297,12 @@ namespace Hotdrop.UI
             TL(body.rectTransform, 24f, 88f + ih + 16f, iw, bh);
             float cy = 88f + ih + 16f + bh + 16f;
             float chipW = (iw - 12f) / 2f;
-            Chip(card, "Bots", "groups", "3v3 BOT ENGINES", 24f, cy, chipW);
+            Chip(card, "Opponents", "groups", "3V3 OPPONENT SQUAD", 24f, cy, chipW);
             Chip(card, "Clock", "timer", "180 SEC RELAY", 24f + chipW + 12f, cy, chipW);
             cy += 40f + 16f;
             var button = UiDraw.Tap(card, "StartPractice", High, 8f, () => { GameAudio.Play2D(GameCue.UiTap); practice?.Invoke(); });
             TL((RectTransform)button.transform, 24f, cy, iw, 60f);
-            var label = UiDraw.Text(button.transform, "Label", "ENTER BOT RELAY", UiFont.HeadingSemiBold, 22f, OnSurface, .01f);
+            var label = UiDraw.Text(button.transform, "Label", "ENTER 3V3 RELAY", UiFont.HeadingSemiBold, 22f, OnSurface, .01f);
             float lw = UiDraw.Width(label);
             UiDraw.Place(UiDraw.Icon(button.transform, "Icon", "sports_esports", 20f, OnSurface).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(lw + 10f) / 2f, 0f), new Vector2(20f, 20f));
             UiDraw.Place(label.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(15f, 0f), new Vector2(lw + 2f, 28f));

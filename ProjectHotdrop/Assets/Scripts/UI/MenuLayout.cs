@@ -25,8 +25,8 @@ namespace Hotdrop.UI
     {
         // UI foundation (Prompt 01): these are aliases of the central tokens, not a second
         // palette. Existing screens keep reading MenuLayout.Background / ButtonFill unchanged.
-        public static readonly Color Background = UIDesignTokens.Background;      // opaque: HUD must not show through
-        public static readonly Color ButtonFill = UIDesignTokens.SurfacePanel;
+        public static Color Background => UIDesignTokens.Background;      // opaque: HUD must not show through
+        public static Color ButtonFill => UIDesignTokens.SurfacePanel;
         public const float TopBarHeight = 80f;
         public const float StatusHeight = 52f;
         public const float ContentMaxWidth = 1120f;
@@ -203,7 +203,9 @@ namespace Hotdrop.UI
             obj.transform.SetParent(parent, false);
             var text = obj.GetComponent<TextMeshProUGUI>();
             text.text = value; text.fontSize = UiMetrics.TextSize(size);
-            text.alignment = TextAlignmentOptions.MidlineLeft; text.color = color; text.raycastTarget = false;
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.color = color == Color.white ? UIDesignTokens.TextPrimary : color;
+            text.raycastTarget = false;
             return text;
         }
 
