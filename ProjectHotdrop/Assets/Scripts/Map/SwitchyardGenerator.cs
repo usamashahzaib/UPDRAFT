@@ -1,5 +1,7 @@
 using UnityEngine;
 using Hotdrop.Config;
+using Hotdrop.UI;
+using TMPro;
 
 namespace Hotdrop.Map
 {
@@ -26,7 +28,17 @@ namespace Hotdrop.Map
         Material presentationSafetyMaterial;
         Material presentationConcreteMaterial;
         Material presentationSeamMaterial;
+        Material presentationFacadeMaterial;
+        Material presentationWindowMaterial;
+        Material presentationGlassMaterial;
+        Material presentationZoneWestMaterial;
+        Material presentationZoneCenterMaterial;
+        Material presentationZoneEastMaterial;
+        Light presentationSun;
         readonly System.Collections.Generic.List<Mesh> presentationMeshes = new System.Collections.Generic.List<Mesh>();
+        MaterialPropertyBlock profileBlock;
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int LegacyColorId = Shader.PropertyToID("_Color");
 
         [Header("Prefabs")]
         [SerializeField] GameObject rampPrefab;
@@ -63,7 +75,9 @@ namespace Hotdrop.Map
             GenerateOuterLaneBreakers();
             GenerateCenterPresentation();
             GenerateRooftopPresentation();
+            GenerateLandmarkPresentation();
             SetupLighting();
+            ApplyWorldPresentationProfile();
             if (Application.isPlaying)
             {
                 var navigation = GetComponent<OfflineNavigation>();
@@ -84,6 +98,12 @@ namespace Hotdrop.Map
             if (presentationSafetyMaterial == null) presentationSafetyMaterial = MakeMaterial("SwitchyardSafety", "#E0A936");
             if (presentationConcreteMaterial == null) presentationConcreteMaterial = MakeMaterial("SwitchyardRoof", "#A6ACAA");
             if (presentationSeamMaterial == null) presentationSeamMaterial = MakeMaterial("SwitchyardSeam", "#61727D");
+            if (presentationFacadeMaterial == null) presentationFacadeMaterial = MakeMaterial("SwitchyardFacade", "#68797A");
+            if (presentationWindowMaterial == null) presentationWindowMaterial = MakeMaterial("SwitchyardWindows", "#D6A96B");
+            if (presentationGlassMaterial == null) presentationGlassMaterial = MakeGlassMaterial(presentationWindowMaterial);
+            if (presentationZoneWestMaterial == null) presentationZoneWestMaterial = MakeMaterial("SwitchyardZoneWest", "#B6A06B");
+            if (presentationZoneCenterMaterial == null) presentationZoneCenterMaterial = MakeMaterial("SwitchyardZoneCenter", "#84998F");
+            if (presentationZoneEastMaterial == null) presentationZoneEastMaterial = MakeMaterial("SwitchyardZoneEast", "#9F8D7D");
         }
 
         /// <summary>
@@ -126,6 +146,57 @@ namespace Hotdrop.Map
                     new Vector3(x, 0.73f, 0f), new Vector3(0.62f, 0.08f, depth + 2f), presentationDarkMaterial);
                 PresentationPart(root.transform, "Parapet cap", PrimitiveType.Cube,
                     new Vector3(0f, 0.73f, z), new Vector3(width + 2f, 0.08f, 0.62f), presentationDarkMaterial);
+            }
+
+            // Distinct, team-neutral bands on the north and south parapets let players
+            // call out the West/Center/East roof sections without relying on team colors.
+            var zoneSections = new[]
+            {
+                (x: mapConfig.westZone.x, id: ZoneId.West),
+                (x: mapConfig.centerZone.x, id: ZoneId.Center),
+                (x: mapConfig.eastZone.x, id: ZoneId.East),
+            };
+            System.Array.Sort(zoneSections, (a, b) => a.x.CompareTo(b.x));
+            for (int i = 0; i < zoneSections.Length; i++)
+            {
+                float left = i == 0 ? west : (zoneSections[i - 1].x + zoneSections[i].x) * .5f;
+                float right = i == zoneSections.Length - 1 ? east : (zoneSections[i].x + zoneSections[i + 1].x) * .5f;
+                float stripWidth = right - left - .2f;
+                if (stripWidth <= 0f) continue;
+                Material trim = ZoneTrimMaterial(zoneSections[i].id);
+                foreach (float edgeZ in new[] { south - .7f, north + .7f })
+                    PresentationPart(root.transform, "Roof edge zone trim " + zoneSections[i].id,
+                        PrimitiveType.Cube, new Vector3((left + right) * .5f, mapConfig.groundLevelY + .775f, edgeZ),
+                        new Vector3(stripWidth, .016f, .3f), trim);
+            }
+
+            // The playable surface is the roof of a real building volume, not a floating
+            // platform. Dress the tower below the roofline while keeping all new geometry
+            // outside the arena collision and shot-blocking rules.
+            float facadeY = mapConfig.groundLevelY - 12f;
+            for (int side = 0; side < 2; side++)
+            {
+                float x = side == 0 ? west - 2.2f : east + 2.2f;
+                float z = side == 0 ? south - 2.2f : north + 2.2f;
+                PresentationPart(root.transform, "Tower facade", PrimitiveType.Cube,
+                    new Vector3(x, facadeY, 0f), new Vector3(4.5f, 24f, depth + 4.5f), presentationFacadeMaterial);
+                PresentationPart(root.transform, "Tower facade", PrimitiveType.Cube,
+                    new Vector3(0f, facadeY, z), new Vector3(width + 4.5f, 24f, 4.5f), presentationFacadeMaterial);
+                for (float y = mapConfig.groundLevelY - 3f; y >= mapConfig.groundLevelY - 19f; y -= 4f)
+                {
+                    for (float span = -depth * .5f + 8f; span < depth * .5f - 4f; span += 12f)
+                    {
+                        float faceX = side == 0 ? west - 4.48f : east + 4.48f;
+                        PresentationPart(root.transform, "Warm tower window", PrimitiveType.Cube,
+                            new Vector3(faceX, y, span), new Vector3(0.045f, 1.1f, 3.4f), presentationWindowMaterial);
+                    }
+                    for (float span = -width * .5f + 8f; span < width * .5f - 4f; span += 12f)
+                    {
+                        float faceZ = side == 0 ? south - 4.48f : north + 4.48f;
+                        PresentationPart(root.transform, "Warm tower window", PrimitiveType.Cube,
+                            new Vector3(span, y, faceZ), new Vector3(3.4f, 1.1f, 0.045f), presentationWindowMaterial);
+                    }
+                }
             }
 
             // Repeated vent silhouettes on existing spawn roofs, well above players.
@@ -182,6 +253,13 @@ namespace Hotdrop.Map
             CombineDressing(root.transform);
         }
 
+        Material ZoneTrimMaterial(ZoneId zone) => zone switch
+        {
+            ZoneId.West => presentationZoneWestMaterial,
+            ZoneId.East => presentationZoneEastMaterial,
+            _ => presentationZoneCenterMaterial,
+        };
+
         void CombineDressing(Transform root)
         {
             var groups = new System.Collections.Generic.Dictionary<Material, System.Collections.Generic.List<CombineInstance>>();
@@ -208,12 +286,15 @@ namespace Hotdrop.Map
 
         void OnDestroy()
         {
+            UiPresentationProfile.Changed -= ApplyWorldPresentationProfile;
             foreach (var mesh in presentationMeshes) if (mesh != null)
             { if (Application.isPlaying) Destroy(mesh); else DestroyImmediate(mesh); }
             if (roofDeckMaterial != null)
             { if (Application.isPlaying) Destroy(roofDeckMaterial); else DestroyImmediate(roofDeckMaterial); }
             if (roofCladdingMaterial != null)
             { if (Application.isPlaying) Destroy(roofCladdingMaterial); else DestroyImmediate(roofCladdingMaterial); }
+            if (presentationGlassMaterial != null)
+            { if (Application.isPlaying) Destroy(presentationGlassMaterial); else DestroyImmediate(presentationGlassMaterial); }
         }
 
         Material DeckMaterial()
@@ -222,7 +303,7 @@ namespace Hotdrop.Map
             if (texture == null || groundMaterial == null) return groundMaterial;
             if (roofDeckMaterial != null) return roofDeckMaterial;
             roofDeckMaterial = new Material(groundMaterial) { name = "Weathered rooftop concrete" };
-            roofDeckMaterial.color = new Color(.69f, .72f, .75f);
+            roofDeckMaterial.color = new Color(.80f, .73f, .61f);
             roofDeckMaterial.mainTexture = texture;
             roofDeckMaterial.mainTextureScale = new Vector2(6f, 5f);
             if (roofDeckMaterial.HasProperty("_BaseMap"))
@@ -287,6 +368,94 @@ namespace Hotdrop.Map
             }
         }
 
+        /// <summary>
+        /// Procedural, collider-free landmark prototypes for Switchyard orientation.
+        /// Their silhouettes sit outside the playable footprint so they do not create
+        /// routes, cover, or new line-of-sight breaks before map playability review.
+        /// </summary>
+        void GenerateLandmarkPresentation()
+        {
+            float west = mapConfig.boundsMin.x;
+            float east = mapConfig.boundsMax.x;
+            float north = mapConfig.boundsMax.y;
+            float centerZ = (mapConfig.boundsMin.y + north) * .5f;
+            float ground = mapConfig.groundLevelY;
+
+            // Rotating tower crane beyond the west edge.
+            float craneX = west - 3f;
+            var craneRoot = new GameObject("Rotating tower crane landmark (visual only)").transform;
+            craneRoot.SetParent(transform, false);
+            PresentationPart(craneRoot, "Crane mast", PrimitiveType.Cylinder,
+                new Vector3(craneX, ground + 6f, centerZ), new Vector3(.5f, 6f, .5f), presentationDarkMaterial);
+            PresentationPart(craneRoot, "Crane mast safety band", PrimitiveType.Cube,
+                new Vector3(craneX, ground + 3.5f, centerZ), new Vector3(.65f, .22f, .65f), presentationSafetyMaterial);
+            var rotor = new GameObject("Crane rotating boom").transform;
+            rotor.SetParent(craneRoot, false);
+            rotor.position = new Vector3(craneX, ground + 12f, centerZ);
+            PresentationPart(rotor, "Crane boom", PrimitiveType.Cube,
+                rotor.position + Vector3.right * 3f, new Vector3(22f, .38f, .42f), presentationSafetyMaterial);
+            PresentationPart(rotor, "Crane counterweight", PrimitiveType.Cube,
+                rotor.position + Vector3.left * 7f, new Vector3(3f, 1.2f, 1.1f), presentationDarkMaterial);
+            PresentationPart(rotor, "Crane hanging cable", PrimitiveType.Cylinder,
+                rotor.position + Vector3.right * 14f + Vector3.down * 2.2f, new Vector3(.035f, 2.2f, .035f), presentationDarkMaterial);
+            PresentationPart(rotor, "Crane hook", PrimitiveType.Cube,
+                rotor.position + Vector3.right * 14f + Vector3.down * 4.5f, new Vector3(.5f, .16f, .16f), presentationSafetyMaterial);
+            rotor.gameObject.AddComponent<SwitchyardCraneRotor>();
+
+            // Translucent skybridge silhouette stays beyond the north map boundary.
+            float bridgeZ = north + 9f;
+            float bridgeY = ground + 10f;
+            float bridgeWidth = east - west + 20f;
+            foreach (float x in new[] { west - 6f, east + 6f })
+                PresentationPart(transform, "Skybridge support (visual only)", PrimitiveType.Cube,
+                    new Vector3(x, ground + 4.5f, bridgeZ), new Vector3(1.2f, 9f, 2f), presentationDarkMaterial);
+            PresentationPart(transform, "Glass skybridge deck (visual only)", PrimitiveType.Cube,
+                new Vector3((west + east) * .5f, bridgeY, bridgeZ), new Vector3(bridgeWidth, .22f, 2.6f), presentationGlassMaterial);
+            for (int i = 0; i < 7; i++)
+            {
+                float x = Mathf.Lerp(west - 8f, east + 8f, i / 6f);
+                PresentationPart(transform, "Glass skybridge panel (visual only)", PrimitiveType.Cube,
+                    new Vector3(x, bridgeY + 1.6f, bridgeZ), new Vector3(bridgeWidth / 7f - .18f, 2.8f, .12f), presentationGlassMaterial);
+                PresentationPart(transform, "Skybridge frame", PrimitiveType.Cube,
+                    new Vector3(x, bridgeY + 3.05f, bridgeZ), new Vector3(.16f, .16f, .5f), presentationDarkMaterial);
+            }
+
+            // Sign faces the arena. The lettering is a temporary TMP prototype, not final art.
+            var signCenter = new Vector3((west + east) * .5f, bridgeY + 1.7f, bridgeZ - 1.45f);
+            PresentationPart(transform, "SWITCHYARD sign panel", PrimitiveType.Cube,
+                signCenter, new Vector3(24f, 3.4f, .22f), presentationDarkMaterial);
+            var sign = new GameObject("SWITCHYARD neon landmark");
+            sign.transform.SetParent(transform, false);
+            sign.transform.position = signCenter + Vector3.back * .13f;
+            sign.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            var text = sign.AddComponent<TextMeshPro>();
+            text.text = "SWITCHYARD";
+            text.fontSize = 3.1f;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = UiPresentationProfile.Palette.WorldWindow;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
+            text.rectTransform.sizeDelta = new Vector2(23f, 3.2f);
+            var signRenderer = sign.GetComponent<MeshRenderer>();
+            if (signRenderer != null) signRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        static Material MakeGlassMaterial(Material source)
+        {
+            if (source == null) return null;
+            var glass = new Material(source) { name = "Switchyard translucent landmark glass" };
+            if (glass.HasProperty("_Surface")) glass.SetFloat("_Surface", 1f);
+            if (glass.HasProperty("_Blend")) glass.SetFloat("_Blend", 0f);
+            if (glass.HasProperty("_ZWrite")) glass.SetFloat("_ZWrite", 0f);
+            if (glass.HasProperty("_SrcBlend")) glass.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (glass.HasProperty("_DstBlend")) glass.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            glass.SetOverrideTag("RenderType", "Transparent");
+            glass.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            glass.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            Color tint = glass.color; tint.a = .28f; glass.color = tint;
+            return glass;
+        }
+
         /// <summary>Original visual primitive only: remove its collider before it can affect play.</summary>
         Transform PresentationPart(Transform parent, string name, PrimitiveType type, Vector3 position, Vector3 scale, Material material)
         {
@@ -325,22 +494,66 @@ namespace Hotdrop.Map
         {
             RenderSettings.fog = false;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.45f, 0.50f, 0.57f);
-            if (FindFirstObjectByType<Light>() == null)
+            presentationSun = FindFirstObjectByType<Light>();
+            if (presentationSun == null)
             {
-                var sun = new GameObject("Switchyard sunlight").AddComponent<Light>();
-                sun.transform.SetParent(transform, false);
-                sun.type = LightType.Directional;
-                sun.transform.rotation = Quaternion.Euler(50, -35, 0);
-                sun.intensity = 0.9f;
-                sun.shadows = LightShadows.None;
+                presentationSun = new GameObject("Switchyard sunlight").AddComponent<Light>();
+                presentationSun.transform.SetParent(transform, false);
+                presentationSun.type = LightType.Directional;
+                presentationSun.transform.rotation = Quaternion.Euler(50, -35, 0);
+                presentationSun.shadows = LightShadows.None;
+            }
+            UiPresentationProfile.Changed -= ApplyWorldPresentationProfile;
+            UiPresentationProfile.Changed += ApplyWorldPresentationProfile;
+        }
+
+        void ApplyWorldPresentationProfile()
+        {
+            var palette = UiPresentationProfile.Palette;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = palette.WorldAmbient;
+            if (presentationSun != null)
+            {
+                presentationSun.color = palette.WorldSun;
+                presentationSun.intensity = palette.WorldSunIntensity;
             }
             var camera = UnityEngine.Camera.main;
             if (camera != null)
             {
                 camera.clearFlags = CameraClearFlags.SolidColor;
-                camera.backgroundColor = new Color(0.61f, 0.77f, 0.88f);
+                camera.backgroundColor = palette.WorldSky;
             }
+
+            if (profileBlock == null) profileBlock = new MaterialPropertyBlock();
+            foreach (var renderer in GetComponentsInChildren<Renderer>(true))
+            {
+                var material = renderer.sharedMaterial;
+                if (material == null) continue;
+                string name = material.name.ToLowerInvariant();
+                Color tint;
+                if (name.Contains("friendly")) tint = palette.Ally;
+                else if (name.Contains("enemy")) tint = palette.Enemy;
+                else if (name.Contains("zonewest")) tint = palette.WorldZoneWest;
+                else if (name.Contains("zonecenter")) tint = palette.WorldZoneCenter;
+                else if (name.Contains("zoneeast")) tint = palette.WorldZoneEast;
+                else if (name.Contains("objective") || name.Contains("safety")) tint = palette.WorldSafety;
+                else if (name.Contains("landmark glass")) { tint = palette.WorldWindow; tint.a = .28f; }
+                else if (name.Contains("window")) tint = palette.WorldWindow;
+                else if (name.Contains("equipment")) tint = palette.WorldEquipment;
+                else if (name.Contains("facade")) tint = palette.WorldFacade;
+                else if (name.Contains("cover") || name.Contains("cladding")) tint = palette.WorldCover;
+                else if (name.Contains("concrete") || name.Contains("roof")) tint = palette.WorldConcrete;
+                else if (name.Contains("structure") || name.Contains("seam")) tint = palette.WorldStructure;
+                else continue;
+
+                renderer.GetPropertyBlock(profileBlock);
+                if (material.HasProperty(BaseColorId)) profileBlock.SetColor(BaseColorId, tint);
+                if (material.HasProperty(LegacyColorId)) profileBlock.SetColor(LegacyColorId, tint);
+                renderer.SetPropertyBlock(profileBlock);
+                profileBlock.Clear();
+            }
+            foreach (var text in GetComponentsInChildren<TMP_Text>(true))
+                if (text.name.Contains("SWITCHYARD neon")) text.color = palette.WorldWindow;
         }
 
         void GenerateGround()
@@ -631,6 +844,13 @@ namespace Hotdrop.Map
         public ZoneId zoneId;
         public Vector3 zoneCenter;
         public float zoneRadius;
+    }
+
+    /// <summary>Slow landmark motion only; has no gameplay, physics, or navigation role.</summary>
+    public sealed class SwitchyardCraneRotor : MonoBehaviour
+    {
+        const float DegreesPerSecond = 4f;
+        void Update() => transform.Rotate(Vector3.up, DegreesPerSecond * Time.deltaTime, Space.World);
     }
 }
 

@@ -131,7 +131,7 @@ namespace Hotdrop.UI
 
             var fillArea = UIKit.Rect(trackRt, "Fill Area", Vector2.zero);
             UIKit.Stretch(fillArea);
-            var fill = UIKit.Bar(fillArea, "Fill", tone == UiTone.Neutral ? UIDesignTokens.ActionCyan : UIDesignTokens.ForTone(tone));
+            var fill = UIKit.Bar(fillArea, "Fill", tone == UiTone.Neutral ? UIDesignTokens.PrimaryAction : UIDesignTokens.ForTone(tone));
             fill.rectTransform.anchorMin = new Vector2(0f, 0.5f);
             fill.rectTransform.anchorMax = new Vector2(0f, 0.5f);
             fill.rectTransform.pivot = new Vector2(0f, 0.5f);
@@ -281,7 +281,7 @@ namespace Hotdrop.UI
             if (thumb != null)
             {
                 var image = thumb.GetComponent<Image>();
-                if (image != null) image.color = on ? UIDesignTokens.ActionCyan : UIDesignTokens.SurfaceConcrete;
+                if (image != null) image.color = on ? UIDesignTokens.PrimaryAction : UIDesignTokens.SurfaceConcrete;
             }
             if (caption != null) caption.color = on ? UIDesignTokens.TextPrimary : UIDesignTokens.TextSecondary;
         }
@@ -339,7 +339,7 @@ namespace Hotdrop.UI
             input.targetGraphic = fieldImage;
             input.characterLimit = maxLength;
             input.lineType = TMP_InputField.LineType.SingleLine;
-            input.caretColor = UIDesignTokens.ActionCyan;
+            input.caretColor = UIDesignTokens.PrimaryAction;
             view.input = input;
 
             var element = root.gameObject.AddComponent<LayoutElement>();

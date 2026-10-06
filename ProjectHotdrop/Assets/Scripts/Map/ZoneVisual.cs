@@ -1,6 +1,7 @@
 using UnityEngine;
 using Hotdrop.Config;
 using Hotdrop.Match;
+using Hotdrop.UI;
 
 namespace Hotdrop.Map
 {
@@ -15,14 +16,24 @@ namespace Hotdrop.Map
         public ZoneId zoneId;
         LineRenderer ring;
         LineRenderer beacon;
+        Material lineMaterial;
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int LegacyColorId = Shader.PropertyToID("_Color");
 
         public void Initialize(ZoneId id, LineRenderer zoneRing, Vector3 center, Material material)
         {
             zoneId = id;
             ring = zoneRing;
+            if (material != null)
+            {
+                lineMaterial = new Material(material) { name = "Switchyard " + id + " zone marker" };
+                if (lineMaterial.HasProperty(BaseColorId)) lineMaterial.SetColor(BaseColorId, Color.white);
+                if (lineMaterial.HasProperty(LegacyColorId)) lineMaterial.SetColor(LegacyColorId, Color.white);
+                if (ring != null) ring.sharedMaterial = lineMaterial;
+            }
             beacon = new GameObject("Beacon").AddComponent<LineRenderer>();
             beacon.transform.SetParent(transform, false);
-            beacon.sharedMaterial = material;
+            beacon.sharedMaterial = lineMaterial != null ? lineMaterial : material;
             beacon.useWorldSpace = true;
             beacon.positionCount = 2;
             beacon.SetPosition(0, center + Vector3.up * 0.2f);
@@ -31,6 +42,25 @@ namespace Hotdrop.Map
             beacon.endWidth = 0.05f;
             beacon.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             beacon.enabled = false;
+            ApplyZoneColor();
+            UiPresentationProfile.Changed += ApplyZoneColor;
+        }
+
+        void ApplyZoneColor()
+        {
+            Color color = UiPresentationProfile.Palette.WorldZone(zoneId);
+            if (ring != null) ring.startColor = ring.endColor = color;
+            if (beacon != null) beacon.startColor = beacon.endColor = color;
+        }
+
+        void OnDestroy()
+        {
+            UiPresentationProfile.Changed -= ApplyZoneColor;
+            if (lineMaterial != null)
+            {
+                if (Application.isPlaying) Destroy(lineMaterial);
+                else DestroyImmediate(lineMaterial);
+            }
         }
 
         void Update()

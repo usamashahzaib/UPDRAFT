@@ -29,7 +29,7 @@ namespace Hotdrop.UI
             set { PlayerPrefs.SetInt(ReduceMotionKey, value ? 1 : 0); PlayerPrefs.Save(); }
         }
 
-        const string ReduceMotionKey = "hotdrop.reduceMotion";
+        public const string ReduceMotionKey = "hotdrop.reduceMotion";
 
         /// <summary>Test hook: forces Reduce Motion without touching disk.</summary>
         public static bool? OverrideForTests;

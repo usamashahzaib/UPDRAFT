@@ -19,8 +19,37 @@ namespace Hotdrop.UI
         public static Color Hex(string hex, float alpha = 1f)
         {
             ColorUtility.TryParseHtmlString(hex, out var c);
+            c = ResolveLegacyPaletteColor(hex, c);
             c.a = alpha;
             return c;
+        }
+
+        // Older screens still declare the original palette by hex. Resolve those exact
+        // palette entries through the active profile so A/B/C stays consistent app-wide.
+        static Color ResolveLegacyPaletteColor(string hex, Color fallback)
+        {
+            switch (hex?.Trim().ToLowerInvariant())
+            {
+                case "#101827": case "#060e1d": return UIDesignTokens.Background;
+                case "#1b2940": case "#0b1322": case "#141c2b": return UIDesignTokens.SurfacePanel;
+                case "#263a59": case "#18202f": case "#222a3a": case "#2d3545": return UIDesignTokens.SurfaceSelected;
+                case "#49627b": case "#859396": case "#3c494b": return UIDesignTokens.SurfaceStructural;
+                case "#536176": return UIDesignTokens.SurfaceDisabled;
+                case "#f4f7fb": case "#dbe2f8": return UIDesignTokens.TextPrimary;
+                case "#bbc6d8": case "#bbc9cb": return UIDesignTokens.TextSecondary;
+                case "#7f8ca3": return UIDesignTokens.TextMuted;
+                case "#30d5e8": case "#7cefff": case "#38d9ec": return UIDesignTokens.PrimaryAction;
+                case "#ff6376": case "#ffb2b7": return UIDesignTokens.HazardCoral;
+                case "#ffd166": case "#ffda88": case "#edc157": return UIDesignTokens.ObjectiveGold;
+                case "#ffb45c": return UIDesignTokens.SignalWarning;
+                case "#7ed68a": return UIDesignTokens.SignalSuccess;
+                case "#930d2d": return Color.Lerp(UIDesignTokens.HazardCoral, UIDesignTokens.Background, .65f);
+                case "#67001b": return Color.Lerp(UIDesignTokens.HazardCoral, UIDesignTokens.Background, .8f);
+                case "#ff9da4": return Color.Lerp(UIDesignTokens.HazardCoral, UIDesignTokens.TextPrimary, .35f);
+                case "#00363c": return UIDesignTokens.TextOn(UIDesignTokens.PrimaryAction);
+                case "#3f2e00": return UIDesignTokens.TextOn(UIDesignTokens.ObjectiveGold);
+                default: return fallback;
+            }
         }
 
         /// <summary>A bare RectTransform child.</summary>
@@ -60,8 +89,11 @@ namespace Hotdrop.UI
             var text = rt.gameObject.AddComponent<TextMeshProUGUI>();
             UIFonts.Use(text, font);
             text.text = value;
-            text.fontSize = px;
-            text.color = color;
+            text.fontSize = UiMetrics.ScaleTextSize(px);
+            // White was used as a neutral text default by older screens. Resolve it
+            // through the active profile so profile switching also reaches labels
+            // that predate UIDesignTokens.
+            text.color = color == Color.white ? UIDesignTokens.TextPrimary : color;
             text.characterSpacing = trackingEm * 100f;
             text.alignment = alignment;
             text.textWrappingMode = TextWrappingModes.NoWrap;

@@ -35,6 +35,9 @@ namespace Hotdrop.UI
         /// <summary>A design font size at the current comfort scale, never below the legibility floor.</summary>
         public static float TextSize(float designSize) => Mathf.Max(designSize * TextScale, MinTextUnits);
 
+        /// <summary>Scales an existing screen's authored font size without changing its layout.</summary>
+        public static float ScaleTextSize(float designSize) => designSize * TextScale;
+
         /// <summary>Design dp (DESIGN.md px) expressed in canvas units. The UI kit authors in dp.</summary>
         public static float UnitsForDp(float dp) => dp / DpPerUnit;
 

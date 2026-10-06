@@ -344,7 +344,7 @@ namespace Hotdrop.UI
             var track = Surface(root, "Track", UIDesignTokens.SurfaceSelected, UIDesignTokens.RadiusSmDp);
             Stretch(track.rectTransform);
 
-            var fill = Surface(root, "Fill", fillColor ?? UIDesignTokens.ActionCyan, UIDesignTokens.RadiusSmDp);
+            var fill = Surface(root, "Fill", fillColor ?? UIDesignTokens.PrimaryAction, UIDesignTokens.RadiusSmDp);
             var fillRt = fill.rectTransform;
             fillRt.anchorMin = new Vector2(0f, 0f);
             fillRt.anchorMax = new Vector2(1f, 1f);
@@ -466,7 +466,7 @@ namespace Hotdrop.UI
             var spinnerElement = spinnerSlot.gameObject.AddComponent<LayoutElement>();
             spinnerElement.preferredWidth = UIDesignTokens.Dp(24f);
             spinnerElement.preferredHeight = UIDesignTokens.Dp(24f);
-            Spinner(spinnerSlot, UIDesignTokens.ActionCyan);
+            Spinner(spinnerSlot, UIDesignTokens.PrimaryAction);
 
             var button = root.gameObject.AddComponent<Button>();
             button.targetGraphic = background;
@@ -674,7 +674,7 @@ namespace Hotdrop.UI
             get
             {
                 var image = fill != null ? fill.GetComponent<Image>() : null;
-                return image != null ? image.color : UIDesignTokens.ActionCyan;
+                return image != null ? image.color : UIDesignTokens.PrimaryAction;
             }
             set
             {

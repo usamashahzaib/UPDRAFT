@@ -26,47 +26,51 @@ namespace Hotdrop.UI
         // ---------------------------------------------------------------- surfaces
 
         /// <summary>#101827 - the opaque tactical canvas behind every screen.</summary>
-        public static readonly Color Background = Rgb(0x101827);
+        public static Color Background => UiPresentationProfile.Palette.Background;
         /// <summary>#1B2940 - raised instrument panels and cards.</summary>
-        public static readonly Color SurfacePanel = Rgb(0x1B2940);
+        public static Color SurfacePanel => UiPresentationProfile.Palette.Surface;
         /// <summary>#263A59 - selected rows, active tabs, elevated overlays.</summary>
-        public static readonly Color SurfaceSelected = Rgb(0x263A59);
+        public static Color SurfaceSelected => UiPresentationProfile.Palette.SurfaceSelected;
         /// <summary>#49627B - crisp structural borders and framing rails.</summary>
-        public static readonly Color SurfaceStructural = Rgb(0x49627B);
+        public static Color SurfaceStructural => UiPresentationProfile.Palette.SurfaceStructural;
         /// <summary>#536176 - locked equipment and empty slots.</summary>
-        public static readonly Color SurfaceDisabled = Rgb(0x536176);
-        /// <summary>#C3B59E - weathered concrete neutral, structural badges.</summary>
-        public static readonly Color SurfaceConcrete = Rgb(0xC3B59E);
+        public static Color SurfaceDisabled => UiPresentationProfile.Palette.Disabled;
+        /// <summary>Profile concrete neutral for world-connected UI and structural badges.</summary>
+        public static Color SurfaceConcrete => UiPresentationProfile.Palette.Concrete;
         /// <summary>Dim behind a modal. Not a palette colour: it is pure black at ModalScrimOpacity.</summary>
         public static readonly Color SurfaceScrim = new Color(0f, 0f, 0f, ModalScrimOpacity);
 
         // ---------------------------------------------------------------- signals
 
-        /// <summary>#30D5E8 - allies, primary actions, capture routes.</summary>
-        public static readonly Color ActionCyan = Rgb(0x30D5E8);
-        /// <summary>#138EA3 - pressed primary actions and shaded friendly fills.</summary>
-        public static readonly Color ActionCyanPressed = Rgb(0x138EA3);
-        /// <summary>#FF6376 - enemies, danger, destructive actions.</summary>
-        public static readonly Color HazardCoral = Rgb(0xFF6376);
-        /// <summary>#B93A50 - pressed destructive actions and contested markers.</summary>
-        public static readonly Color HazardCoralPressed = Rgb(0xB93A50);
-        /// <summary>#FFD166 - objectives, rewards, contested zones.</summary>
-        public static readonly Color ObjectiveGold = Rgb(0xFFD166);
+        /// <summary>Primary action signal; never use this token for team identity.</summary>
+        public static Color PrimaryAction => UiPresentationProfile.Palette.PrimaryAction;
+        /// <summary>Compatibility alias for older UI callers; new code should use PrimaryAction or Ally.</summary>
+        public static Color ActionCyan => PrimaryAction;
+        /// <summary>Pressed primary action tint.</summary>
+        public static Color ActionCyanPressed => Color.Lerp(PrimaryAction, Background, 0.28f);
+        /// <summary>Ally signal; kept separate from the primary action role.</summary>
+        public static Color Ally => UiPresentationProfile.Palette.Ally;
+        /// <summary>Enemies, danger, destructive actions.</summary>
+        public static Color HazardCoral => UiPresentationProfile.Palette.Enemy;
+        /// <summary>Pressed-danger tint derived from the selected profile's enemy signal.</summary>
+        public static Color HazardCoralPressed => Color.Lerp(HazardCoral, Background, 0.28f);
+        /// <summary>Objectives, rewards, contested zones.</summary>
+        public static Color ObjectiveGold => UiPresentationProfile.Palette.Objective;
         /// <summary>#7ED68A - shields active, match ready.</summary>
-        public static readonly Color SignalSuccess = Rgb(0x7ED68A);
+        public static Color SignalSuccess => UiPresentationProfile.Palette.Success;
         /// <summary>#FFB45C - low ammunition, out of bounds, structural breach.</summary>
-        public static readonly Color SignalWarning = Rgb(0xFFB45C);
+        public static Color SignalWarning => UiPresentationProfile.Palette.Warning;
 
         // ---------------------------------------------------------------- text
 
         /// <summary>#F4F7FB - primary labels and tabular stats.</summary>
-        public static readonly Color TextPrimary = Rgb(0xF4F7FB);
+        public static Color TextPrimary => UiPresentationProfile.Palette.TextPrimary;
         /// <summary>#BBC6D8 - sub-headers, equipment names, conditions.</summary>
-        public static readonly Color TextSecondary = Rgb(0xBBC6D8);
+        public static Color TextSecondary => UiPresentationProfile.Palette.TextSecondary;
         /// <summary>#7F8CA3 - metadata, units, timestamps, inactive rows.</summary>
-        public static readonly Color TextMuted = Rgb(0x7F8CA3);
-        /// <summary>#101827 - text drawn on a filled accent surface.</summary>
-        public static readonly Color TextOnAccent = Background;
+        public static Color TextMuted => Color.Lerp(TextSecondary, Background, 0.28f);
+        /// <summary>Dark canvas colour, used as text drawn on a filled accent surface.</summary>
+        public static Color TextOnAccent => Background;
 
         // ---------------------------------------------------------------- opacity
 
@@ -75,7 +79,7 @@ namespace Hotdrop.UI
         /// <summary>Disabled controls and inactive rows.</summary>
         public const float DisabledOpacity = 0.45f;
         /// <summary>Structural borders read at 60% so they frame without shouting.</summary>
-        public const float BorderOpacity = 0.6f;
+        public const float BorderOpacity = 0.1f;
         /// <summary>Modal scrim over the world behind a dialog.</summary>
         public const float ModalScrimOpacity = 0.7f;
         /// <summary>Passive informational banners (offline) stay readable but recede.</summary>
@@ -100,25 +104,25 @@ namespace Hotdrop.UI
         // Roles mirror DESIGN.md's type scale. Sizes are dp, not canvas units.
 
         /// <summary>headline-xl - victory banners, mode title.</summary>
-        public const float DisplayXLargeDp = 40f;
+        public const float DisplayXLargeDp = 44f;
         /// <summary>headline-xl-mobile - the same role when reduced text is opted out.</summary>
         public const float DisplayLargeDp = 30f;
         /// <summary>headline-lg - screen titles.</summary>
-        public const float TitleLargeDp = 28f;
+        public const float TitleLargeDp = 30f;
         /// <summary>headline-lg-mobile - screen titles at the smaller mobile step.</summary>
         public const float TitleLargeMobileDp = 22f;
         /// <summary>headline-md - section headers.</summary>
-        public const float TitleMediumDp = 20f;
+        public const float TitleMediumDp = 22f;
         /// <summary>title-lg - emphasised body copy, list headers.</summary>
-        public const float BodyLargeDp = 18f;
+        public const float BodyLargeDp = 17f;
         /// <summary>body-lg - readable body text.</summary>
-        public const float BodyDp = 16f;
+        public const float BodyDp = 14f;
         /// <summary>body-md - dense body text.</summary>
         public const float BodySmallDp = 14f;
         /// <summary>body-sm / label-caps - captions and tracked small-caps labels.</summary>
         public const float CaptionDp = 12f;
         /// <summary>label-data-lg - timers, scores, ammo.</summary>
-        public const float DataLargeDp = 18f;
+        public const float DataLargeDp = 17f;
         /// <summary>label-data-md - secondary telemetry.</summary>
         public const float DataMediumDp = 14f;
         /// <summary>label-data-sm - smallest data row at the legibility floor.</summary>
@@ -147,17 +151,17 @@ namespace Hotdrop.UI
         public const float SpaceGutterDp = 16f;
         /// <summary>margin - 24 dp, the screen margin and grid gap.</summary>
         public const float SpaceMarginDp = 24f;
-        /// <summary>space-lg - 20 dp, inside cards.</summary>
-        public const float SpaceCardDp = 20f;
+        /// <summary>Maximum card inset from the current spacing token scale.</summary>
+        public const float SpaceCardDp = 24f;
 
         // ---------------------------------------------------------------- shapes
 
         /// <summary>rounded-sm - inputs, chips, small buttons.</summary>
-        public const float RadiusSmDp = 8f;
+        public const float RadiusSmDp = 12f;
         /// <summary>rounded-lg - cards, panels, modal windows.</summary>
-        public const float RadiusMdDp = 16f;
+        public const float RadiusMdDp = 12f;
         /// <summary>rounded-xl - HUD shells and floating drawers.</summary>
-        public const float RadiusLgDp = 24f;
+        public const float RadiusLgDp = 12f;
 
         // ---------------------------------------------------------------- borders
 
@@ -183,6 +187,8 @@ namespace Hotdrop.UI
         public const float MotionMaxSeconds = 0.240f;
         /// <summary>How far a card travels while entering, as a fraction of its own height.</summary>
         public const float MotionEnterSlideFraction = 0.04f;
+        /// <summary>Button compression while pressed.</summary>
+        public const float ButtonPressScale = 0.96f;
 
         // ---------------------------------------------------------------- ergonomics
 
@@ -207,7 +213,7 @@ namespace Hotdrop.UI
         /// <summary>The signal colour a tone means. Disabled is muted, not merely transparent.</summary>
         public static Color ForTone(UiTone tone) => tone switch
         {
-            UiTone.Friendly => ActionCyan,
+            UiTone.Friendly => Ally,
             UiTone.Enemy => HazardCoral,
             UiTone.Objective => ObjectiveGold,
             UiTone.Warning => SignalWarning,

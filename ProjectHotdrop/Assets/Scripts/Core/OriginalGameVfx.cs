@@ -20,6 +20,8 @@ namespace Hotdrop.Core
     /// </summary>
     public static class OriginalGameVfx
     {
+        static Hotdrop.Config.GraphicsConfig graphicsConfig;
+
         public static GameObject Create(VfxType type, Vector3 position, Quaternion rotation, Transform parent = null)
         {
             var go = new GameObject("VFX_" + type);
@@ -127,11 +129,27 @@ namespace Hotdrop.Core
                     break;
             }
 
+            ApplyPerformanceBudget(ps);
+
             var rend = ps.GetComponent<ParticleSystemRenderer>();
             rend.material = new Material(Shader.Find("Sprites/Default"));
 
             ps.Play();
             return go;
+        }
+
+        static void ApplyPerformanceBudget(ParticleSystem system)
+        {
+            if (system == null || PlayerPrefs.GetInt(OfflinePauseMenu.GraphicsQualityKey, 0) != 0) return;
+            if (graphicsConfig == null) graphicsConfig = Resources.Load<Hotdrop.Config.GraphicsConfig>("Config/GraphicsConfig");
+
+            var main = system.main;
+            int maxParticles = graphicsConfig != null ? graphicsConfig.performanceMaximumParticlesPerEffect : 256;
+            float lifetimeScale = graphicsConfig != null ? graphicsConfig.performanceParticleLifetimeScale : 0.75f;
+            float sizeScale = graphicsConfig != null ? graphicsConfig.performanceParticleSizeScale : 0.9f;
+            main.maxParticles = Mathf.Clamp(maxParticles, 8, 2048);
+            main.startLifetimeMultiplier *= Mathf.Clamp(lifetimeScale, 0.25f, 1f);
+            main.startSizeMultiplier *= Mathf.Clamp(sizeScale, 0.25f, 1f);
         }
     }
 }

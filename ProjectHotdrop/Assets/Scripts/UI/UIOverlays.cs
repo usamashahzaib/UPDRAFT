@@ -32,7 +32,7 @@ namespace Hotdrop.UI
 
             var fill = UIKit.Surface(root, "Fill", UIDesignTokens.PanelBg, UIDesignTokens.RadiusMdDp);
             UIKit.Stretch(fill.rectTransform);
-            view.accent = UIKit.Bar(fill.rectTransform, "Accent", UIDesignTokens.ActionCyan);
+            view.accent = UIKit.Bar(fill.rectTransform, "Accent", UIDesignTokens.PrimaryAction);
             var accentRt = view.accent.rectTransform;
             accentRt.anchorMin = new Vector2(0f, 0f);
             accentRt.anchorMax = new Vector2(0f, 1f);

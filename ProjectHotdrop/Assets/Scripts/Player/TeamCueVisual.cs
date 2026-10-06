@@ -1,22 +1,23 @@
 using UnityEngine;
+using Hotdrop.UI;
 
 namespace Hotdrop.Player
 {
     /// <summary>
     /// QA-023: non-colour team cue shared by offline (PlayerController) and online
     /// (NetAvatarVisual) avatars. Colour is never the only signal: relative to the
-    /// local viewer, allies wear a round orb above the head plus a horizontal chest
-    /// band, enemies a spiky "X" cross above the head plus upward shoulder spikes
-    /// (round vs spiky, echoing the pad ring / cross convention), so they read in
+    /// local viewer, allies wear a chevron above the head plus a horizontal chest
+    /// band, enemies a diamond outline above the head plus upward shoulder spikes,
+    /// so they read in
     /// grayscale and for colour-blind players. Presentation only: every primitive's
     /// collider is removed so the cue can never affect hit detection.
     /// </summary>
     public static class TeamCueVisual
     {
         public const string RootName = "TeamCue";
-        public const string AllyMarkerName = "AllyMarker_Orb";
+        public const string AllyMarkerName = "AllyMarker_Chevron";
         public const string AllyPatternName = "AllyPattern_ChestBand";
-        public const string EnemyMarkerName = "EnemyMarker_Cross";
+        public const string EnemyMarkerName = "EnemyMarker_Diamond";
         public const string EnemyPatternName = "EnemyPattern_ShoulderSpikes";
 
         const float MarkerHeight = 2.15f; // just above the ~1.8 m head top of both avatar builds
@@ -28,6 +29,9 @@ namespace Hotdrop.Player
         public static Transform Apply(Transform parent, bool friendly, Material teamMaterial = null)
         {
             if (parent == null) return null;
+            var profileTint = parent.GetComponent<TeamProfileTint>();
+            if (profileTint == null) profileTint = parent.gameObject.AddComponent<TeamProfileTint>();
+            profileTint.SetFriendly(friendly);
             var existing = parent.Find(RootName);
             if (existing != null)
             {
@@ -44,11 +48,12 @@ namespace Hotdrop.Player
 
             if (friendly)
             {
-                // Head marker: a round orb - smooth silhouette from every yaw and pitch.
+                // Two angled bars form a chevron; team identity remains readable without hue.
                 var marker = new GameObject(AllyMarkerName).transform;
                 marker.SetParent(root, false);
                 marker.localPosition = new Vector3(0f, MarkerHeight, 0f);
-                Part(marker, PrimitiveType.Sphere, "Orb", Vector3.zero, Quaternion.identity, new Vector3(0.22f, 0.22f, 0.22f), teamMaterial);
+                Part(marker, PrimitiveType.Cube, "ChevronL", new Vector3(-0.065f, 0f, 0f), Quaternion.Euler(0f, 0f, -35f), new Vector3(0.055f, 0.23f, 0.055f), teamMaterial);
+                Part(marker, PrimitiveType.Cube, "ChevronR", new Vector3(0.065f, 0f, 0f), Quaternion.Euler(0f, 0f, 35f), new Vector3(0.055f, 0.23f, 0.055f), teamMaterial);
 
                 // Body pattern: one horizontal chest band wrapping the torso.
                 var pattern = new GameObject(AllyPatternName).transform;
@@ -57,15 +62,15 @@ namespace Hotdrop.Player
             }
             else
             {
-                // Head marker: 3D "X" (two crossed bar pairs, 90 degrees apart) - reads from every yaw.
+                // Four bars form an outlined diamond to keep enemy identity separate from ally chevrons.
                 var marker = new GameObject(EnemyMarkerName).transform;
                 marker.SetParent(root, false);
                 marker.localPosition = new Vector3(0f, MarkerHeight, 0f);
-                var bar = new Vector3(0.05f, 0.34f, 0.05f);
-                Part(marker, PrimitiveType.Cube, "CrossA", Vector3.zero, Quaternion.Euler(0f, 0f, 45f), bar, teamMaterial);
-                Part(marker, PrimitiveType.Cube, "CrossB", Vector3.zero, Quaternion.Euler(0f, 0f, -45f), bar, teamMaterial);
-                Part(marker, PrimitiveType.Cube, "CrossC", Vector3.zero, Quaternion.Euler(45f, 0f, 0f), bar, teamMaterial);
-                Part(marker, PrimitiveType.Cube, "CrossD", Vector3.zero, Quaternion.Euler(-45f, 0f, 0f), bar, teamMaterial);
+                var edge = new Vector3(0.045f, 0.19f, 0.045f);
+                Part(marker, PrimitiveType.Cube, "DiamondTopRight", new Vector3(0.065f, 0.065f, 0f), Quaternion.Euler(0f, 0f, -35f), edge, teamMaterial);
+                Part(marker, PrimitiveType.Cube, "DiamondBottomRight", new Vector3(0.065f, -0.065f, 0f), Quaternion.Euler(0f, 0f, 35f), edge, teamMaterial);
+                Part(marker, PrimitiveType.Cube, "DiamondBottomLeft", new Vector3(-0.065f, -0.065f, 0f), Quaternion.Euler(0f, 0f, -35f), edge, teamMaterial);
+                Part(marker, PrimitiveType.Cube, "DiamondTopLeft", new Vector3(-0.065f, 0.065f, 0f), Quaternion.Euler(0f, 0f, 35f), edge, teamMaterial);
 
                 // Body pattern: angled spikes rising from both shoulders.
                 var pattern = new GameObject(EnemyPatternName).transform;
@@ -74,6 +79,9 @@ namespace Hotdrop.Player
                 Part(pattern, PrimitiveType.Cube, "SpikeL", new Vector3(-0.26f, 1.52f, 0f), Quaternion.Euler(0f, 0f, 30f), spike, neutral);
                 Part(pattern, PrimitiveType.Cube, "SpikeR", new Vector3(0.26f, 1.52f, 0f), Quaternion.Euler(0f, 0f, -30f), spike, neutral);
             }
+            // SetFriendly runs before the cue renderers exist; refresh now so newly
+            // created team-coded markers inherit the selected A/B/C profile tint.
+            profileTint.SetFriendly(friendly);
             return root;
         }
 
@@ -98,6 +106,43 @@ namespace Hotdrop.Player
             if (target == null) return;
             if (Application.isPlaying) Object.Destroy(target);
             else Object.DestroyImmediate(target);
+        }
+    }
+
+    /// <summary>Recolors team-coded renderers when the player changes presentation profile.</summary>
+    public sealed class TeamProfileTint : MonoBehaviour
+    {
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int LegacyColorId = Shader.PropertyToID("_Color");
+        MaterialPropertyBlock block;
+        bool friendly;
+
+        public void SetFriendly(bool isFriendly)
+        {
+            friendly = isFriendly;
+            Apply();
+        }
+
+        void OnEnable() => UiPresentationProfile.Changed += Apply;
+        void OnDisable() => UiPresentationProfile.Changed -= Apply;
+
+        void Apply()
+        {
+            if (this == null) return;
+            if (block == null) block = new MaterialPropertyBlock();
+            Color tint = friendly ? UiPresentationProfile.Palette.Ally : UiPresentationProfile.Palette.Enemy;
+            foreach (var renderer in GetComponentsInChildren<Renderer>(true))
+            {
+                var material = renderer.sharedMaterial;
+                if (material == null) continue;
+                string materialName = material.name.ToLowerInvariant();
+                if (!materialName.Contains("friendly") && !materialName.Contains("enemy")) continue;
+                renderer.GetPropertyBlock(block);
+                if (material.HasProperty(BaseColorId)) block.SetColor(BaseColorId, tint);
+                if (material.HasProperty(LegacyColorId)) block.SetColor(LegacyColorId, tint);
+                renderer.SetPropertyBlock(block);
+                block.Clear();
+            }
         }
     }
 }
