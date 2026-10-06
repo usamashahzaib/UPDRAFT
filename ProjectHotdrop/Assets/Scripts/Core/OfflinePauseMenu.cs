@@ -14,6 +14,9 @@ namespace Hotdrop.Core
     /// </summary>
     public class OfflinePauseMenu : MonoBehaviour
     {
+        const float CaptionDp = UIDesignTokens.CaptionDp;
+        const float UiDp = UIDesignTokens.BodyLargeDp;
+        const float TitleDp = UIDesignTokens.TitleMediumDp;
         GameBootstrap game;
         GameObject panel;
         GameObject scrim;
@@ -48,7 +51,7 @@ namespace Hotdrop.Core
         static Color Outline => UIDesignTokens.BorderColor();
         static Color OutlineVariant => UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceStructural, .45f);
         static Color Tertiary => UIDesignTokens.ObjectiveGold;
-        static Color SecondaryDim => UIDesignTokens.HazardCoral;
+        static Color Warning => UIDesignTokens.SignalWarning;
 
         static readonly string[] TabIds = { "CONTROLS", "GRAPHICS", "AUDIO", "ACCESSIBILITY", "ACCOUNT / SUPPORT" };
 
@@ -102,7 +105,7 @@ namespace Hotdrop.Core
             footerNote.rectTransform.anchoredPosition = new Vector2(inMatch ? 20f + homeWidth + 12f : 20f, 0f);
             subtitle.text = online ? "Online match continues in background. You remain vulnerable to fire."
                 : "Settings save on this device and apply offline and online.";
-            subtitle.color = online ? SecondaryDim : OnVariant;
+            subtitle.color = online ? Warning : OnVariant;
             var warn = subtitle.transform.parent.Find("WarnIcon");
             if (warn != null) warn.gameObject.SetActive(online);
             if (scrim != null)
@@ -114,13 +117,18 @@ namespace Hotdrop.Core
             }
             RefreshAll();
             panel.SetActive(true);
+            Hotdrop.UI.UiScreenEnterMotion.Reopen(panel);
             panel.transform.SetAsLastSibling();
         }
 
         public void Close()
         {
             if (!IsOpen) return;
-            panel.SetActive(false);
+            var closingPanel = panel;
+            Hotdrop.UI.UiScreenEnterMotion.Exit(closingPanel, () =>
+            {
+                if (closingPanel != null) closingPanel.SetActive(false);
+            });
             if (scrim != null) scrim.SetActive(false);
             if (pausedGame) Time.timeScale = previousScale;
             if (game.touchInput != null && inputWasEnabled) game.touchInput.enabled = true;
@@ -172,20 +180,20 @@ namespace Hotdrop.Core
             header.anchorMin = new Vector2(0f, 1f); header.anchorMax = Vector2.one; header.pivot = new Vector2(.5f, 1f);
             header.sizeDelta = new Vector2(0f, 76f); header.anchoredPosition = Vector2.zero;
             UiDraw.Place(UiDraw.Icon(header, "Tune", "tune", 22f, Primary).rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(20f, -29f), new Vector2(22f, 22f));
-            title = UiDraw.Text(header, "Nav_Title", "SETTINGS", UiFont.Heading, 28f, OnSurface, .025f);
+            title = UiDraw.Text(header, "Nav_Title", "SETTINGS", UiFont.Heading, TitleDp, OnSurface, .025f);
             UiDraw.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(50f, -29f), new Vector2(320f, 34f));
-            var chip = UiDraw.Text(header, "OverlayChip", "LOCAL SETTINGS // THIS DEVICE", UiFont.MonoMedium, 11f, Primary, .05f, TextAlignmentOptions.Midline);
+            var chip = UiDraw.Text(header, "OverlayChip", "SETTINGS  ·  THIS DEVICE", UiFont.MonoMedium, CaptionDp, Primary, .05f, TextAlignmentOptions.Midline);
             float cw = UiDraw.Width(chip) + 16f;
             var chipPlate = UiDraw.Box(header, "OverlayChipPlate", Highest, 4f);
             chipPlate.transform.SetSiblingIndex(chip.transform.GetSiblingIndex());
             UiDraw.Place(chipPlate.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(312f, -29f), new Vector2(cw, 20f));
             UiDraw.Place(chip.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(312f, -29f), new Vector2(cw, 20f));
             overlayChip = chip.rectTransform; overlayChipPlate = chipPlate.rectTransform;
-            UiDraw.Place(UiDraw.Icon(header, "WarnIcon", "warning", 14f, SecondaryDim).rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(20f, -56f), new Vector2(14f, 14f));
-            subtitle = UiDraw.Text(header, "Subtitle", "", UiFont.Body, 12f, OnVariant, .01f);
+            UiDraw.Place(UiDraw.Icon(header, "WarnIcon", "warning", 14f, Warning).rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(20f, -56f), new Vector2(14f, 14f));
+            subtitle = UiDraw.Text(header, "Subtitle", "", UiFont.Body, CaptionDp, OnVariant, .01f);
             UiDraw.Place(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(38f, -56f), new Vector2(600f, 16f));
             var saved = UiDraw.Box(header, "SavedChip", Lowest, 8f);
-            var savedText = UiDraw.Text(saved.transform, "Text", "ALL SETTINGS SAVED LOCALLY", UiFont.MonoMedium, 11f, Primary, .05f);
+            var savedText = UiDraw.Text(saved.transform, "Text", "ALL SETTINGS SAVED LOCALLY", UiFont.MonoMedium, CaptionDp, Primary, .05f);
             float sw = 12f + 16f + 4f + UiDraw.Width(savedText) + 12f;
             UiDraw.Place(saved.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-20f, 0f), new Vector2(sw, 30f));
             UiDraw.Place(UiDraw.Icon(saved.transform, "Icon", "check_circle", 16f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(12f, 0f), new Vector2(16f, 16f));
@@ -201,7 +209,7 @@ namespace Hotdrop.Core
             {
                 string id = TabIds[i];
                 string caption = id == "ACCOUNT / SUPPORT" ? "ACCOUNT & SUPPORT" : id;
-                var label = UiDraw.Text(tabBar, "Caption", caption, UiFont.Heading, 18f, OnVariant, .01f);
+                var label = UiDraw.Text(tabBar, "Caption", caption, UiFont.Heading, UiDp, OnVariant, .01f);
                 float w = 20f + 18f + 6f + UiDraw.Width(label) + 20f;
                 var tab = UiDraw.Tap(tabBar, "SettingsTab_" + id, new Color(0f, 0f, 0f, 0f), 8f, () => { Tap(); SelectSection(id); });
                 UiDraw.Place((RectTransform)tab.transform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(tx, 0f), new Vector2(w, 50f));
@@ -229,6 +237,7 @@ namespace Hotdrop.Core
             BuildFooter(width);
             BuildSections(width);
             SelectSection("CONTROLS");
+            panel.AddComponent<Hotdrop.UI.UiScreenEnterMotion>();
         }
 
         /// <summary>Reflow the console when its canvas size changes, including synchronous
@@ -262,15 +271,15 @@ namespace Hotdrop.Core
             footer.sizeDelta = new Vector2(0f, 72f); footer.anchoredPosition = Vector2.zero;
 
             var home = UiDraw.Tap(footer, "RETURN HOME", Lowest, 8f, () => { Tap(); Close(); game.ReturnToHome(); });
-            var homeText = UiDraw.Text(home.transform, "Label", "RETURN HOME", UiFont.Heading, 18f, SecondaryDim, .01f);
+            var homeText = UiDraw.Text(home.transform, "Label", "RETURN HOME", UiFont.Heading, UiDp, OnVariant, .01f);
             float hw = 16f + 18f + 8f + UiDraw.Width(homeText) + 16f;
             UiDraw.Place((RectTransform)home.transform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(20f, 0f), new Vector2(hw, 48f));
-            UiDraw.Place(UiDraw.Icon(home.transform, "Icon", "logout", 18f, SecondaryDim).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(18f, 18f));
+            UiDraw.Place(UiDraw.Icon(home.transform, "Icon", "logout", 18f, OnVariant).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(18f, 18f));
             UiDraw.Place(homeText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(42f, 0f), new Vector2(UiDraw.Width(homeText) + 2f, 24f));
             homeButton = home.gameObject;
             homeWidth = hw;
 
-            footerNote = UiDraw.Text(footer, "Nav_Status", "", UiFont.Body, 12f, OnVariant, .01f);
+            footerNote = UiDraw.Text(footer, "Nav_Status", "", UiFont.Body, CaptionDp, OnVariant, .01f);
             footerNote.textWrappingMode = TextWrappingModes.Normal;
             UiDraw.Place(footerNote.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(20f + hw + 12f, 0f), new Vector2(380f, 36f));
 
@@ -283,7 +292,7 @@ namespace Hotdrop.Core
         Button PrimaryButton(RectTransform footer, string name, string icon, string caption, System.Action action)
         {
             var button = UiDraw.Tap(footer, name, UIDesignTokens.PrimaryAction, 8f, action);
-            var label = UiDraw.Text(button.transform, "Label", caption, UiFont.Heading, 20f, OnPrimary, .02f);
+            var label = UiDraw.Text(button.transform, "Label", caption, UiFont.Heading, TitleDp, OnPrimary, .02f);
             float w = 40f + 20f + 12f + UiDraw.Width(label) + 40f;
             UiDraw.Place((RectTransform)button.transform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-20f, 0f), new Vector2(w, 48f));
             UiDraw.Place(UiDraw.Icon(button.transform, "Icon", icon, 20f, OnPrimary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(40f, 0f), new Vector2(20f, 20f));
@@ -317,16 +326,16 @@ namespace Hotdrop.Core
             float ty = 12f;
             ty = ToggleRow(toggles, colRightW, ty, "INVERT Y-AXIS", "Aviation-style stick pull", "InvertY", false, input.SetInvertY, false);
             ty = ToggleRow(toggles, colRightW, ty, "VIBRATION", "Haptic pulse on hits and launches", "VibrationEnabled", true, input.SetVibration, true);
-            var assistModel = UiDraw.Text(toggles, "AimAssistModel", "", UiFont.MonoMedium, 11f, OnVariant, .05f);
+            var assistModel = UiDraw.Text(toggles, "AimAssistModel", "", UiFont.MonoMedium, CaptionDp, OnVariant, .05f);
             assistModel.textWrappingMode = TextWrappingModes.Normal;
             assistModel.overflowMode = TextOverflowModes.Ellipsis;
             assistModel.enableAutoSizing = true;
-            assistModel.fontSizeMin = 10f;
-            assistModel.fontSizeMax = 11f;
+            assistModel.fontSizeMin = UiMetrics.MinTextUnits;
+            assistModel.fontSizeMax = CaptionDp;
             void RefreshAssistModel(bool enabled) => assistModel.text = enabled
                 ? "ON · 0.70× sensitivity in a 3° / 25 m clear-LOS cone · no snap or tracking"
                 : "OFF · 1.00× sensitivity · assist changes neither aim nor fire automatically";
-            ty = ToggleRow(toggles, colRightW, ty, "AIM ASSIST", "Subtle friction slowdown (no snap)", "AimAssistEnabled", true, value =>
+            ty = ToggleRow(toggles, colRightW, ty, "AIM ASSIST", "Aim slowdown while on target", "AimAssistEnabled", true, value =>
             {
                 foreach (var player in Hotdrop.Player.PlayerController.All) player.SetAimAssistEnabled(value);
                 RefreshAssistModel(value);
@@ -361,7 +370,7 @@ namespace Hotdrop.Core
             ry = VolumeCard(s, colRightX, ry, colRightW, "MUSIC VOLUME", "Menus and match score", GameAudio.MusicKey) + 12f;
             ry = VolumeCard(s, colRightX, ry, colRightW, "VOICE VOLUME", "Match direction, zone calls and results", GameAudio.VoiceKey) + 12f;
             var mono = Card(s, "Row_MonoOutput", colRightX, ry, colRightW, 84f);
-            float monoY = ToggleRow(mono, colRightW, 12f, "MONO OUTPUT", "Center spatial cues for one-speaker listening", GameAudio.MonoOutputKey, false, GameAudio.SetMonoOutput, false);
+            float monoY = ToggleRow(mono, colRightW, 12f, "MONO OUTPUT", "Center spatial cues for one speaker", GameAudio.MonoOutputKey, false, GameAudio.SetMonoOutput, false);
             mono.sizeDelta = new Vector2(colRightW, monoY + 12f);
             ry += monoY + 24f;
             var audioReset = Card(s, "Row_AudioReset", colRightX, ry, colRightW, 10f);
@@ -375,12 +384,12 @@ namespace Hotdrop.Core
             var access = Card(s, "Row_Access", colLeftX, 20f, colLeftW, 10f);
             float acy = 12f;
             acy = ToggleRow(access, colLeftW, acy, "CAMERA SHAKE", "Recoil and impact camera motion", "CameraShakeEnabled", true, value => game.mainCamera.SetShakeEnabled(value), false);
-            acy = ToggleRow(access, colLeftW, acy, "REDUCE MOTION", "Remove weapon camera kick and shake; reduce interface movement", Hotdrop.UI.UIMotionSettings.ReduceMotionKey, false, value => Hotdrop.UI.UIMotionSettings.ReduceMotion = value, true);
-            acy = ToggleRow(access, colLeftW, acy, "LARGER TEXT / HUD", "Raises every label without moving controls", LargerTextKey, false, ApplyLargerText, true);
-            acy = ToggleRow(access, colLeftW, acy, "GAMEPLAY SOUND CAPTIONS", "Caption objective state, distant weapon reports, and nearby pad cues", Hotdrop.Core.GameAudio.SoundCaptionsKey, true, _ => { }, true);
-            acy = ToggleRow(access, colLeftW, acy, "STREAM-SAFE DISPLAY", "Hide account aliases, progression and player names from capture", Hotdrop.UI.StreamSafePresentation.PreferenceKey, false, Hotdrop.UI.StreamSafePresentation.SetEnabled, true);
+            acy = ToggleRow(access, colLeftW, acy, "REDUCE MOTION", "Reduce camera kick and shake", Hotdrop.UI.UIMotionSettings.ReduceMotionKey, false, value => Hotdrop.UI.UIMotionSettings.ReduceMotion = value, true);
+            acy = ToggleRow(access, colLeftW, acy, "LARGER TEXT / HUD", "Enlarge HUD and menu text", LargerTextKey, false, ApplyLargerText, true);
+            acy = ToggleRow(access, colLeftW, acy, "GAMEPLAY SOUND CAPTIONS", "Caption nearby and objective sounds", Hotdrop.Core.GameAudio.SoundCaptionsKey, true, _ => { }, true);
+            acy = ToggleRow(access, colLeftW, acy, "STREAM-SAFE DISPLAY", "Hide names and progression in captures", Hotdrop.UI.StreamSafePresentation.PreferenceKey, false, Hotdrop.UI.StreamSafePresentation.SetEnabled, true);
             acy = ToggleRow(access, colLeftW, acy, "MUTE TEAM PINGS", "Silence teammate ping sounds", Hotdrop.UI.PingSystem.MuteKey, false, _ => { }, true);
-            acy = ToggleRow(access, colLeftW, acy, "COCKPIT MODE", "Fade roster and radar during nearby combat", CockpitModeKey, true, _ => { }, true);
+            acy = ToggleRow(access, colLeftW, acy, "COCKPIT MODE", "Fade radar and roster near combat", CockpitModeKey, true, _ => { }, true);
             access.sizeDelta = new Vector2(colLeftW, acy + 12f);
             BuildPresentationProfileCard(s, colRightX, 20f, colRightW);
             s.sizeDelta = new Vector2(width, 20f + acy + 12f + 8f);
@@ -406,9 +415,9 @@ namespace Hotdrop.Core
         {
             const float height = 166f;
             var card = Card(parent, "Row_PresentationProfile", x, y, w, height);
-            TL(UiDraw.Text(card, "Title", "PRESENTATION STYLE", UiFont.BodySemiBold, 16f, OnSurface).rectTransform,
+            TL(UiDraw.Text(card, "Title", "PRESENTATION STYLE", UiFont.BodySemiBold, UiDp, OnSurface).rectTransform,
                 16f, 12f, w - 32f, 24f);
-            TL(UiDraw.Text(card, "Description", "Choose the UI and Switchyard world presentation. Gameplay is unchanged.", UiFont.Body, 12f, OnVariant).rectTransform,
+            TL(UiDraw.Text(card, "Description", "Choose the UI and Switchyard world presentation. Gameplay is unchanged.", UiFont.Body, CaptionDp, OnVariant).rectTransform,
                 16f, 38f, w - 32f, 18f);
 
             var options = new[]
@@ -427,11 +436,11 @@ namespace Hotdrop.Core
                     () => ChoosePresentationProfile(option.Item1, buttons, options));
                 buttons[i] = button;
                 TL((RectTransform)button.transform, 16f + i * (buttonWidth + gap), 70f, buttonWidth, 46f);
-                UiDraw.Text(button.transform, "Label", option.Item2, UiFont.Heading, 12f,
+                UiDraw.Text(button.transform, "Label", option.Item2, UiFont.Heading, CaptionDp,
                     OnSurface, .01f, TextAlignmentOptions.Midline);
             }
             TL(UiDraw.Text(card, "SavedNote", "Saved on this device. The arena and team cues update now; new screens use this palette.",
-                UiFont.Body, 11f, OnVariant).rectTransform, 16f, 124f, w - 32f, 28f);
+                UiFont.Body, CaptionDp, OnVariant).rectTransform, 16f, 124f, w - 32f, 28f);
             RefreshProfileButtons(buttons, options);
         }
 
@@ -475,10 +484,10 @@ namespace Hotdrop.Core
         static void TL(RectTransform rt, float x, float y, float w, float h) =>
             UiDraw.Place(rt, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(x, -y), new Vector2(w, h));
 
-        static void Heading(RectTransform card, float w, float y, string title, string sub, UiFont font = UiFont.BodySemiBold, float size = 18f)
+        static void Heading(RectTransform card, float w, float y, string title, string sub, UiFont font = UiFont.BodySemiBold, float size = UiDp)
         {
             TL(UiDraw.Text(card, "Title", title, font, size, OnSurface, .01f).rectTransform, 16f, y, w - 140f, 24f);
-            TL(UiDraw.Text(card, "Sub", sub, UiFont.Body, 12f, OnVariant, .01f).rectTransform, 16f, y + 26f, w - 140f, 16f);
+            TL(UiDraw.Text(card, "Sub", sub, UiFont.Body, CaptionDp, OnVariant, .01f).rectTransform, 16f, y + 26f, w - 140f, 16f);
         }
 
         float Segmented(RectTransform parent, float x, float y, float w, string title, string sub, string tag,
@@ -486,7 +495,7 @@ namespace Hotdrop.Core
         {
             var card = Card(parent, "Row_" + key, x, y, w, 128f);
             Heading(card, w, 16f, title, sub);
-            var tagText = UiDraw.Text(card, "Tag", tag, UiFont.Heading, 12f, Primary, .08f, TextAlignmentOptions.Midline);
+            var tagText = UiDraw.Text(card, "Tag", tag, UiFont.Heading, CaptionDp, Primary, .08f, TextAlignmentOptions.Midline);
             float tw = UiDraw.Width(tagText) + 16f;
             var tagPlate = UiDraw.Box(card, "TagPlate", Lowest, 4f);
             tagPlate.transform.SetSiblingIndex(tagText.transform.GetSiblingIndex());
@@ -502,7 +511,7 @@ namespace Hotdrop.Core
                     Tap(); PlayerPrefs.SetInt(key, value ? 1 : 0); PlayerPrefs.Save(); apply(value); RefreshAll();
                 });
                 TL((RectTransform)b.transform, 16f + i * (bw + 8f), 64f, bw, 48f);
-                var label = UiDraw.Text(b.transform, "Label", i == 0 ? offCaption : onCaption, UiFont.HeadingSemiBold, 20f, OnVariant, 0f);
+                var label = UiDraw.Text(b.transform, "Label", i == 0 ? offCaption : onCaption, UiFont.HeadingSemiBold, TitleDp, OnVariant, 0f);
                 float lw = UiDraw.Width(label);
                 var icon = UiDraw.Icon(b.transform, "Icon", "radio_button_unchecked", 20f, OnVariant);
                 UiDraw.Place(icon.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(lw + 8f) / 2f, 0f), new Vector2(20f, 20f));
@@ -529,22 +538,22 @@ namespace Hotdrop.Core
             string left, string mid, string right, System.Action<float> apply)
         {
             var card = Card(parent, "Row_" + key, x, y, w, 152f);
-            Heading(card, w, 16f, title, sub, UiFont.BodySemiBold, 18f);
+            Heading(card, w, 16f, title, sub, UiFont.BodySemiBold, UiDp);
             var plate = UiDraw.Box(card, "ValuePlate", Lowest, 4f);
             UiDraw.Place(plate.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-16f, -36f), new Vector2(110f, 40f));
-            var value = UiDraw.Text(plate.transform, "Value", "", UiFont.Mono, 22f, Primary, .02f, TextAlignmentOptions.MidlineRight);
+            var value = UiDraw.Text(plate.transform, "Value", "", UiFont.Mono, TitleDp, Primary, .02f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(value.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-34f, 0f), new Vector2(80f, 26f));
-            UiDraw.Place(UiDraw.Text(plate.transform, "Unit", unit, UiFont.MonoMedium, 12f, Outline, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(plate.transform, "Unit", unit, UiFont.MonoMedium, CaptionDp, Outline, .05f).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-12f, -2f), new Vector2(20f, 14f));
-            TL(UiDraw.Text(card, "Min", min.ToString("0.0"), UiFont.MonoMedium, 12f, Outline, .05f).rectTransform, 16f, 84f, 30f, 20f);
-            var maxText = UiDraw.Text(card, "Max", max.ToString("0.0"), UiFont.MonoMedium, 12f, Outline, .05f, TextAlignmentOptions.MidlineRight);
+            TL(UiDraw.Text(card, "Min", min.ToString("0.0"), UiFont.MonoMedium, CaptionDp, Outline, .05f).rectTransform, 16f, 84f, 30f, 20f);
+            var maxText = UiDraw.Text(card, "Max", max.ToString("0.0"), UiFont.MonoMedium, CaptionDp, Outline, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(maxText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-16f, -84f), new Vector2(30f, 20f));
             var slider = BuildSlider(card, min, max, PlayerPrefs.GetFloat(key, defaultValue));
             TL((RectTransform)slider.transform, 58f, 80f, w - 116f, 28f);
-            TL(UiDraw.Text(card, "Left", left, UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform, 16f, 118f, 160f, 16f);
-            var midText = UiDraw.Text(card, "Mid", mid, UiFont.MonoMedium, 11f, Tertiary, .05f, TextAlignmentOptions.Midline);
+            TL(UiDraw.Text(card, "Left", left, UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 16f, 118f, 160f, 16f);
+            var midText = UiDraw.Text(card, "Mid", mid, UiFont.MonoMedium, CaptionDp, Tertiary, .05f, TextAlignmentOptions.Midline);
             UiDraw.Place(midText.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -118f), new Vector2(240f, 16f));
-            var rightText = UiDraw.Text(card, "Right", right, UiFont.MonoMedium, 11f, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
+            var rightText = UiDraw.Text(card, "Right", right, UiFont.MonoMedium, CaptionDp, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(rightText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-16f, -118f), new Vector2(160f, 16f));
             refreshers.Add(() =>
             {
@@ -573,7 +582,7 @@ namespace Hotdrop.Core
             if (available)
             {
                 var cal = UiDraw.Tap(card, "CALIBRATE", Lowest, 8f, () => { Tap(); input.CalibrateGyroNeutral(); });
-                var calText = UiDraw.Text(cal.transform, "Label", "CALIBRATE", UiFont.Mono, 14f, Primary, .03f);
+                var calText = UiDraw.Text(cal.transform, "Label", "CALIBRATE", UiFont.Mono, UiDp, Primary, .03f);
                 float cw = 16f + 16f + 6f + UiDraw.Width(calText) + 16f;
                 UiDraw.Place((RectTransform)cal.transform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-16f - 56f - 16f, 0f), new Vector2(cw, 48f));
                 UiDraw.Place(UiDraw.Icon(cal.transform, "Icon", "screen_rotation_alt", 16f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(16f, 16f));
@@ -588,11 +597,17 @@ namespace Hotdrop.Core
         {
             if (divider) TL(UiDraw.Box(card, "Divider", Container).rectTransform, 16f, y, w - 32f, 1f);
             float top = y + (divider ? 8f : 0f);
-            TL(UiDraw.Text(card, "Title_" + key, title, UiFont.BodySemiBold, 16f, OnSurface, .01f).rectTransform, 16f, top + 8f, w - 100f, 22f);
-            TL(UiDraw.Text(card, "Sub_" + key, sub, UiFont.Body, 12f, OnVariant, .01f).rectTransform, 16f, top + 30f, w - 100f, 16f);
+            string plainTitle = title.ToLowerInvariant();
+            plainTitle = char.ToUpperInvariant(plainTitle[0]) + plainTitle.Substring(1);
+            plainTitle = plainTitle.Replace("y-axis", "Y-axis").Replace("hud", "HUD");
+            TL(UiDraw.Text(card, "Title_" + key, plainTitle, UiFont.BodySemiBold, UiDp, OnSurface, .01f).rectTransform, 16f, top + 8f, w - 100f, 22f);
+            var description = UiDraw.Text(card, "Sub_" + key, sub, UiFont.Body, CaptionDp, OnVariant, .01f);
+            description.overflowMode = TextOverflowModes.Ellipsis;
+            TL(description.rectTransform, 16f, top + 30f, w - 100f, 16f);
             var sw = Switch(card, key, defaultValue, apply, true);
             TL(sw, w - 16f - 56f, top + 4f, 56f, 48f);
-            return top + 56f;
+            const float minimumRowHeight = 56f;
+            return top + Mathf.Max(minimumRowHeight, 48f);
         }
 
         RectTransform Switch(RectTransform parent, string key, bool defaultValue, System.Action<bool> apply, bool enabled)
@@ -629,10 +644,10 @@ namespace Hotdrop.Core
         float WorkspaceCard(RectTransform parent, float x, float y, float w, TouchInputManager input)
         {
             var card = Card(parent, "Row_Workspace", x, y, w, 10f);
-            TL(UiDraw.Text(card, "Title", "HUD WORKSPACE", UiFont.HeadingSemiBold, 20f, OnSurface).rectTransform, 16f, 16f, w - 160f, 26f);
-            var tag = UiDraw.Text(card, "Tag", "20:9 SAFE CLUSTERS", UiFont.Heading, 12f, Tertiary, .08f, TextAlignmentOptions.MidlineRight);
+            TL(UiDraw.Text(card, "Title", "HUD WORKSPACE", UiFont.HeadingSemiBold, TitleDp, OnSurface).rectTransform, 16f, 16f, w - 160f, 26f);
+            var tag = UiDraw.Text(card, "Tag", "20:9 SAFE CLUSTERS", UiFont.Heading, CaptionDp, Tertiary, .08f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(tag.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-16f, -29f), new Vector2(160f, 14f));
-            var body = UiDraw.Text(card, "Body", "Move and resize Fire, Launch, Pad and Ping, and set each control's opacity.", UiFont.Body, 14f, OnVariant);
+            var body = UiDraw.Text(card, "Body", "Move and resize Fire, Launch, Pad and Ping, and set each control's opacity.", UiFont.Body, UiDp, OnVariant);
             body.textWrappingMode = TextWrappingModes.Normal; body.alignment = TextAlignmentOptions.TopLeft;
             float bh = body.GetPreferredValues(body.text, w - 32f, 0f).y;
             TL(body.rectTransform, 16f, 50f, w - 32f, bh);
@@ -643,26 +658,31 @@ namespace Hotdrop.Core
             {
                 var disc = UiDraw.Dot(preview.transform, name, 80f, UIDesignTokens.WithAlpha(UIDesignTokens.PrimaryAction, .1f));
                 UiDraw.Place(disc.rectTransform, new Vector2(anchor, .5f), new Vector2(.5f, .5f), new Vector2(x2, 0f), new Vector2(80f, 80f));
-                UiDraw.Fill(UiDraw.Text(disc.transform, "Label", name == "L-ARC" ? "MOVE" : "FIRE", UiFont.MonoMedium, 12f, Primary, .05f, TextAlignmentOptions.Midline).rectTransform);
+                UiDraw.Fill(UiDraw.Text(disc.transform, "Label", name == "L-ARC" ? "MOVE" : "FIRE", UiFont.MonoMedium, CaptionDp, Primary, .05f, TextAlignmentOptions.Midline).rectTransform);
             }
-            UiDraw.Place(UiDraw.Text(preview.transform, "Centre", "CENTER PASSIVE HUD\n<size=10>NO TOUCH ZONES</size>", UiFont.MonoMedium, 12f, UiDraw.Hex("#859396", .6f), .1f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(preview.transform, "Centre", "CENTER PASSIVE HUD\nNO TOUCH ZONES", UiFont.MonoMedium, CaptionDp, UiDraw.Hex("#859396", .6f), .1f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(220f, 40f));
             py += 120f + 20f;
             var customize = UiDraw.Tap(card, "CUSTOMIZE CONTROLS", Container, 8f, () =>
             {
                 Tap();
-                panel.SetActive(false);
+                var closingPanel = panel;
+                Hotdrop.UI.UiScreenEnterMotion.Exit(closingPanel, () =>
+                {
+                    if (closingPanel != null) closingPanel.SetActive(false);
+                });
                 if (scrim != null) scrim.SetActive(false);
                 input.BeginLayoutEdit(() =>
                 {
                     input.enabled = false;
                     panel.SetActive(true);
+                    Hotdrop.UI.UiScreenEnterMotion.Reopen(panel);
                     if (scrim != null) scrim.SetActive(true);
                     panel.transform.SetAsLastSibling();
                 });
             });
             TL((RectTransform)customize.transform, 16f, py, w - 32f - 48f - 12f, 60f);
-            var cText = UiDraw.Text(customize.transform, "Label", "CUSTOMIZE CONTROLS", UiFont.HeadingSemiBold, 20f, Primary, 0f);
+            var cText = UiDraw.Text(customize.transform, "Label", "CUSTOMIZE CONTROLS", UiFont.HeadingSemiBold, TitleDp, Primary, 0f);
             float ctw = UiDraw.Width(cText);
             UiDraw.Place(UiDraw.Icon(customize.transform, "Icon", "open_with", 20f, Primary).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(ctw + 8f) / 2f, 0f), new Vector2(20f, 20f));
             UiDraw.Place(cText.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(14f, 0f), new Vector2(ctw + 2f, 26f));
@@ -691,10 +711,10 @@ namespace Hotdrop.Core
                     GameBootstrap.ApplyGraphicsQuality(quality); RefreshAll();
                 });
                 TL((RectTransform)b.transform, 16f + i * (bw + 8f), 64f, bw, 72f);
-                var label = UiDraw.Text(b.transform, "Label", labels[i], UiFont.HeadingSemiBold, 15f, OnVariant, 0f, TextAlignmentOptions.Midline);
+                var label = UiDraw.Text(b.transform, "Label", labels[i], UiFont.HeadingSemiBold, UiDp, OnVariant, 0f, TextAlignmentOptions.Midline);
                 UiDraw.Place(label.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 10f), new Vector2(bw - 16f, 24f));
                 var note = UiDraw.Text(b.transform, "Note", notes[i],
-                    UiFont.MonoMedium, 11f, OnVariant, .03f, TextAlignmentOptions.Midline);
+                    UiFont.MonoMedium, CaptionDp, OnVariant, .03f, TextAlignmentOptions.Midline);
                 // Fixed, uncompressed English copy does not fit this button's width on every
                 // device/aspect ratio (overflowed past the button edge on a 20:9 phone, and
                 // shrinking alone cannot fix it: the accessibility text floor is wider than the
@@ -703,11 +723,11 @@ namespace Hotdrop.Core
                 note.overflowMode = TextOverflowModes.Overflow;
                 note.enableAutoSizing = true;
                 note.fontSizeMin = UiMetrics.MinTextUnits;
-                note.fontSizeMax = 11f;
+                note.fontSizeMax = CaptionDp;
                 UiDraw.Place(note.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -16f), new Vector2(bw - 16f, 28f));
                 parts[i] = (b.GetComponent<Image>(), label, note);
             }
-            var active = UiDraw.Text(card, "GraphicsNote", "", UiFont.MonoMedium, 11f, Tertiary, .05f);
+            var active = UiDraw.Text(card, "GraphicsNote", "", UiFont.MonoMedium, CaptionDp, Tertiary, .05f);
             TL(active.rectTransform, 16f, 148f, w - 32f, 16f);
             refreshers.Add(() =>
             {
@@ -727,8 +747,8 @@ namespace Hotdrop.Core
 
         static float Paragraph(RectTransform card, float w, float y, string title, string body)
         {
-            TL(UiDraw.Text(card, "Title", title, UiFont.BodySemiBold, 18f, OnSurface, .01f).rectTransform, 16f, y + 4f, w - 32f, 24f);
-            var t = UiDraw.Text(card, "Body", body, UiFont.Body, 12f, OnVariant, .01f);
+            TL(UiDraw.Text(card, "Title", title, UiFont.BodySemiBold, UiDp, OnSurface, .01f).rectTransform, 16f, y + 4f, w - 32f, 24f);
+            var t = UiDraw.Text(card, "Body", body, UiFont.Body, CaptionDp, OnVariant, .01f);
             t.textWrappingMode = TextWrappingModes.Normal; t.alignment = TextAlignmentOptions.TopLeft;
             float h = t.GetPreferredValues(body, w - 32f, 0f).y;
             TL(t.rectTransform, 16f, y + 32f, w - 32f, h);
@@ -739,7 +759,7 @@ namespace Hotdrop.Core
         {
             var b = UiDraw.Tap(card, name ?? caption, Container, 8f, () => { Tap(); action(); });
             TL((RectTransform)b.transform, 16f, y, w - 32f, 48f);
-            var label = UiDraw.Text(b.transform, "Label", caption, UiFont.HeadingSemiBold, 16f, Primary, .02f);
+            var label = UiDraw.Text(b.transform, "Label", caption, UiFont.HeadingSemiBold, UiDp, Primary, .02f);
             float lw = UiDraw.Width(label);
             UiDraw.Place(UiDraw.Icon(b.transform, "Icon", icon, 18f, Primary).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(lw + 8f) / 2f, 0f), new Vector2(18f, 18f));
             UiDraw.Place(label.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(13f, 0f), new Vector2(lw + 2f, 22f));

@@ -43,6 +43,7 @@ builder.Services.AddSingleton<MatchmakingComposer>();
 
 var progressionOptions = new ProgressionOptions();
 builder.Configuration.GetSection("Progression").Bind(progressionOptions);
+progressionOptions.Validate();
 builder.Services.AddSingleton(progressionOptions);
 builder.Services.AddSingleton<MatchResultProcessor>();
 builder.Services.AddSingleton<ContractsMasteryService>();

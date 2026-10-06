@@ -26,6 +26,23 @@ public sealed class ProgressionOptions
         [3] = "wrap_hazard", [6] = "badge_pathfinder", [10] = "body_rooftop", [15] = "wrap_updraft", [20] = "badge_summit",
     };
 
+    public void Validate()
+    {
+        if (XpPerLevel <= 0)
+            throw new InvalidOperationException("Progression:XpPerLevel must be greater than zero.");
+        if (MaxLevel <= 0)
+            throw new InvalidOperationException("Progression:MaxLevel must be greater than zero.");
+        if (EloK < 0 || XpPerEligibleMatch < 0 || XpWinBonus < 0 || XpDrawBonus < 0 ||
+            CreditsPerEligibleMatch < 0 || CreditsWinBonus < 0 || CreditsPerLevelUp < 0)
+            throw new InvalidOperationException("Progression reward and rating values cannot be negative.");
+        if (UnlockAfterEligibleMatches < 1)
+            throw new InvalidOperationException("Progression:UnlockAfterEligibleMatches must be at least one.");
+        if (LevelUnlocks is null || LevelUnlocks.Any(x => x.Key < 1 || x.Key > MaxLevel || string.IsNullOrWhiteSpace(x.Value)))
+            throw new InvalidOperationException("Progression:LevelUnlocks must contain non-empty cosmetic ids for levels within MaxLevel.");
+        if (StarterCosmetics is null || StarterCosmetics.Any(string.IsNullOrWhiteSpace))
+            throw new InvalidOperationException("Progression:StarterCosmetics cannot contain empty cosmetic ids.");
+    }
+
     public int LevelForXp(int xp) => Math.Min(MaxLevel, 1 + xp / XpPerLevel);
 }
 
@@ -43,7 +60,8 @@ public sealed record PlayerResultSummary(Guid PlayerId, int XpGained, int Credit
 /// and server-failed matches. Rewards go through the credit ledger, whose
 /// unique (player, reason, source) index rejects a replayed grant.
 /// </summary>
-public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMasteryService contractsMastery)
+public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMasteryService contractsMastery,
+    ILogger<MatchResultProcessor> logger)
 {
     public async Task<List<PlayerResultSummary>> ApplyAsync(Guid matchId, SubmitResultRequest request, HotdropDbContext db, bool contractsMasteryEnabled, CancellationToken cancellationToken)
     {
@@ -73,6 +91,9 @@ public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMa
 
             if (!accounts.TryGetValue(p.PlayerId, out var account)) continue;
 
+            participation.ProfileXpBefore = account.ProfileXp;
+            participation.ProfileXpAfter = account.ProfileXp;
+
             int? delta = ratingDeltas.TryGetValue(p.PlayerId, out var d) ? d : null;
             if (delta is int change) account.HiddenMatchmakingRating += change;
             if (!eligible)
@@ -93,6 +114,7 @@ public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMa
 
             int oldLevel = options.LevelForXp(account.ProfileXp);
             account.ProfileXp += xp;
+            participation.ProfileXpAfter = account.ProfileXp;
             int newLevel = options.LevelForXp(account.ProfileXp);
             account.Level = newLevel;
 
@@ -118,7 +140,29 @@ public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMa
         }
 
         if (contractsMasteryEnabled) await contractsMastery.ApplyMatchAsync(matchId, request, fresh, db, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // The unique (MatchId, PlayerId) participation key protects grants from
+            // concurrent duplicate submissions. If another request committed first,
+            // report this retry as idempotent success instead of returning a spurious
+            // server error. Only suppress the conflict when every submitted participant
+            // now has a durable receipt; unrelated database failures still propagate.
+            db.ChangeTracker.Clear();
+            var committed = (await db.MatchParticipations.AsNoTracking()
+                .Where(m => m.MatchId == matchId && ids.Contains(m.PlayerId))
+                .Select(m => m.PlayerId)
+                .ToListAsync(cancellationToken)).ToHashSet();
+            if (ids.All(committed.Contains))
+            {
+                logger.LogInformation("match_result_duplicate_reconciled {MatchId} {ParticipantCount}", matchId, ids.Count);
+                return [];
+            }
+            throw;
+        }
         return summaries;
     }
 

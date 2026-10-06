@@ -6,6 +6,8 @@ namespace Hotdrop.Config
     [CreateAssetMenu(fileName = "ProgressionConfig", menuName = "Hotdrop/Config/Progression Config")]
     public class ProgressionConfig : ScriptableObject
     {
+        public const float DefaultDisconnectBotSubstitutionSeconds = 5f;
+
         [Header("XP")]
         public int xpPerEligibleMatch = 120;
         public int xpWinBonus = 30;
@@ -17,6 +19,7 @@ namespace Hotdrop.Config
         [Range(0f, 1f)] public float minPresenceFraction = 0.75f;
         public float afkWarningSeconds = 30f;
         public float afkRemovalAfterWarningSeconds = 15f;
+        [Min(0f)] public float disconnectBotSubstitutionSeconds = DefaultDisconnectBotSubstitutionSeconds;
 
         [Header("Cosmetic Credits")]
         public int creditsPerEligibleMatch = 20;

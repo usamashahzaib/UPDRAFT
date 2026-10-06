@@ -1182,6 +1182,7 @@ namespace Hotdrop.Tests.PlayMode
                 foreach (var safe in canvas.GetComponentsInChildren<SafeAreaRoot>()) safe.Apply();
                 Canvas.ForceUpdateCanvases();
                 GoalsPagesView.RefreshVisible(canvas);
+                SupportHubView.RefreshVisible(canvas);
                 var pauseConsole = Object.FindFirstObjectByType<OfflinePauseMenu>();
                 if (pauseConsole != null && pauseConsole.IsOpen) pauseConsole.RefreshForComposedFrame();
                 Canvas.ForceUpdateCanvases();
@@ -1215,6 +1216,27 @@ namespace Hotdrop.Tests.PlayMode
                 foreach (var view in canvas.GetComponentsInChildren<Hotdrop.UI.TouchControlsView>(true))
                     view.RefreshForComposedFrame();
                 Canvas.ForceUpdateCanvases();
+                if (label == "17_support")
+                {
+                    // The three columns must be laid out for this frame: inside the canvas width,
+                    // side by side without overlap, and the page as wide as the canvas.
+                    RectTransform support = null;
+                    foreach (var t in canvas.transform.GetComponentsInChildren<RectTransform>(true))
+                        if (t.name == "SupportHubVisual") { support = t; break; }
+                    Assert.IsNotNull(support, "The Support page must be on screen.");
+                    var page = (RectTransform)support.Find("Viewport/Page");
+                    float canvasWidth = ((RectTransform)canvas.transform).rect.width;
+                    Assert.AreEqual(canvasWidth, page.sizeDelta.x, 1f, $"Support page must match the {width}x{height} canvas width.");
+                    float previousRight = float.NegativeInfinity;
+                    foreach (string column in new[] { "Account", "Report", "Assistance" })
+                    {
+                        var card = (RectTransform)page.Find(column);
+                        float left = card.anchoredPosition.x, right = left + card.sizeDelta.x;
+                        Assert.Greater(left, previousRight, $"{column} must not overlap the column before it at {width}x{height}.");
+                        Assert.LessOrEqual(right, canvasWidth, $"{column} must stay inside the canvas at {width}x{height}.");
+                        previousRight = right;
+                    }
+                }
                 if (label.StartsWith("10_settings"))
                 {
                     foreach (var tab in canvas.GetComponentsInChildren<Button>())

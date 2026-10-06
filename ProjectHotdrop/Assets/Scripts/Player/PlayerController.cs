@@ -575,7 +575,7 @@ namespace Hotdrop.Player
             // Determine movement state for spread
             MovementState moveState;
             if (!movementSim.IsGrounded) moveState = MovementState.Airborne;
-            else if (new Vector3(movementSim.Velocity.x, 0, movementSim.Velocity.z).magnitude > 0.5f) moveState = MovementState.MovingGrounded;
+            else if (new Vector3(movementSim.Velocity.x, 0, movementSim.Velocity.z).magnitude > movementConfig.weaponMovingGroundSpeedThreshold) moveState = MovementState.MovingGrounded;
             else moveState = MovementState.StationaryGrounded;
 
             // Camera chooses the aim point; the real shot is traced from the muzzle

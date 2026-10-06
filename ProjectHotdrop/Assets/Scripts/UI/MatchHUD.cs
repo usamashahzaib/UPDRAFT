@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Hotdrop.Config;
+using Hotdrop.Core;
 using Hotdrop.Match;
 using Hotdrop.Player;
 using Hotdrop.Pads;
@@ -26,6 +27,9 @@ namespace Hotdrop.UI
         public static Color MainText => UIDesignTokens.TextPrimary;
         public static Color SecondaryText => UIDesignTokens.TextSecondary;
         public static Color PanelBg => UIDesignTokens.PanelBg;
+        const int HudCaptionFontSize = (int)UIDesignTokens.CaptionDp;
+        const int HudValueFontSize = (int)UIDesignTokens.BodyLargeDp;
+        const int HudEmphasisFontSize = (int)UIDesignTokens.TitleMediumDp;
 
         [Header("Config")]
         [SerializeField] public GraphicsConfig graphicsConfig;
@@ -273,7 +277,7 @@ namespace Hotdrop.UI
             var objectivePlate = objectivePlateImage.rectTransform;
             objectivePlate.anchoredPosition = new Vector2(HudMarkerLayer.MarkerCaptionCenterX, 0);
             objectivePlate.sizeDelta = new Vector2(HudMarkerLayer.MarkerCaptionSize.x, 20f);
-            objectiveMarkerText = UiDraw.Text(marker, "Label", "", UiFont.Mono, 10f, UiDraw.Hex("#ffd166"), .05f, TextAlignmentOptions.Midline);
+            objectiveMarkerText = UiDraw.Text(marker, "Label", "", UiFont.Mono, HudCaptionFontSize, UiDraw.Hex("#ffd166"), .05f, TextAlignmentOptions.Midline);
             objectiveMarkerText.rectTransform.anchoredPosition = new Vector2(HudMarkerLayer.MarkerCaptionCenterX, 0);
             objectiveMarkerText.rectTransform.sizeDelta = HudMarkerLayer.MarkerCaptionSize;
             marker.gameObject.SetActive(false);
@@ -283,16 +287,16 @@ namespace Hotdrop.UI
             death.anchorMin = death.anchorMax = new Vector2(0.5f, 0.5f);
             death.anchoredPosition = new Vector2(0, 150); // stays on screen on the density-scaled canvas
             deathPanel = death.gameObject;
-            deathTitle = Ui.Text("Title", death, "", 30, Enemy); deathTitle.rectTransform.anchoredPosition = new Vector2(0, 40);
-            deathCountdown = Ui.Text("Countdown", death, "", 26, MainText); deathCountdown.rectTransform.anchoredPosition = new Vector2(0, 0);
-            deathSpectate = Ui.Text("Spectate", death, "", 20, SecondaryText); deathSpectate.rectTransform.anchoredPosition = new Vector2(0, -40);
+            deathTitle = Ui.Text("Title", death, "", HudEmphasisFontSize, Enemy); deathTitle.rectTransform.anchoredPosition = new Vector2(0, 40);
+            deathCountdown = Ui.Text("Countdown", death, "", HudEmphasisFontSize, MainText); deathCountdown.rectTransform.anchoredPosition = new Vector2(0, 0);
+            deathSpectate = Ui.Text("Spectate", death, "", HudValueFontSize, SecondaryText); deathSpectate.rectTransform.anchoredPosition = new Vector2(0, -40);
             foreach (var t in new[] { deathTitle, deathCountdown, deathSpectate }) t.rectTransform.sizeDelta = new Vector2(740, 36);
             deathPanel.SetActive(false);
 
             // Numeric HP next to the bar.
             if (healthSlider != null)
             {
-                healthValueText = Ui.Text("HPValue", healthSlider.transform, "100", 22, MainText);
+                healthValueText = Ui.Text("HPValue", healthSlider.transform, "100", HudValueFontSize, MainText);
                 // Sit clear above the bar (it overlapped the bar edge on 720p phones) and read over bright floors.
                 healthValueText.rectTransform.anchoredPosition = new Vector2(0, 36);
                 healthValueText.fontStyle = FontStyles.Bold;
@@ -302,7 +306,7 @@ namespace Hotdrop.UI
             }
 
             // Hit marker at the crosshair.
-            hitMarkerText = Ui.Text("HitMarker", transform, "X", 34, MainText);
+            hitMarkerText = Ui.Text("HitMarker", transform, "X", HudEmphasisFontSize, MainText);
             UIFonts.Use(hitMarkerText, UiFont.IconFilled);
             hitMarkerText.rectTransform.anchorMin = hitMarkerText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             hitMarkerText.rectTransform.sizeDelta = new Vector2(60, 60);
@@ -429,7 +433,7 @@ namespace Hotdrop.UI
             {
                 combatFeedbackText.rectTransform.anchoredPosition = new Vector2(0, CombatFeedbackBandY);
                 UIFonts.Use(combatFeedbackText, UiFont.Heading);
-                combatFeedbackText.fontSize = combatFeedbackText.fontSizeMax = 18;
+                combatFeedbackText.fontSize = combatFeedbackText.fontSizeMax = UiMetrics.ScaleTextSize(HudValueFontSize);
                 combatFeedbackText.characterSpacing = 8f;
             }
             foreach (var t in new[] { deathTitle, deathCountdown, deathSpectate })
@@ -849,7 +853,7 @@ namespace Hotdrop.UI
             if (hitMarkerText == null) return;
             hitMarkerText.text = elimination ? UIIcons.Glyph("stars") : headshot ? UIIcons.Glyph("diamond") : "X";
             hitMarkerText.color = elimination ? Objective : headshot ? Friendly : MainText;
-            hitMarkerText.fontSize = elimination ? 38f : headshot ? 32f : 34f;
+            hitMarkerText.fontSize = UiMetrics.ScaleTextSize(HudEmphasisFontSize);
             hitMarkerText.gameObject.SetActive(true);
             hitMarkerUntil = Time.unscaledTime + 0.15f;
         }
@@ -987,18 +991,31 @@ namespace Hotdrop.UI
         /// QA-017: the authoritative reward receipt (or a truthful pending state) under the score
         /// line of the results screen. Pass null to clear it.
         /// </summary>
-        public void SetResultsReceipt(string receipt, Color color)
+        public void SetResultsReceipt(string receipt, Color color, string saveNote = null,
+            ResultsTrustState trustState = ResultsTrustState.Pending)
         {
             if (resultStatsText == null) return;
-            resultStatsText.text = string.IsNullOrEmpty(receipt) ? resultsHeader
-                : $"{resultsHeader}\n<size=85%><color=#{ColorUtility.ToHtmlStringRGB(color)}>{receipt}</color></size>";
-            ResultsView.SetReceipt(this, receipt, color);
+            resultStatsText.text = UiPresentationProfile.NormalizeRichText(string.IsNullOrEmpty(receipt) ? resultsHeader
+                : $"{resultsHeader}\n<color=#{ColorUtility.ToHtmlStringRGB(color)}>{receipt}</color>");
+            ResultsView.SetReceipt(this, receipt, color, saveNote);
+            ResultsView.SetTrustState(this, trustState, saveNote);
+        }
+
+        /// <summary>Passes the exact backend receipt to the results reveal; the sticky replay
+        /// action remains available while the short presentation runs.</summary>
+        public void SetResultsReward(MatchReceiptDto receipt, Color color)
+        {
+            if (resultStatsText != null) resultStatsText.text = UiPresentationProfile.NormalizeRichText(resultsHeader);
+            ResultsView.SetTrustState(this, ResultsTrustState.Verified);
+            ResultsView.RevealReward(this, receipt, color);
         }
 
         public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, string endCondition) =>
             ShowResults(isWin, isDraw, scoreA, scoreB, endCondition, null, "PRACTICE MATCH — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY");
 
-        public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, string endCondition, System.Collections.Generic.IReadOnlyList<IMatchParticipant> players, string footer, string nextGoal = null)
+        public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, string endCondition,
+            System.Collections.Generic.IReadOnlyList<IMatchParticipant> players, string footer, string nextGoal = null,
+            ResultsTrustState trustState = ResultsTrustState.Practice)
         {
             HideAllPanels();
             if (deathPanel != null) deathPanel.SetActive(false);
@@ -1019,13 +1036,13 @@ namespace Hotdrop.UI
 
             bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
             int ally = localIsA ? scoreA : scoreB, enemy = localIsA ? scoreB : scoreA;
-            resultsHeader = $"ALLY {ally}  —  {enemy} ENEMY\n<size=85%>{footer}</size>";
+            resultsHeader = $"ALLY {ally}  —  {enemy} ENEMY\n{footer}";
             // Amendment 1: outcome + one contribution + the next reachable goal, on one screen.
             if (!string.IsNullOrEmpty(nextGoal))
                 resultsHeader += $"\n<color=#FFD166>{nextGoal}</color>";
-            if (resultStatsText != null) resultStatsText.text = resultsHeader;
+            if (resultStatsText != null) resultStatsText.text = UiPresentationProfile.NormalizeRichText(resultsHeader);
             ResultsView.Show(this, isWin, isDraw, ally, enemy, players, localPlayer,
-                footer, nextGoal, playAgainAction, homeAction);
+                footer, nextGoal, playAgainAction, homeAction, trustState);
 
             if (resultTableText == null || players == null) return;
             var sb = new System.Text.StringBuilder();
@@ -1038,7 +1055,7 @@ namespace Hotdrop.UI
                 {
                     if (p == null || p.TeamId != wanted) continue;
                     string name = ReferenceEquals(p, localPlayer) ? $"<b>{p.DisplayName} (YOU)</b>" : p.DisplayName;
-                    if (!p.IsConnected) name += " <color=#FF6376>(DISCONNECTED)</color>";
+                    if (!p.IsConnected) name += " <color=#FFB45C>(DISCONNECTED)</color>";
                     sb.Append($"{name,-32}  {p.Eliminations,5}   {p.Deaths,6}   {Mathf.RoundToInt(p.ObjectiveSeconds),7}s   {p.PadLaunches,8}\n");
                 }
             }
@@ -1047,7 +1064,7 @@ namespace Hotdrop.UI
                 var bests = PersonalBests.Record(localPlayer);
                 if (bests.Length > 0) sb.Append($"\n<color=#FFD166>NEW PERSONAL BEST: {bests}</color>");
             }
-            resultTableText.text = sb.ToString();
+            resultTableText.text = UiPresentationProfile.NormalizeRichText(sb.ToString());
         }
 
         public void UpdateTeammateStatus(int index, bool alive, float health)

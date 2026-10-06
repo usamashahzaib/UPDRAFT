@@ -10,6 +10,10 @@ namespace Hotdrop.UI
     /// </summary>
     public class TutorialUI : MonoBehaviour
     {
+        const float TutorialCaptionDp = UIDesignTokens.CaptionDp;
+        const float TutorialBodyDp = UIDesignTokens.BodyLargeDp;
+        const float TutorialTitleDp = UIDesignTokens.TitleMediumDp;
+
         [Header("References")]
         [SerializeField] TextMeshProUGUI instructionText;
         [SerializeField] TextMeshProUGUI stepCounterText;
@@ -48,20 +52,19 @@ namespace Hotdrop.UI
             var ui = panel.GetComponent<TutorialUI>();
             ui.card = rect;
 
-            ui.stepCounterText = UiDraw.Text(panel.transform, "Progress", "", UiFont.Mono, 11f, UiDraw.Hex("#30d5e8"), 0f, TextAlignmentOptions.Midline);
+            ui.stepCounterText = UiDraw.Text(panel.transform, "Progress", "", UiFont.Mono, TutorialCaptionDp, UiDraw.Hex("#30d5e8"), 0f, TextAlignmentOptions.Midline);
             var chip = UiDraw.Box(panel.transform, "ProgressChip", UiDraw.Hex("#30d5e8", .2f), 4f);
             chip.transform.SetSiblingIndex(ui.stepCounterText.transform.GetSiblingIndex());
             ui.stepChip = chip.rectTransform;
-            ui.stepTitleText = UiDraw.Text(panel.transform, "StepTitle", "", UiFont.Heading, 14f, Color.white, .025f);
-            ui.instructionText = UiDraw.Text(panel.transform, "Instruction", "", UiFont.Body, 12f, UiDraw.Hex("#bbc6d8"));
+            ui.stepTitleText = UiDraw.Text(panel.transform, "StepTitle", "", UiFont.Heading, TutorialTitleDp, Color.white, .025f);
+            ui.instructionText = UiDraw.Text(panel.transform, "Instruction", "", UiFont.Body, TutorialBodyDp, UiDraw.Hex("#bbc6d8"));
             ui.instructionText.textWrappingMode = TextWrappingModes.Normal;
-            ui.instructionText.lineSpacing = -6f;
             ui.instructionText.alignment = TextAlignmentOptions.TopLeft;
             UiDraw.Place(ui.instructionText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -48f), new Vector2(412f, 40f));
 
             // SHOW ME: mono caption with the help glyph, right of the header row.
             ui.showMeButton = UiDraw.Tap(panel.transform, "Show me", new Color(0f, 0f, 0f, 0f), 4f, null);
-            var showLabel = UiDraw.Text(ui.showMeButton.transform, "Show me label", "SHOW ME", UiFont.MonoRegular, 11f, UiDraw.Hex("#7f8ca3"), .05f);
+            var showLabel = UiDraw.Text(ui.showMeButton.transform, "Show me label", "SHOW ME", UiFont.MonoRegular, TutorialCaptionDp, UiDraw.Hex("#7f8ca3"), .05f);
             float showW = UiDraw.Width(showLabel);
             UiDraw.Place((RectTransform)ui.showMeButton.transform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-14f, -29f), new Vector2(showW + 18f, 32f));
             UiDraw.Place(UiDraw.Icon(ui.showMeButton.transform, "Icon", "help", 12f, UiDraw.Hex("#7f8ca3")).rectTransform,
@@ -70,7 +73,7 @@ namespace Hotdrop.UI
 
             // SKIP TRAINING: 40 px, #1b2940/80 with an outline/40 rail, close glyph.
             ui.skipButton = UiDraw.Tap(canvas, "Skip training", UiDraw.Hex("#1b2940", .8f), 8f, null, UiDraw.Hex("#49627b", .4f));
-            var skipLabel = UiDraw.Text(ui.skipButton.transform, "Skip training label", "SKIP TRAINING", UiFont.Mono, 12f, UiDraw.Hex("#bbc6d8"));
+            var skipLabel = UiDraw.Text(ui.skipButton.transform, "Skip training label", "SKIP TRAINING", UiFont.Mono, TutorialCaptionDp, UiDraw.Hex("#bbc6d8"));
             float skipW = UiDraw.Width(skipLabel);
             UiDraw.Place((RectTransform)ui.skipButton.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f - 40f - 8f, -24f), new Vector2(16f + skipW + 6f + 14f + 16f, 40f));
             UiDraw.Place(skipLabel.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(skipW + 2f, 16f));
@@ -96,7 +99,7 @@ namespace Hotdrop.UI
             float chipW = UiDraw.Width(stepCounterText) + 16f;
             UiDraw.Place(stepChip, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(18f, -29f), new Vector2(chipW, 19f));
             UiDraw.Place(stepCounterText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(18f, -29f), new Vector2(chipW, 19f));
-            UiDraw.Place(stepTitleText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(18f + chipW + 8f, -29f), new Vector2(260f, 20f));
+            UiDraw.Place(stepTitleText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(18f + chipW + 8f, -29f), new Vector2(260f, 28f));
             float textH = Mathf.Max(16f, instructionText.GetPreferredValues(instructionText.text, 412f, 0f).y);
             instructionText.rectTransform.sizeDelta = new Vector2(412f, textH);
             card.sizeDelta = new Vector2(448f, 48f + textH + 18f);
@@ -137,7 +140,7 @@ namespace Hotdrop.UI
             showMeRevealed = true;
             if (showMeButton != null) showMeButton.gameObject.SetActive(true);
             if (instructionText != null)
-                instructionText.text = GetInstructionForStep(step);
+                instructionText.text = UiPresentationProfile.NormalizeRichText(GetInstructionForStep(step));
 
             if (stepCounterText != null)
             {
@@ -169,7 +172,7 @@ namespace Hotdrop.UI
         public void SetInstruction(string instruction)
         {
             if (instructionText != null)
-                instructionText.text = instruction;
+                instructionText.text = UiPresentationProfile.NormalizeRichText(instruction);
             LayoutCard();
         }
 

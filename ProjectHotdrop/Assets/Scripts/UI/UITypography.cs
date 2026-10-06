@@ -29,7 +29,7 @@ namespace Hotdrop.UI
         public bool uppercase;      // DESIGN.md wants short competitive labels in caps
         public float trackingEm;    // letter spacing in em
 
-        public float SizeUnits => UiMetrics.TextSize(UiMetrics.UnitsForDp(designDp));
+        public float SizeUnits => UiMetrics.TextSize(designDp);
     }
 
     /// <summary>

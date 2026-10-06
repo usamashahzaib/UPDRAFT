@@ -467,6 +467,12 @@ namespace HotdropBackend.Data.Migrations
                     b.Property<bool>("HadBotSubstitution")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("ProfileXpAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProfileXpBefore")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("Slot")
                         .HasColumnType("integer");
 

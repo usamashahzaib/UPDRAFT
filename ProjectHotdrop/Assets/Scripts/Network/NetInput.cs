@@ -28,7 +28,9 @@ namespace Hotdrop.Network
         /// <summary>Server-side validation: clamp everything a modified client could inflate.</summary>
         public void Sanitize()
         {
-            if (float.IsNaN(Move.x) || float.IsNaN(Move.y)) Move = Vector2.zero;
+            if (float.IsNaN(Move.x) || float.IsInfinity(Move.x) ||
+                float.IsNaN(Move.y) || float.IsInfinity(Move.y))
+                Move = Vector2.zero;
             Move = Vector2.ClampMagnitude(Move, 1f);
             if (float.IsNaN(Yaw) || float.IsInfinity(Yaw)) Yaw = 0f;
             Yaw = Mathf.Repeat(Yaw, 360f);

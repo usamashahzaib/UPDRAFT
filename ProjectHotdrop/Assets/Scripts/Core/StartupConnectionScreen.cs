@@ -11,6 +11,9 @@ namespace Hotdrop.Core
     /// every non-normal state explains what happened and retains local play when possible.</summary>
     public sealed class StartupConnectionScreen : MonoBehaviour
     {
+        const float CaptionDp = UIDesignTokens.CaptionDp;
+        const float UiDp = UIDesignTokens.BodyLargeDp;
+        const float TitleDp = UIDesignTokens.TitleMediumDp;
         GameObject panel;
         GameBootstrap game;
         bool advanced;
@@ -38,7 +41,12 @@ namespace Hotdrop.Core
             remoteStatusDetail = null;
             remoteStoreUrl = null;
             if (panel == null) Build(state);
-            else { panel.SetActive(true); Refresh(state); }
+            else
+            {
+                panel.SetActive(true);
+                Hotdrop.UI.UiScreenEnterMotion.Reopen(panel);
+                Refresh(state);
+            }
 
             // Normal launches should feel immediate but the branded connection moment remains
             // available for a screenshot and does not block automated or keyboard-free starts.
@@ -116,8 +124,10 @@ namespace Hotdrop.Core
 
         public void Retry()
         {
-            if (panel != null) Destroy(panel);
+            var previousPanel = panel;
             panel = null;
+            if (previousPanel != null)
+                Hotdrop.UI.UiScreenEnterMotion.Exit(previousPanel, () => Destroy(previousPanel));
             Show(game);
         }
 
@@ -125,7 +135,7 @@ namespace Hotdrop.Core
         {
             if (advanced || game == null) return;
             advanced = true;
-            panel?.SetActive(false);
+            HidePanel();
             game.ContinueFromStartup();
         }
 
@@ -133,8 +143,18 @@ namespace Hotdrop.Core
         {
             if (advanced || game == null) return;
             advanced = true;
-            panel?.SetActive(false);
+            HidePanel();
             game.StartOfflinePractice();
+        }
+
+        void HidePanel()
+        {
+            var closingPanel = panel;
+            if (closingPanel == null) return;
+            Hotdrop.UI.UiScreenEnterMotion.Exit(closingPanel, () =>
+            {
+                if (closingPanel != null) closingPanel.SetActive(false);
+            });
         }
 
         StartupConnectionState ResolveState()
@@ -212,9 +232,9 @@ namespace Hotdrop.Core
             // Header: pulsing dot + relay caption left, frame annotation right.
             var dot = UiDraw.Box(root, "LiveDot", UiDraw.Hex("#30d5e8", .7f), 4f);
             UiDraw.Place(dot.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(SideInset, -EdgeInset - 8f), new Vector2(8f, 8f));
-            var caption = UiDraw.Text(root, "UpperLeft", "AIR-GROUND KINETIC RELAY", UiFont.MonoRegular, 12f, UiDraw.Hex("#7f8ca3"), .1f);
+            var caption = UiDraw.Text(root, "UpperLeft", "AIR-GROUND KINETIC RELAY", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), .1f);
             UiDraw.Place(caption.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(SideInset + 16f, -EdgeInset - 8f), new Vector2(400f, 16f));
-            frameLabel = UiDraw.Text(root, "UpperRight", FrameLabelText(), UiFont.MonoRegular, 11f, UiDraw.Hex("#7f8ca3", .8f), .1f,
+            frameLabel = UiDraw.Text(root, "UpperRight", FrameLabelText(), UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3", .8f), .1f,
                 TextAlignmentOptions.MidlineRight);
             UiDraw.Place(frameLabel.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-SideInset, -EdgeInset - 8f), new Vector2(400f, 16f));
 
@@ -233,19 +253,19 @@ namespace Hotdrop.Core
             ringPulse = UiDraw.Place(UiDraw.Node(loader, "RelayRingPivot"), new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(120f, 0f), Vector2.zero);
             UiDraw.Place(UiDraw.Art(ringPulse, "RelayRing", "startup_loader_ring", Vector2.zero).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-120f, 0f), new Vector2(360f, 130f));
-            var preparing = UiDraw.Text(stack, "Preparing", "PREPARING THE ROOFTOP", UiFont.Heading, 14f, UiDraw.Hex("#f4f7fb"), .25f,
+            var preparing = UiDraw.Text(stack, "Preparing", "PREPARING THE ROOFTOP", UiFont.Heading, UiDp, UiDraw.Hex("#f4f7fb"), .25f,
                 TextAlignmentOptions.Midline);
             UiDraw.Place(preparing.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -258f), new Vector2(512f, 20f));
             UiDraw.Place(UiDraw.Art(stack, "RouteProgress", "startup_progress", Vector2.zero).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -279f), new Vector2(296f, 46f));
-            statusLine = UiDraw.Text(stack, "Nav_Status", "", UiFont.MonoRegular, 12f, UiDraw.Hex("#7f8ca3"), 0f, TextAlignmentOptions.Midline);
+            statusLine = UiDraw.Text(stack, "Nav_Status", "", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), 0f, TextAlignmentOptions.Midline);
             UiDraw.Place(statusLine.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -302f), new Vector2(720f, 16f));
 
             // Footer: slogan left, gesture pill centre, build chip right.
-            var slogan = UiDraw.Text(root, "Tagline", "Three players. One team. Three minutes.", UiFont.HeadingSemiBold, 12f,
+            var slogan = UiDraw.Text(root, "Tagline", "Three players. One team. Three minutes.", UiFont.HeadingSemiBold, CaptionDp,
                 UiDraw.Hex("#bbc6d8"), .025f);
             UiDraw.Place(slogan.rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(SideInset, EdgeInset + 26.5f), new Vector2(400f, 16f));
-            var sub = UiDraw.Text(root, "TaglineSub", "Build shortcuts your enemies can steal.", UiFont.Body, 11f, UiDraw.Hex("#7f8ca3"), .025f);
+            var sub = UiDraw.Text(root, "TaglineSub", "Build shortcuts your enemies can steal.", UiFont.Body, CaptionDp, UiDraw.Hex("#7f8ca3"), .025f);
             UiDraw.Place(sub.rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(SideInset, EdgeInset + 8.25f), new Vector2(400f, 16.5f));
             var pill = UiDraw.Box(root, "SafeZonePill", UiDraw.Hex("#49627b", .3f), 2f);
             UiDraw.Place(pill.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, .5f), new Vector2(0f, EdgeInset + 19.25f), new Vector2(144f, 4f));
@@ -290,7 +310,7 @@ namespace Hotdrop.Core
         {
             string value = $"BUILD v{Application.version}";
             var chip = UiDraw.Box(parent, "BuildChip", UiDraw.Hex("#1b2940", .8f), 4f, UiDraw.Hex("#49627b", .4f));
-            var text = UiDraw.Text(chip.transform, "Version", value, UiFont.MonoRegular, 11f, UiDraw.Hex("#7f8ca3"), 0f, TextAlignmentOptions.Midline);
+            var text = UiDraw.Text(chip.transform, "Version", value, UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), 0f, TextAlignmentOptions.Midline);
             UiDraw.Fill(text.rectTransform);
             float width = text.GetPreferredValues(value).x + 22f;
             UiDraw.Place(chip.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-SideInset, EdgeInset), new Vector2(width, 26.5f));

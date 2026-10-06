@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using HotdropBackend.Data;
 using HotdropBackend.Domain;
+using HotdropBackend.Services;
 
 namespace HotdropBackend.Endpoints;
 
@@ -47,11 +48,16 @@ public static class ProfileEndpoints
             });
         });
 
-        group.MapGet("/inventory", async (HttpContext ctx, HotdropDbContext db) =>
+        group.MapGet("/inventory", async (HttpContext ctx, HotdropDbContext db, ProgressionOptions progression) =>
         {
             var playerId = RequireOwnerId(ctx);
             var items = await db.InventoryItems.Where(i => i.PlayerId == playerId).ToListAsync();
-            return Results.Ok(new { items });
+            var wrapUnlocks = (progression.LevelUnlocks ?? new Dictionary<int, string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x.Value) && x.Value.StartsWith("wrap_", StringComparison.Ordinal))
+                .OrderBy(x => x.Key)
+                .Select(x => new { level = x.Key, cosmeticId = x.Value })
+                .ToArray();
+            return Results.Ok(new { items, wrapUnlocks });
         });
 
         // Amendment 3: equip validates category and ownership per slot and writes only that

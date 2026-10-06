@@ -51,6 +51,7 @@ namespace Hotdrop.Tests.PlayMode
         public void Restore()
         {
             Time.timeScale = 1f;
+            SafeAreaRoot.SimulatedScreen = null;
             if (challengeSavePath != null)
                 foreach (string suffix in new[] { "", ".tmp", ".bak" })
                     if (System.IO.File.Exists(challengeSavePath + suffix)) System.IO.File.Delete(challengeSavePath + suffix);
@@ -66,6 +67,9 @@ namespace Hotdrop.Tests.PlayMode
             canvasRect = canvas.GetComponent<RectTransform>();
             canvasRect.localScale = Vector3.one;
             canvasRect.sizeDelta = new Vector2(Width / scale, Height / scale);
+            // The touch controls size themselves from the composed frame's density; give them
+            // the same phone the canvas is pinned to.
+            SafeAreaRoot.SimulatedScreen = new Vector4(Width, Height, Dpi, 0f);
         }
 
         static IEnumerator Settle()
@@ -106,8 +110,10 @@ namespace Hotdrop.Tests.PlayMode
             {
                 if (!text.isActiveAndEnabled || string.IsNullOrWhiteSpace(text.text) || text.color.a < 0.05f) continue;
                 text.ForceMeshUpdate();
-                if (ToDp(text.fontSize) < MinTextDp)
-                    failures.Add($"[{screen}] text '{Path(text.transform)}' (\"{Short(text.text)}\") is {ToDp(text.fontSize):0.0} dp (< 12 dp)");
+                // Rendered size, including any scale between the text and the canvas.
+                float rendered = text.fontSize * text.transform.lossyScale.y / canvasRect.lossyScale.y;
+                if (ToDp(rendered) < MinTextDp)
+                    failures.Add($"[{screen}] text '{Path(text.transform)}' (\"{Short(text.text)}\") is {ToDp(rendered):0.0} dp (< 12 dp)");
                 if (text.GetComponentInParent<ScrollRect>() == null && !Inside(bounds, CanvasSpaceRect(text.rectTransform)))
                     failures.Add($"[{screen}] text '{Path(text.transform)}' (\"{Short(text.text)}\") is off-screen");
             }

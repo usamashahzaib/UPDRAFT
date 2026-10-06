@@ -27,8 +27,21 @@ namespace Hotdrop.UI
 
         public void Hide()
         {
-            if (menu != null) { menu.Root.SetActive(false); Destroy(menu.Root); menu = null; }
+            DismissMenu();
             if (tracker != null) tracker.SetActive(false);
+        }
+
+        void DismissMenu()
+        {
+            if (menu == null) return;
+            var closingRoot = menu.Root;
+            menu = null;
+            UiScreenEnterMotion.Exit(closingRoot, () =>
+            {
+                if (closingRoot == null) return;
+                closingRoot.SetActive(false);
+                Destroy(closingRoot);
+            });
         }
 
         void NewMenu(string name, string title, UnityEngine.Events.UnityAction back)
@@ -72,7 +85,7 @@ namespace Hotdrop.UI
         public void UpdateGameplayHUDView(OfflineChallengeEntry entry, float elapsedTime, int targetsCompleted, int totalTargets)
         {
             if (entry == null) return;
-            if (menu != null) { menu.Root.SetActive(false); Destroy(menu.Root); menu = null; }
+            DismissMenu();
             if (tracker == null)
             {
                 var root = MenuLayout.Card(game.matchHUD.transform, "ChallengeTracker");

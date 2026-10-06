@@ -12,35 +12,51 @@ namespace Hotdrop.UI
     /// </summary>
     public static class MatchSearchView
     {
-        static Color Ink => UiDraw.Hex("#101827");
-        static Color Panel => UiDraw.Hex("#1b2940");
-        static Color Edge => UiDraw.Hex("#49627b");
-        static Color Cyan => UiDraw.Hex("#30d5e8");
-        static Color Coral => UiDraw.Hex("#ff6376");
-        static Color Text1 => UiDraw.Hex("#f4f7fb");
-        static Color Text2 => UiDraw.Hex("#bbc6d8");
-        static Color Muted => UiDraw.Hex("#7f8ca3");
+        const float SearchCaptionDp = UIDesignTokens.CaptionDp;
+        const float SearchBodyDp = UIDesignTokens.BodyLargeDp;
+        const float SearchEmphasisDp = UIDesignTokens.TitleMediumDp;
+        static Color Ink => UIDesignTokens.Background;
+        static Color Panel => UIDesignTokens.SurfacePanel;
+        static Color Edge => UIDesignTokens.SurfaceStructural;
+        static Color Cyan => UIDesignTokens.PrimaryAction;
+        static Color Text1 => UIDesignTokens.TextPrimary;
+        static Color Text2 => UIDesignTokens.TextSecondary;
+        static Color Muted => UIDesignTokens.TextMuted;
         static Texture2D dots;
 
         public static void Clear(GameObject owner)
         {
             var old = owner != null ? owner.transform.Find("MatchSearchVisual") : null;
             if (old == null) return;
-            if (Application.isPlaying) UnityEngine.Object.Destroy(old.gameObject);
-            else UnityEngine.Object.DestroyImmediate(old.gameObject);
+            var oldObject = old.gameObject;
+            UiScreenEnterMotion.Exit(oldObject, () => DestroyRoot(oldObject));
+        }
+
+        static void DestroyRoot(GameObject root)
+        {
+            if (root == null) return;
+            if (Application.isPlaying) UnityEngine.Object.Destroy(root);
+            else UnityEngine.Object.DestroyImmediate(root);
         }
 
         public static void Show(GameObject owner, int elapsed, string region, PartyDto party, string playerId,
             bool practiceAvailable, Action cancel, Action practice)
         {
-            Clear(owner);
+            if (owner == null) return;
+            var existing = owner.transform.Find("MatchSearchVisual");
+            if (existing != null)
+            {
+                UpdateLiveSearch(existing, elapsed, region, party, playerId, practiceAvailable, cancel, practice);
+                return;
+            }
             var root = UiDraw.Node(owner.transform, "MatchSearchVisual");
+            root.gameObject.AddComponent<UiScreenEnterMotion>();
             UiDraw.Fill(root);
             UiDraw.Fill(UiDraw.Box(root, "Base", Ink).rectTransform);
             var grid = UiDraw.Node(root, "LocationGrid").gameObject.AddComponent<RawImage>();
             UiDraw.Fill(grid.rectTransform);
             grid.texture = Dots(); grid.uvRect = new Rect(0, 0, 1600f / 24f, 720f / 24f);
-            grid.color = new Color(Cyan.r, Cyan.g, Cyan.b, .2f); grid.raycastTarget = false;
+            grid.color = UIDesignTokens.WithAlpha(Cyan, .2f); grid.raycastTarget = false;
             // The reference's blueprint SVG is 1920x1080 drawn 'meet' into the frame at 35%.
             var map = UiDraw.Node(root, "Blueprint").gameObject.AddComponent<RawImage>();
             map.texture = UiDraw.Texture("search_map");
@@ -51,22 +67,22 @@ namespace Hotdrop.UI
             fit.aspectRatio = 16f / 9f;
 
             // Header: live dot, mode and venue; region chip right.
-            var header = UiDraw.Box(root, "Header", UiDraw.Hex("#101827", .8f)).rectTransform;
+            var header = UiDraw.Box(root, "Header", UIDesignTokens.WithAlpha(Ink, .8f)).rectTransform;
             header.anchorMin = new Vector2(0f, 1f); header.anchorMax = Vector2.one; header.pivot = new Vector2(.5f, 1f);
             header.sizeDelta = new Vector2(0f, 58f); header.anchoredPosition = Vector2.zero;
-            var rule = UiDraw.Box(header, "Rule", UiDraw.Hex("#49627b", .4f)).rectTransform;
+            var rule = UiDraw.Box(header, "Rule", UIDesignTokens.WithAlpha(Edge, .4f)).rectTransform;
             rule.anchorMin = Vector2.zero; rule.anchorMax = new Vector2(1f, 0f); rule.pivot = new Vector2(.5f, 0f); rule.sizeDelta = new Vector2(0f, 1f);
             UiDraw.Place(UiDraw.Dot(header, "Live", 10f, Cyan).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(10f, 10f));
-            var state = UiDraw.Text(header, "State", "RELAY MATCHMAKING", UiFont.Heading, 12f, Cyan, .05f);
+            var state = UiDraw.Text(header, "State", "RELAY MATCHMAKING", UiFont.Heading, SearchCaptionDp, Cyan, .05f);
             float sw = UiDraw.Width(state);
             UiDraw.Place(state.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(54f, 0f), new Vector2(sw + 2f, 16f));
-            UiDraw.Place(UiDraw.Text(header, "Sep", "•", UiFont.Body, 12f, Edge).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(66f + sw, 0f), new Vector2(10f, 16f));
-            UiDraw.Place(UiDraw.Text(header, "Mode", "Switchyard 3v3 • Three Minute Round", UiFont.Body, 12f, Text2).rectTransform,
+            UiDraw.Place(UiDraw.Text(header, "Sep", "•", UiFont.Body, SearchCaptionDp, Edge).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(66f + sw, 0f), new Vector2(10f, 16f));
+            UiDraw.Place(UiDraw.Text(header, "Mode", "Switchyard 3v3 • Three Minute Round", UiFont.Body, SearchCaptionDp, Text2).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(84f + sw, 0f), new Vector2(320f, 16f));
             if (!string.IsNullOrWhiteSpace(region))
             {
                 var chip = UiDraw.Box(header, "RegionChip", Panel, 8f, Edge);
-                var rt = UiDraw.Text(chip.transform, "Region", region, UiFont.MonoRegular, 12f, Text2);
+                var rt = UiDraw.Text(chip.transform, "Region", region, UiFont.MonoRegular, SearchCaptionDp, Text2);
                 float rw = 12f + 8f + 8f + UiDraw.Width(rt) + 12f;
                 UiDraw.Place(chip.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, 0f), new Vector2(rw, 30f));
                 UiDraw.Place(UiDraw.Dot(chip.transform, "Dot", 8f, Cyan).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(12f, 0f), new Vector2(8f, 8f));
@@ -77,36 +93,36 @@ namespace Hotdrop.UI
             int memberCount = Mathf.Clamp(party?.members?.Length ?? 1, 1, 3);
             var stack = UiDraw.Place(UiDraw.Node(root, "Stack"), new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -4f), new Vector2(576f, 522f));
             var radar = UiDraw.Place(UiDraw.Node(stack, "Radar"), new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -88f), new Vector2(176f, 176f));
-            UiDraw.Fill(UiDraw.Ring(radar, "OuterScan", 176f, 1f, UiDraw.Hex("#49627b", .4f)).rectTransform);
-            UiDraw.Place(UiDraw.Ring(radar, "MiddleScan", 144f, 1f, UiDraw.Hex("#30d5e8", .3f)).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(144f, 144f));
-            UiDraw.Place(UiDraw.Ring(radar, "InnerScan", 112f, 1f, UiDraw.Hex("#30d5e8", .6f)).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(112f, 112f));
+            UiDraw.Fill(UiDraw.Ring(radar, "OuterScan", 176f, 1f, UIDesignTokens.WithAlpha(Edge, .4f)).rectTransform);
+            UiDraw.Place(UiDraw.Ring(radar, "MiddleScan", 144f, 1f, UIDesignTokens.WithAlpha(Cyan, .3f)).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(144f, 144f));
+            UiDraw.Place(UiDraw.Ring(radar, "InnerScan", 112f, 1f, UIDesignTokens.WithAlpha(Cyan, .6f)).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(112f, 112f));
             var sweep = UiDraw.Ring(radar, "Sweep", 176f, 2f, Cyan);
             UiDraw.Fill(sweep.rectTransform);
             sweep.type = Image.Type.Filled; sweep.fillMethod = Image.FillMethod.Radial360;
             sweep.fillOrigin = (int)Image.Origin360.Top; sweep.fillAmount = .25f;
             sweep.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f - Time.unscaledTime * 120f);
             sweep.gameObject.AddComponent<SpinUi>().degreesPerSecond = -120f;
-            UiDraw.Place(UiDraw.Text(radar, "SearchTime", $"{elapsed / 60:00}:{elapsed % 60:00}", UiFont.Mono, 30f, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(radar, "SearchTime", $"{elapsed / 60:00}:{elapsed % 60:00}", UiFont.Mono, SearchEmphasisDp, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 7f), new Vector2(160f, 36f));
-            UiDraw.Place(UiDraw.Text(radar, "SearchTimeCaption", "SEARCH TIME", UiFont.HeadingSemiBold, 10f, Muted, .05f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(radar, "SearchTimeCaption", "SEARCH TIME", UiFont.HeadingSemiBold, SearchCaptionDp, Muted, .05f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -17f), new Vector2(160f, 14f));
-            UiDraw.Place(UiDraw.Text(stack, "SearchingTitle", "FINDING A RELAY MATCH", UiFont.Heading, 24f, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(stack, "SearchingTitle", "FINDING A RELAY MATCH", UiFont.Heading, SearchEmphasisDp, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -216f), new Vector2(576f, 32f));
             var explain = UiDraw.Text(stack, "SearchExplanation", string.IsNullOrEmpty(region)
-                    ? "Connecting 6 competitive operatives for a fair 3v3 Relay match."
-                    : $"Connecting 6 competitive operatives across {region}. Matching fair, low-latency lobbies.",
-                UiFont.Body, 14f, Text2, 0f, TextAlignmentOptions.Midline);
+                    ? "Finding 6 players for a fair 3v3 Relay match."
+                    : $"Finding 6 players in {region} for a fair, low-latency match.",
+                UiFont.Body, SearchBodyDp, Text2, 0f, TextAlignmentOptions.Midline);
             explain.textWrappingMode = TextWrappingModes.Normal;
             UiDraw.Place(explain.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -258f), new Vector2(448f, 40f));
 
-            var squad = UiDraw.Box(stack, "Squad", UiDraw.Hex("#1b2940", .9f), 12f, Edge);
+            var squad = UiDraw.Box(stack, "Squad", UIDesignTokens.WithAlpha(Panel, .9f), 12f, Edge);
             var sq = UiDraw.Place(squad.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -302f), new Vector2(576f, 116f));
-            UiDraw.Place(UiDraw.Text(sq, "SquadHeading", $"YOUR SQUAD ({memberCount}/3)", UiFont.Heading, 12f, Muted, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(sq, "SquadHeading", $"YOUR SQUAD ({memberCount}/3)", UiFont.Heading, SearchCaptionDp, Muted, .05f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(17f, -26f), new Vector2(240f, 16f));
             bool allReady = party?.members != null && Array.TrueForAll(party.members, m => m == null || m.isReady);
-            UiDraw.Place(UiDraw.Text(sq, "ReadyHeading", party == null ? "SOLO QUEUE" : allReady ? "ALL MEMBERS READY" : "PARTY SEARCH", UiFont.MonoMedium, 12f, Cyan, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
+            UiDraw.Place(UiDraw.Text(sq, "ReadyHeading", party == null ? "SOLO QUEUE" : allReady ? "ALL MEMBERS READY" : "PARTY SEARCH", UiFont.MonoMedium, SearchCaptionDp, Cyan, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-17f, -26f), new Vector2(240f, 16f));
-            UiDraw.HRule(sq, "Rule", UiDraw.Hex("#49627b", .4f), 41f, 17f, 17f);
+            UiDraw.HRule(sq, "Rule", UIDesignTokens.WithAlpha(Edge, .4f), 41f, 17f, 17f);
             float seatW = (576f - 34f - 24f) / 3f;
             for (int i = 0; i < 3; i++)
             {
@@ -115,15 +131,15 @@ namespace Hotdrop.UI
                 bool solo = party == null && i == 0;
                 string alias = member?.alias ?? (solo ? "YOU" : "OPEN SEAT");
                 bool filled = member != null || solo;
-                var seat = UiDraw.Box(sq, "Seat_" + i, Ink, 8f, i == 0 ? UiDraw.Hex("#30d5e8", .4f) : Edge);
+                var seat = UiDraw.Box(sq, "Seat_" + i, Ink, 8f, i == 0 ? UIDesignTokens.WithAlpha(Cyan, .4f) : Edge);
                 UiDraw.Place(seat.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(17f + i * (seatW + 12f), -54f), new Vector2(seatW, 46f));
                 UiDraw.Place(UiDraw.Dot(seat.transform, "Dot", 8f, filled ? Cyan : Edge).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(9f, 0f), new Vector2(8f, 8f));
                 var name = UiDraw.Text(seat.transform, "Alias", filled ? StreamSafePresentation.PlayerName(alias, i) : alias,
-                    UiFont.Heading, 12f, filled ? Text1 : Muted);
+                    UiFont.Heading, SearchBodyDp, filled ? Text1 : Muted);
                 name.overflowMode = TextOverflowModes.Ellipsis;
                 UiDraw.Place(name.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(25f, 7f), new Vector2(seatW - 34f, 16f));
                 UiDraw.Place(UiDraw.Text(seat.transform, "Status", self || solo ? (party != null && i == 0 ? "HOST" : "YOU") : member == null ? "WAITING" : member.isReady ? "READY" : "NOT READY",
-                        UiFont.MonoRegular, 10f, Muted).rectTransform,
+                        UiFont.MonoRegular, SearchCaptionDp, Muted).rectTransform,
                     new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(25f, -9f), new Vector2(seatW - 34f, 14f));
             }
 
@@ -137,25 +153,75 @@ namespace Hotdrop.UI
                 Action(actions, "PracticeWhileWaiting", "flight_takeoff", "PRACTICE WHILE WAITING", Panel, Edge, Text2, ax, pw, practice);
                 ax += pw + 16f;
             }
-            Action(actions, "CancelSearch", "close", "CANCEL SEARCH", Panel, UiDraw.Hex("#ff6376", .5f), Coral, ax, cw, cancel);
+            Action(actions, "CancelSearch", "close", "CANCEL SEARCH", Panel, UIDesignTokens.WithAlpha(Edge, .5f), Text2, ax, cw, cancel);
 
             // Footer: the fairness rule and the venue.
-            var footer = UiDraw.Box(root, "Footer", UiDraw.Hex("#101827", .9f)).rectTransform;
+            var footer = UiDraw.Box(root, "Footer", UIDesignTokens.WithAlpha(Ink, .9f)).rectTransform;
             footer.anchorMin = Vector2.zero; footer.anchorMax = new Vector2(1f, 0f); footer.pivot = new Vector2(.5f, 0f);
             footer.sizeDelta = new Vector2(0f, 42f); footer.anchoredPosition = Vector2.zero;
-            UiDraw.HRule(footer, "Rule", UiDraw.Hex("#49627b", .4f), 0f);
+            UiDraw.HRule(footer, "Rule", UIDesignTokens.WithAlpha(Edge, .4f), 0f);
             UiDraw.Place(UiDraw.Icon(footer, "Info", "info", 14f, Cyan).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(14f, 14f));
             UiDraw.Place(UiDraw.Text(footer, "Fairness", practiceAvailable ? "Honest latency matching active. Practice leaves the queue before starting." : "Honest latency matching active.",
-                    UiFont.Body, 12f, Muted).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(54f, 0f), new Vector2(600f, 16f));
-            UiDraw.Place(UiDraw.Text(footer, "Venue", "SWITCHYARD // RELAY", UiFont.MonoRegular, 12f, Muted, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
+                    UiFont.Body, SearchCaptionDp, Muted).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(54f, 0f), new Vector2(600f, 16f));
+            UiDraw.Place(UiDraw.Text(footer, "Venue", "SWITCHYARD  ·  RELAY", UiFont.MonoRegular, SearchCaptionDp, Muted, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, 0f), new Vector2(300f, 16f));
+        }
+
+        static void UpdateLiveSearch(Transform root, int elapsed, string region, PartyDto party, string playerId,
+            bool practiceAvailable, Action cancel, Action practice)
+        {
+            var time = root.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (var label in time)
+            {
+                if (label.name == "SearchTime") label.text = $"{elapsed / 60:00}:{elapsed % 60:00}";
+                else if (label.name == "Region") label.text = region ?? "";
+                else if (label.name == "SearchExplanation") label.text = string.IsNullOrEmpty(region)
+                    ? "Finding 6 players for a fair 3v3 Relay match."
+                    : $"Finding 6 players in {region} for a fair, low-latency match.";
+                else if (label.name == "SquadHeading") label.text = $"YOUR SQUAD ({Mathf.Clamp(party?.members?.Length ?? 1, 1, 3)}/3)";
+                else if (label.name == "ReadyHeading")
+                {
+                    bool allReady = party?.members != null && Array.TrueForAll(party.members, m => m == null || m.isReady);
+                    label.text = party == null ? "SOLO QUEUE" : allReady ? "ALL MEMBERS READY" : "PARTY SEARCH";
+                }
+            }
+
+            // Seat alias and status labels include the seat index for an unambiguous refresh target.
+            for (int i = 0; i < 3; i++)
+            {
+                var seat = root.Find("Stack/Squad/Seat_" + i);
+                if (seat == null) continue;
+                var alias = seat.Find("Alias");
+                var status = seat.Find("Status");
+                var member = party?.members != null && i < party.members.Length ? party.members[i] : null;
+                bool solo = party == null && i == 0;
+                bool self = member != null && string.Equals(member.playerId, playerId, StringComparison.OrdinalIgnoreCase);
+                if (alias != null)
+                {
+                    alias.GetComponent<TextMeshProUGUI>().text = StreamSafePresentation.PlayerName(member?.alias ?? (solo ? "YOU" : "OPEN SEAT"), i);
+                    alias.GetComponent<TextMeshProUGUI>().color = member != null || solo ? Text1 : Muted;
+                }
+                if (status != null) status.GetComponent<TextMeshProUGUI>().text = self || solo ? (party != null && i == 0 ? "HOST" : "YOU") : member == null ? "WAITING" : member.isReady ? "READY" : "NOT READY";
+            }
+
+            var practiceButton = root.Find("Stack/Actions/PracticeWhileWaiting")?.GetComponent<Button>();
+            if (practiceButton != null) practiceButton.gameObject.SetActive(practiceAvailable);
+            Rebind(root.Find("Stack/Actions/PracticeWhileWaiting")?.GetComponent<Button>(), practice);
+            Rebind(root.Find("Stack/Actions/CancelSearch")?.GetComponent<Button>(), cancel);
+        }
+
+        static void Rebind(Button button, Action action)
+        {
+            if (button == null) return;
+            button.onClick.RemoveAllListeners();
+            if (action != null) button.onClick.AddListener(() => { GameAudio.Play2D(GameCue.UiTap); action(); });
         }
 
         static float Measure(string caption)
         {
             var probe = new GameObject("Probe", typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
             UIFonts.Use(probe, UiFont.Heading);
-            probe.fontSize = 12f; probe.characterSpacing = 5f;
+            probe.fontSize = SearchCaptionDp; probe.characterSpacing = 5f;
             float w = probe.GetPreferredValues(caption).x + 24f + 18f + 8f + 24f;
             UnityEngine.Object.Destroy(probe.gameObject);
             return w;
@@ -166,7 +232,7 @@ namespace Hotdrop.UI
             var b = UiDraw.Tap(parent, name, fill, 12f, () => { GameAudio.Play2D(GameCue.UiTap); action?.Invoke(); }, border);
             UiDraw.Place((RectTransform)b.transform, new Vector2(.5f, .5f), new Vector2(0f, .5f), new Vector2(x, 0f), new Vector2(w, 48f));
             UiDraw.Place(UiDraw.Icon(b.transform, "Icon", icon, 18f, ink).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(24f, 0f), new Vector2(18f, 18f));
-            UiDraw.Place(UiDraw.Text(b.transform, "Label", caption, UiFont.Heading, 12f, ink, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(b.transform, "Label", caption, UiFont.Heading, SearchCaptionDp, ink, .05f).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(50f, 0f), new Vector2(w - 60f, 16f));
         }
 

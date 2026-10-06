@@ -27,7 +27,7 @@ public static class MatchEndpoints
         // QA-017: authoritative reward receipt for the caller's own participation.
         // recorded=false (still 200) until the server's result lands, so the client
         // can poll and show "reward pending" instead of guessing.
-        group.MapGet("/{matchId}/receipt", async (Guid matchId, HttpContext ctx, HotdropDbContext db, CancellationToken cancellationToken) =>
+        group.MapGet("/{matchId}/receipt", async (Guid matchId, HttpContext ctx, HotdropDbContext db, ProgressionOptions progression, CancellationToken cancellationToken) =>
         {
             if (!Guid.TryParse(ctx.User.FindFirst("player_id")?.Value, out var playerId)) return Results.Forbid();
             var row = await db.MatchParticipations.AsNoTracking()
@@ -39,6 +39,10 @@ public static class MatchEndpoints
                 XpGained: row?.XpGained ?? 0,
                 CreditsGained: row?.CreditsGained ?? 0,
                 Level: level,
+                ProfileXpBefore: row?.ProfileXpBefore,
+                ProfileXpAfter: row?.ProfileXpAfter,
+                XpPerLevel: progression.XpPerLevel,
+                MaxLevel: progression.MaxLevel,
                 Unlocked: string.IsNullOrEmpty(row?.UnlockedCsv) ? [] : row.UnlockedCsv.Split(',', StringSplitOptions.RemoveEmptyEntries)));
         });
 
@@ -161,7 +165,8 @@ public static class MatchEndpoints
     public sealed record ValidateTicketRequest(Guid MatchId, string Ticket);
 
     /// <summary>Serialized camelCase: {recorded, eligible, xpGained, creditsGained, level, unlocked}.</summary>
-    public sealed record MatchReceipt(bool Recorded, bool Eligible, int XpGained, int CreditsGained, int Level, string[] Unlocked);
+    public sealed record MatchReceipt(bool Recorded, bool Eligible, int XpGained, int CreditsGained, int Level,
+        int? ProfileXpBefore, int? ProfileXpAfter, int XpPerLevel, int MaxLevel, string[] Unlocked);
 }
 
 

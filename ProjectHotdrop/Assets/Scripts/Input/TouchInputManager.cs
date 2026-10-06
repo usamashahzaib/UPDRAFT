@@ -140,6 +140,12 @@ namespace Hotdrop.Input
 
         bool leftHandedMode = false;
         float dpiScale = 1f;
+
+        /// <summary>
+        /// How much larger than one canvas unit per design px the touch controls are drawn, so
+        /// their design px land as physical dp. 1 wherever a canvas unit is already at least a dp.
+        /// </summary>
+        public float ControlScale { get; private set; } = 1f;
         /// <summary>Screen 08's bottom inset for the action cluster: 24 px margin + 8 px padding.</summary>
         const float safeBottomDesign = 32f;
         float reservedBottomDesign;
@@ -601,19 +607,29 @@ namespace Hotdrop.Input
             // RELOAD 56 stacked, all bottom-aligned 32 px up and 24 px in; ping and menu 40 in the
             // top-right row. Customization may shrink a hit rect, so retain the 48 dp minimum;
             // the drawn control stays at its design size.
+            //
+            // Design px are laid out in canvas units, and on a dense phone a canvas unit is smaller
+            // than a dp (Galaxy A06: 1 unit = 1 px = 0.53 dp), so the controls were drawn at about
+            // half their physical design size and the "48 dp" hit floor was really 26 dp. Thumbs are
+            // physical, so the action cluster uses true dp wherever a unit is smaller than one; where
+            // the canvas is already larger (tablets, desktop captures) nothing changes.
             var frame = SafeAreaRoot.ScreenSize;
             float u = Hotdrop.UI.UiMetrics.ScaleFor(frame.x, frame.y, 0f);
-            dpiScale = u;
+            float px = Mathf.Max(u, ComposedDpiScale());
+            ControlScale = px / u;
+            dpiScale = px;
             float S(ControlButton b, float design) => Mathf.Max(Hotdrop.UI.UiMetrics.MinTouchDp,
-                design * buttonScale[(int)b]) * u;
+                design * buttonScale[(int)b]) * px;
             float fireSize = S(ControlButton.Fire, 80f);
             float jumpSize = S(ControlButton.Jump, 64f);
             float padSize = S(ControlButton.Pad, 56f);
             float reloadSize = S(ControlButton.Reload, 56f);
             float pingSize = S(ControlButton.Ping, 40f);
             float pauseSize = S(ControlButton.Pause, 40f);
-            float margin = 24f * u;
-            float bottom = (reservedBottomDesign > 0f ? reservedBottomDesign + 8f : safeBottomDesign) * u;
+            float margin = 24f * px;
+            // A reserved footer is drawn in canvas units, so clear it in canvas units.
+            float bottom = reservedBottomDesign > 0f ? (reservedBottomDesign + 8f) * u : safeBottomDesign * px;
+            u = px;
 
             Rect safe = ComposedSafeRect();
             // Laid out right-handed from the right edge, then mirrored for left-handed play.

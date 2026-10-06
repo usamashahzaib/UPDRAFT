@@ -327,7 +327,7 @@ namespace Hotdrop.UI
                 case ButtonVariant.Primary:
                     return State == HotdropButtonState.Normal ? NormalFill() : UIDesignTokens.ActionCyanPressed;
                 case ButtonVariant.Destructive:
-                    return State == HotdropButtonState.Normal ? UIDesignTokens.HazardCoral : UIDesignTokens.HazardCoralPressed;
+                    return State == HotdropButtonState.Normal ? NormalFill() : UIDesignTokens.SurfacePanel;
                 case ButtonVariant.Quiet:
                     return State == HotdropButtonState.Normal ? new Color(0f, 0f, 0f, 0f) : UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, 0.7f);
                 default:
@@ -338,7 +338,7 @@ namespace Hotdrop.UI
         Color NormalFill() => variant switch
         {
             ButtonVariant.Primary => UIDesignTokens.PrimaryAction,
-            ButtonVariant.Destructive => UIDesignTokens.HazardCoral,
+            ButtonVariant.Destructive => UIDesignTokens.SurfaceSelected,
             ButtonVariant.Quiet => new Color(0f, 0f, 0f, 0f),
             _ => UIDesignTokens.SurfacePanel,
         };
@@ -350,7 +350,7 @@ namespace Hotdrop.UI
             switch (variant)
             {
                 case ButtonVariant.Primary: return UIDesignTokens.TextOn(UIDesignTokens.PrimaryAction);
-                case ButtonVariant.Destructive: return UIDesignTokens.TextOn(UIDesignTokens.HazardCoral);
+                case ButtonVariant.Destructive: return UIDesignTokens.TextPrimary;
                 case ButtonVariant.Quiet: return State == HotdropButtonState.Normal ? UIDesignTokens.TextSecondary : UIDesignTokens.TextPrimary;
                 default: return UIDesignTokens.TextPrimary;
             }
@@ -360,10 +360,10 @@ namespace Hotdrop.UI
         {
             if (State == HotdropButtonState.Disabled) return UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceDisabled, UIDesignTokens.BorderOpacity);
             if (State == HotdropButtonState.Held || State == HotdropButtonState.Pressed)
-                return UIDesignTokens.ForTone(accent);
+                return variant == ButtonVariant.Destructive ? UIDesignTokens.SignalWarning : UIDesignTokens.ForTone(accent);
             if (State == HotdropButtonState.Cooldown) return UIDesignTokens.BorderColor();
             return variant == ButtonVariant.Primary ? UIDesignTokens.PrimaryAction
-                : variant == ButtonVariant.Destructive ? UIDesignTokens.HazardCoral
+                : variant == ButtonVariant.Destructive ? UIDesignTokens.SignalWarning
                 : variant == ButtonVariant.Quiet ? UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceStructural, 0.4f)
                 : UIDesignTokens.BorderColor();
         }

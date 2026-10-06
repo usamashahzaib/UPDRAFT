@@ -41,7 +41,10 @@ namespace Hotdrop.Network
         // ownerSlot (C04): the pad's owner, so the result can attribute a teammate's use
         // of someone else's pad back to the player who built it.
         public struct PadEvent { public string name; public int slot; public int team; public int padTeam; public int ownerSlot; public float matchTime; }
-        public readonly List<PadEvent> ServerPadEvents = new List<PadEvent>();
+        readonly List<PadEvent> serverPadEvents = new List<PadEvent>();
+        public System.Collections.ObjectModel.ReadOnlyCollection<PadEvent> ServerPadEvents => serverPadEvents.AsReadOnly();
+        ServerMatchReplay serverReplay;
+        public System.Collections.Generic.IReadOnlyList<ServerMatchReplay.Sample> ServerReplaySamples => serverReplay?.Samples;
         public System.Action<NetMatch> OnServerMatchEnded;
         public System.Action<NetMatch> OnServerMatchCancelled;
         public event System.Action<int, int, PingKind, Vector3> OnPingBroadcast;
@@ -78,6 +81,7 @@ namespace Hotdrop.Network
             {
                 flow = new MatchFlowController(R);
                 scoring = new RelayScoringController(R);
+                serverReplay = new ServerMatchReplay(R.regulationDurationSeconds + R.maxOvertimeSeconds, MatchmakingSize);
                 Phase = MatchPhase.Preparation;
                 LoadTimeout = TickTimer.CreateFromSeconds(Runner, R.loadTimeoutSeconds);
             }
@@ -89,8 +93,11 @@ namespace Hotdrop.Network
             MatchView.Unregister(this);
         }
 
-        public void QueueShot(NetPlayer shooter, Vector3 origin, Vector3 aim, uint seed, MovementState state) =>
+        public void QueueShot(NetPlayer shooter, Vector3 origin, Vector3 aim, uint seed, MovementState state)
+        {
+            if (!HasStateAuthority || shooter == null || shooter.Runner != Runner) return;
             shots.Add(new Shot { shooter = shooter, origin = origin, aim = aim, seed = seed, state = state });
+        }
 
         public override void FixedUpdateNetwork()
         {
@@ -116,6 +123,7 @@ namespace Hotdrop.Network
             ResolveShots();
             HandleEliminationsAndRespawns();
             HandleAbsence();
+            if (IsLive) serverReplay?.Capture(Runner, dt, MatchClock);
 
             if (IsLive)
             {
@@ -245,7 +253,7 @@ namespace Hotdrop.Network
 
         public void Eliminate(NetPlayer victim, int killerSlot, int weapon)
         {
-            if (victim.Dead) return;
+            if (!HasStateAuthority || victim == null || victim.Runner != Runner || victim.Dead) return;
             victim.ServerKill(killerSlot, weapon);
             foreach (var p in NetPlayer.All)
                 if (p.Runner == Runner && p.Slot == killerSlot && p != victim) p.EliminationCount++;
@@ -316,23 +324,36 @@ namespace Hotdrop.Network
 
         public void SpawnPad(NetPlayer owner, Vector3 position, Vector3 forward)
         {
+            if (!HasStateAuthority || owner == null || owner.Runner != Runner) return;
             // New placement removes the owner's previous pad (max 1 per owner).
             var previous = NetPad.ActiveOwnedBy(Runner, owner.Slot);
             if (previous != null) previous.Removed = true;
             if (PadPrefab == null) PadPrefab = Resources.Load<NetworkObject>("NetPrefabs/NetPad");
             Runner.Spawn(PadPrefab, position, Quaternion.LookRotation(forward), PlayerRef.None,
                 (runner, obj) => obj.GetComponent<NetPad>().Init(owner.Slot, owner.Team, forward));
-            ServerPadEvents.Add(new PadEvent { name = "pad_placed", slot = owner.Slot, team = owner.Team, padTeam = owner.Team, ownerSlot = owner.Slot, matchTime = MatchClock });
+            serverPadEvents.Add(new PadEvent { name = "pad_placed", slot = owner.Slot, team = owner.Team, padTeam = owner.Team, ownerSlot = owner.Slot, matchTime = MatchClock });
         }
 
-        public void RecordPadUse(NetPad pad, NetPlayer user) =>
-            ServerPadEvents.Add(new PadEvent { name = "pad_used", slot = user.Slot, team = user.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
+        public void RecordPadUse(NetPad pad, NetPlayer user)
+        {
+            if (!HasStateAuthority || pad == null || user == null || pad.Runner != Runner || user.Runner != Runner) return;
+            serverPadEvents.Add(new PadEvent { name = "pad_used", slot = user.Slot, team = user.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
+        }
 
-        public void RecordPadDestroyed(NetPad pad) =>
-            ServerPadEvents.Add(new PadEvent { name = "pad_destroyed", slot = pad.OwnerSlot, team = pad.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
+        public void RecordPadDestroyed(NetPad pad)
+        {
+            if (!HasStateAuthority || pad == null || pad.Runner != Runner) return;
+            serverPadEvents.Add(new PadEvent { name = "pad_destroyed", slot = pad.OwnerSlot, team = pad.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
+        }
 
         public void BroadcastPing(int senderSlot, int team, PingKind kind, Vector3 position) =>
+            BroadcastPingIfAuthority(senderSlot, team, kind, position);
+
+        void BroadcastPingIfAuthority(int senderSlot, int team, PingKind kind, Vector3 position)
+        {
+            if (!HasStateAuthority) return;
             RPC_BroadcastPing(senderSlot, team, (int)kind, position);
+        }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         void RPC_BroadcastPing(int senderSlot, int team, int kind, Vector3 position)

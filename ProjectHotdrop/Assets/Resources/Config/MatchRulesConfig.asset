@@ -45,3 +45,5 @@ MonoBehaviour:
   botSubstitutionDelaySeconds: 5
   pingLifetimeSeconds: 8
   pingCooldownSeconds: 2
+  minimumAimPointDistanceMeters: 0.5
+  cameraAimRayDistanceMeters: 100

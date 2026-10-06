@@ -24,6 +24,8 @@ namespace Hotdrop.Config
         public int maxActivePadsPerOwner = 1;
         [UnityEngine.Serialization.FormerlySerializedAs("maxPlacementsPerMatch")]
         public int maxActivePadsPerMatch = 6;
+        [Tooltip("Server-side per-player lifetime placement cap for one match. Separate from the simultaneous arena pad cap.")]
+        public int maxPlacementsPerPlayerPerMatch = 60;
         public float perPlayerActivationLockoutSeconds = 1f;
 
         [Header("Placement")]

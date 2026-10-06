@@ -64,6 +64,7 @@ namespace Hotdrop.Editor
             config.speedWhileFiring = 5.1f;
             config.groundAcceleration = 35f;
             config.gravity = 20f;
+            config.weaponMovingGroundSpeedThreshold = 0.5f;
             config.jumpUpwardVelocity = 6f;
             config.capsuleHeight = 1.8f;
             config.capsuleRadius = 0.35f;
@@ -159,6 +160,7 @@ namespace Hotdrop.Editor
             config.launchWeaponLockoutSeconds = 0.3f;
             config.maxActivePadsPerOwner = 1;
             config.maxActivePadsPerMatch = 6;
+            config.maxPlacementsPerPlayerPerMatch = 60;
             config.perPlayerActivationLockoutSeconds = 1f;
             config.placementForwardOffset = 1.6f;
             config.previewHoldThresholdSeconds = 0.18f;
@@ -186,6 +188,8 @@ namespace Hotdrop.Editor
             config.botSubstitutionDelaySeconds = 5f;
             config.pingLifetimeSeconds = 8f;
             config.pingCooldownSeconds = 2f;
+            config.minimumAimPointDistanceMeters = 0.5f;
+            config.cameraAimRayDistanceMeters = 100f;
 
             config.schedule = new ZoneScheduleEntry[]
             {
@@ -274,6 +278,7 @@ namespace Hotdrop.Editor
             config.minPresenceFraction = 0.75f;
             config.afkWarningSeconds = 30f;
             config.afkRemovalAfterWarningSeconds = 15f;
+            config.disconnectBotSubstitutionSeconds = ProgressionConfig.DefaultDisconnectBotSubstitutionSeconds;
             config.creditsPerEligibleMatch = 20;
             config.creditsWinBonus = 5;
             config.creditsPerLevelUp = 20;

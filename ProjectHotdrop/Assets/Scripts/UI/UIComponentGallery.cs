@@ -288,8 +288,8 @@ namespace Hotdrop.UI
             badges.GetComponent<HorizontalLayoutGroup>().childForceExpandWidth = false;
             foreach (var (caption, tone) in new[]
             {
-                ("[ZONE A // CAPTURED]", UiTone.Objective),
-                ("[ALLY // 24MS]", UiTone.Friendly),
+                ("ZONE A CAPTURED", UiTone.Objective),
+                ("ALLY  ·  24 MS", UiTone.Friendly),
                 ("[SHOT BLOCKED]", UiTone.Enemy),
                 ("[MATCH READY]", UiTone.Success),
                 ("[NO SIGNAL]", UiTone.Disabled),

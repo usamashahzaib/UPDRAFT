@@ -51,6 +51,10 @@ namespace Hotdrop.Config
         public float pingLifetimeSeconds = 8f;
         public float pingCooldownSeconds = 2f;
 
+        [Header("Aim")]
+        [Min(0.5f)] public float minimumAimPointDistanceMeters = 0.5f;
+        [Min(0.5f)] public float cameraAimRayDistanceMeters = 100f;
+
         public ZoneId? GetActiveZone(float matchTime)
         {
             foreach (var entry in schedule)

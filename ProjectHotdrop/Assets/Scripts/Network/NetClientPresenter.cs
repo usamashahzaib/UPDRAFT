@@ -227,10 +227,11 @@ namespace Hotdrop.Network
             // Send the camera's selected world point. The server derives a muzzle-to-point
             // direction and resolves every pellet itself; the client supplies no hit result.
             var cam = game.mainCamera.transform;
+            float rayDistance = NetConfigs.Rules.cameraAimRayDistanceMeters;
             Vector3 eye = local.transform.position + Vector3.up * (NetConfigs.Movement.capsuleHeight * 0.8f);
-            Vector3 target = cam.position + cam.forward * 100f;
-            int count = Physics.RaycastNonAlloc(cam.position, cam.forward, aimHits, 100f, ~0, QueryTriggerInteraction.Ignore);
-            float nearest = 100f;
+            Vector3 target = cam.position + cam.forward * rayDistance;
+            int count = Physics.RaycastNonAlloc(cam.position, cam.forward, aimHits, rayDistance, ~0, QueryTriggerInteraction.Ignore);
+            float nearest = rayDistance;
             for (int i = 0; i < count; i++)
             {
                 if (aimHits[i].distance >= nearest || aimHits[i].collider.GetComponentInParent<NetPlayer>() == local) continue;
@@ -280,9 +281,10 @@ namespace Hotdrop.Network
             }
 
             var cam = game.mainCamera.transform;
-            Vector3 target = cam.position + cam.forward * 100f;
-            int aimCount = Physics.RaycastNonAlloc(cam.position, cam.forward, aimHits, 100f, ~0, QueryTriggerInteraction.Ignore);
-            float nearestAim = 100f;
+            float rayDistance = NetConfigs.Rules.cameraAimRayDistanceMeters;
+            Vector3 target = cam.position + cam.forward * rayDistance;
+            int aimCount = Physics.RaycastNonAlloc(cam.position, cam.forward, aimHits, rayDistance, ~0, QueryTriggerInteraction.Ignore);
+            float nearestAim = rayDistance;
             Vector3 eye = local.transform.position + Vector3.up * (NetConfigs.Movement.capsuleHeight * 0.8f);
             for (int i = 0; i < aimCount; i++)
             {
@@ -430,7 +432,12 @@ namespace Hotdrop.Network
             bool won = !draw && ((outcome == MatchOutcome.TeamAWins && local.Team == 0) || (outcome == MatchOutcome.TeamBWins && local.Team == 1));
             string footer = match.Cancelled ? "MATCH CANCELLED  ·  NO RATING OR REWARDS CHANGED"
                 : match.HasBots ? "MIXED ROSTER  ·  RATING UNCHANGED" : "RANKED 3v3";
-            game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, null, match.Participants, footer);
+            var receiptState = match.Cancelled ? Hotdrop.UI.ResultsTrustState.Cancelled
+                : string.IsNullOrEmpty(MatchId) ? Hotdrop.UI.ResultsTrustState.UnverifiedDevelopment
+                : BackendClient.Instance == null ? Hotdrop.UI.ResultsTrustState.Unavailable
+                : Hotdrop.UI.ResultsTrustState.Pending;
+            game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, null, match.Participants, footer,
+                trustState: receiptState);
             if (!match.Cancelled) PollRewardReceipt();
             // QA-025: remember who was in this match so the player can report someone by name.
             var others = new System.Collections.Generic.List<RecentMatch.Entry>();
@@ -475,9 +482,23 @@ namespace Hotdrop.Network
         /// </summary>
         async void PollRewardReceipt()
         {
-            if (string.IsNullOrEmpty(MatchId) || BackendClient.Instance == null) return; // dev sessions
             var hud = game.matchHUD;
-            hud.SetResultsReceipt("REWARD PENDING — confirming your result with the server…", Hotdrop.UI.MatchHUD.SecondaryText);
+            if (string.IsNullOrEmpty(MatchId))
+            {
+                hud.SetResultsReceipt("REWARD NOT VERIFIED — no match receipt ID is available for this development session",
+                    Hotdrop.UI.MatchHUD.SecondaryText,
+                    "No server receipt is available for this development session.", Hotdrop.UI.ResultsTrustState.UnverifiedDevelopment);
+                return;
+            }
+            if (BackendClient.Instance == null)
+            {
+                hud.SetResultsReceipt("REWARD STATUS UNAVAILABLE — the server receipt service is not configured",
+                    Hotdrop.UI.MatchHUD.SecondaryText,
+                    "This screen could not confirm the receipt. Check your profile later.", Hotdrop.UI.ResultsTrustState.Unavailable);
+                return;
+            }
+            hud.SetResultsReceipt("REWARD PENDING — confirming your result with the server…", Hotdrop.UI.MatchHUD.SecondaryText,
+                trustState: Hotdrop.UI.ResultsTrustState.Pending);
             float delay = 2f;
             while (ShowingResults)
             {
@@ -487,24 +508,22 @@ namespace Hotdrop.Network
                 {
                     var r = receipt.Value;
                     if (!r.eligible)
-                        hud.SetResultsReceipt("NO REWARD FOR THIS MATCH (not eligible: left early, replaced by a bot, or server failure)", Hotdrop.UI.MatchHUD.SecondaryText);
+                        hud.SetResultsReceipt("NO REWARD FOR THIS MATCH (not eligible: left early, replaced by a bot, or server failure)", Hotdrop.UI.MatchHUD.SecondaryText,
+                            "The server recorded this match without XP or credits.", Hotdrop.UI.ResultsTrustState.Verified);
                     else
                     {
-                        string unlocked = r.unlocked != null && r.unlocked.Length > 0
-                            // C02/Amendment 1: show unlocks by the same readable names the
-                            // Appearance screen uses, so "badge_first_flight" reads as a badge.
-                            ? "  ·  UNLOCKED " + string.Join(", ", System.Array.ConvertAll(r.unlocked, Hotdrop.UI.CosmeticLook.DisplayName))
-                            : "";
-                        hud.SetResultsReceipt($"+{r.xpGained} XP  ·  +{r.creditsGained} CREDITS  ·  LEVEL {r.level}{unlocked}", Hotdrop.UI.MatchHUD.Objective);
+                        hud.SetResultsReward(r, Hotdrop.UI.MatchHUD.Objective);
                     }
                     return;
                 }
                 if (!receipt.Ok && receipt.Error != BackendError.NoInternet && receipt.Error != BackendError.ServerBusy && receipt.Error != BackendError.ServerError)
                 {
-                    hud.SetResultsReceipt("REWARD STATUS UNAVAILABLE — it will appear in your profile once recorded", Hotdrop.UI.MatchHUD.SecondaryText);
+                    hud.SetResultsReceipt("REWARD STATUS UNAVAILABLE — it will appear in your profile once recorded", Hotdrop.UI.MatchHUD.SecondaryText,
+                        "This screen could not confirm the receipt. Check your profile later.", Hotdrop.UI.ResultsTrustState.Unavailable);
                     return;
                 }
-                hud.SetResultsReceipt("REWARD PENDING — the server is still delivering this result; it is kept until it arrives", Hotdrop.UI.MatchHUD.SecondaryText);
+                hud.SetResultsReceipt("REWARD PENDING — the server is still delivering this result; it is kept until it arrives",
+                    Hotdrop.UI.MatchHUD.SecondaryText, trustState: Hotdrop.UI.ResultsTrustState.Pending);
                 await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(delay));
                 delay = Mathf.Min(delay * 1.5f, 15f);
             }

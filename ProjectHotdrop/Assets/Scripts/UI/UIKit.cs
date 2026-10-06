@@ -479,7 +479,7 @@ namespace Hotdrop.UI
 
             var hotdrop = root.gameObject.AddComponent<HotdropButton>();
             hotdrop.Variant = variant;
-            hotdrop.Accent = variant == ButtonVariant.Destructive ? UiTone.Enemy : UiTone.Friendly;
+            hotdrop.Accent = variant == ButtonVariant.Destructive ? UiTone.Warning : UiTone.Friendly;
             if (onClick != null) button.onClick.AddListener(() => onClick());
 
             hotdrop.Initialize(background, label, group, spinnerSlot.gameObject, border);

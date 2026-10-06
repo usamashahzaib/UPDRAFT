@@ -11,7 +11,7 @@ namespace Hotdrop.UI
     /// <summary>What the support page's controls do; the screens layer owns the backend calls.</summary>
     public sealed class SupportHubActions
     {
-        public Action Back, Recover, Link, Revoke, AccountSettings, WebDeletion, Profile, Diagnostics, Submit, Purge;
+        public Action Back, Recover, Link, Revoke, AccountSettings, WebDeletion, Profile, Diagnostics, Submit, Purge, RetryAccount;
         public Action<string> Navigate;
         public Action<RecentMatch.Entry> Choose;
     }
@@ -23,30 +23,39 @@ namespace Hotdrop.UI
     /// </summary>
     public static class SupportHubView
     {
-        static Color Surface => UiDraw.Hex("#0b1322");
-        static Color Lowest => UiDraw.Hex("#060e1d");
-        static Color Low => UiDraw.Hex("#141c2b");
-        static Color Mid => UiDraw.Hex("#18202f");
-        static Color High => UiDraw.Hex("#222a3a");
-        static Color Highest => UiDraw.Hex("#2d3545");
-        static Color Primary => UiDraw.Hex("#7cefff");
-        static Color PrimaryC => UiDraw.Hex("#30d5e8");
-        static Color OnPrimary => UiDraw.Hex("#00363c");
-        static Color OnPrimaryC => UiDraw.Hex("#005862");
-        static Color Secondary => UiDraw.Hex("#ffb2b7");
-        static Color SecondaryC => UiDraw.Hex("#930d2d");
-        static Color OnSecondary => UiDraw.Hex("#67001b");
-        static Color OnSecondaryC => UiDraw.Hex("#ff9da4");
-        static Color Tertiary => UiDraw.Hex("#ffda88");
-        static Color OnSurface => UiDraw.Hex("#dbe2f8");
-        static Color OnVariant => UiDraw.Hex("#bbc9cb");
-        static Color OutlineVariant => UiDraw.Hex("#3c494b");
+        static Color Surface => UIDesignTokens.Background;
+        static Color Lowest => UIDesignTokens.Background;
+        static Color Low => UIDesignTokens.SurfacePanel;
+        static Color Mid => Color.Lerp(UIDesignTokens.Background, UIDesignTokens.SurfacePanel, .55f);
+        static Color High => UIDesignTokens.SurfaceSelected;
+        static Color Highest => UIDesignTokens.SurfaceDisabled;
+        static Color Primary => UIDesignTokens.PrimaryAction;
+        static Color PrimaryC => UIDesignTokens.PrimaryAction;
+        static Color OnPrimary => UIDesignTokens.TextOnAccent;
+        static Color OnPrimaryC => UIDesignTokens.TextOnAccent;
+        static Color Secondary => UIDesignTokens.SignalWarning;
+        static Color SecondaryC => Color.Lerp(UIDesignTokens.SignalWarning, UIDesignTokens.Background, .55f);
+        static Color OnSecondary => UIDesignTokens.TextOnAccent;
+        static Color OnSecondaryC => UIDesignTokens.TextPrimary;
+        static Color Tertiary => UIDesignTokens.ObjectiveGold;
+        static Color OnSurface => UIDesignTokens.TextPrimary;
+        static Color OnVariant => UIDesignTokens.TextSecondary;
+        static Color OutlineVariant => UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceStructural, .45f);
 
         const float Pad = 24f, Gap = 12f, BarH = 64f;
+        const float CaptionDp = UIDesignTokens.CaptionDp;
+        const float UiDp = UIDesignTokens.BodyLargeDp;
+        const float TitleDp = UIDesignTokens.TitleMediumDp;
         const string Root = "SupportHubVisual";
 
         static UnityEngine.Events.UnityAction<string> counterListener;
         static TMP_InputField counterSource;
+        // A null profile is either still loading or failed to load; the page must say which
+        // instead of showing a permanent "syncing" state after the account request fails.
+        static bool accountUnavailable;
+
+        /// <summary>Label for an account value that is not loaded: loading or unavailable.</summary>
+        static string Missing(string loading, string unavailable) => accountUnavailable ? unavailable : loading;
 
         public static void Clear(GameObject owner)
         {
@@ -61,6 +70,10 @@ namespace Hotdrop.UI
                 }
             if (counterSource != null && counterListener != null) counterSource.onValueChanged.RemoveListener(counterListener);
             counterSource = null; counterListener = null;
+            // Destroy is deferred to the end of the frame. Detach and hide the old page now so a
+            // same-frame rebuild (resize, synchronous capture) neither finds nor draws it.
+            visual.gameObject.SetActive(false);
+            visual.SetParent(null, false);
             if (Application.isPlaying) UnityEngine.Object.Destroy(visual.gameObject);
             else UnityEngine.Object.DestroyImmediate(visual.gameObject);
         }
@@ -98,11 +111,87 @@ namespace Hotdrop.UI
             if (hold != null) hold.alpha = .5f;
         }
 
+        /// <summary>
+        /// The page is placed in absolute canvas units from the width it is built at, so it must be
+        /// rebuilt when the canvas width changes after it opened (resolution or density change, split
+        /// screen, synchronous capture). The rebuild keeps the player's in-progress choices.
+        /// </summary>
+        sealed class Resize : MonoBehaviour
+        {
+            internal GameObject owner;
+            internal TMP_InputField category, detail;
+            internal string matchId;
+            internal IReadOnlyList<RecentMatch.Entry> roster;
+            internal int localTeam;
+            internal ProfileDto profile;
+            internal WalletDto wallet;
+            internal bool online, accountUnavailable, walletUnavailable;
+            internal SupportHubActions act;
+            internal float builtWidth;
+
+            internal void RefreshIfNeeded()
+            {
+                if (owner == null || !gameObject.activeInHierarchy) return;
+                float width = ((RectTransform)transform).rect.width;
+                if (width <= 0f || Mathf.Abs(width - builtWidth) <= 4f) return;
+                var root = transform;
+                string reason = category != null ? category.text : null;
+                var stage = root.Find("Viewport/Page/Purge/StageTwo");
+                bool purgeOpen = stage != null && stage.gameObject.activeSelf;
+                string typed = stage != null ? stage.GetComponentInChildren<TMP_InputField>(true)?.text : null;
+                var toast = root.Find("Toast");
+                string toastText = toast != null && toast.gameObject.activeSelf
+                    ? toast.Find("Text")?.GetComponent<TextMeshProUGUI>()?.text : null;
+                var page = root.Find("Viewport/Page") as RectTransform;
+                float scrollY = page != null ? page.anchoredPosition.y : 0f;
+
+                Build(owner, category, detail, matchId, roster, localTeam, profile, wallet, online, act,
+                    accountUnavailable, walletUnavailable, reason);
+                if (purgeOpen)
+                {
+                    RevealPurge(owner);
+                    var input = owner.transform.Find(Root + "/Viewport/Page/Purge/StageTwo")?.GetComponentInChildren<TMP_InputField>(true);
+                    if (input != null && !string.IsNullOrEmpty(typed)) input.text = typed;
+                }
+                if (!string.IsNullOrEmpty(toastText)) SetStatus(owner, toastText);
+                var rebuilt = owner.transform.Find(Root + "/Viewport/Page") as RectTransform;
+                var view = owner.transform.Find(Root + "/Viewport") as RectTransform;
+                if (rebuilt != null && view != null)
+                    rebuilt.anchoredPosition = new Vector2(0f, Mathf.Clamp(scrollY, 0f, Mathf.Max(0f, rebuilt.sizeDelta.y - view.rect.height)));
+            }
+
+            void LateUpdate() => RefreshIfNeeded();
+        }
+
+        /// <summary>Rebuilds a visible Support page whose canvas width changed. Also called by
+        /// synchronous screenshot rendering, which resizes the canvas without a LateUpdate.</summary>
+        public static void RefreshVisible(Canvas canvas)
+        {
+            if (canvas == null) return;
+            foreach (var page in canvas.GetComponentsInChildren<Resize>()) page.RefreshIfNeeded();
+        }
+
+        // Selected roster entry, kept so a resize rebuild re-marks it; -1 when none.
+        static int chosenParticipant = -1;
+
         public static void Show(GameObject owner, TMP_InputField category, TMP_InputField detail,
             string matchId, IReadOnlyList<RecentMatch.Entry> roster, int localTeam,
-            ProfileDto profile, WalletDto wallet, bool online, SupportHubActions act)
+            ProfileDto profile, WalletDto wallet, bool online, SupportHubActions act,
+            bool accountUnavailable = false, bool walletUnavailable = false)
+        {
+            // A fresh draw from the screens layer clears the report target, so it clears the marks too.
+            chosenParticipant = -1;
+            Build(owner, category, detail, matchId, roster, localTeam, profile, wallet, online, act,
+                accountUnavailable, walletUnavailable, null);
+        }
+
+        static void Build(GameObject owner, TMP_InputField category, TMP_InputField detail,
+            string matchId, IReadOnlyList<RecentMatch.Entry> roster, int localTeam,
+            ProfileDto profile, WalletDto wallet, bool online, SupportHubActions act,
+            bool accountUnavailable, bool walletUnavailable, string keepReason)
         {
             Clear(owner);
+            SupportHubView.accountUnavailable = profile == null && accountUnavailable;
             if (owner == null) return;
             act ??= new SupportHubActions();
             var root = UiDraw.Node(owner.transform, Root);
@@ -124,29 +213,35 @@ namespace Hotdrop.UI
             bool linked = profile != null && !profile.isGuest;
             Title(page, width, profile, online, act);
             float colW = (width - Pad * 2f - Gap * 2f) / 3f, top = 72f + 20f;
-            float lh = Identity(page, Pad, top, colW, profile, matchId, act);
-            float mh = Report(page, Pad + colW + Gap, top, colW, category, detail, roster, localTeam, act);
+            float lh = Identity(page, Pad, top, colW, profile, matchId, act, walletUnavailable);
+            float mh = Report(page, Pad + colW + Gap, top, colW, category, detail, roster, localTeam, act, keepReason);
             float rh = Compliance(page, Pad + (colW + Gap) * 2f, top, colW, act);
             float end = top + Mathf.Max(lh, mh, rh + 110f) + 32f;
             PageFooter(page, width, end, profile, linked);
             page.sizeDelta = new Vector2(width, end + 66f);
             page.anchoredPosition = Vector2.zero;
 
-            TopBar(root, width, profile, wallet, online, act);
-            var toast = UiDraw.Box(root, "Toast", High, 8f, UiDraw.Hex("#30d5e8", .45f));
+            TopBar(root, width, profile, wallet, online, act, walletUnavailable);
+            var toast = UiDraw.Box(root, "Toast", High, 8f, UIDesignTokens.WithAlpha(PrimaryC, .45f));
             UiDraw.Place(toast.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(0f, 20f), new Vector2(400f, 44f));
             UiDraw.Place(UiDraw.Icon(toast.transform, "Icon", "info", 18f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(18f, 18f));
-            var toastText = UiDraw.Text(toast.transform, "Text", "", UiFont.MonoMedium, 12f, OnSurface, .03f);
+            var toastText = UiDraw.Text(toast.transform, "Text", "", UiFont.MonoMedium, CaptionDp, OnSurface, .03f);
             toastText.overflowMode = TextOverflowModes.Ellipsis;
             UiDraw.Place(toastText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(42f, 0f), new Vector2(340f, 20f));
             toast.gameObject.SetActive(false);
+
+            var resize = root.gameObject.AddComponent<Resize>();
+            resize.owner = owner; resize.category = category; resize.detail = detail; resize.matchId = matchId;
+            resize.roster = roster; resize.localTeam = localTeam; resize.profile = profile; resize.wallet = wallet;
+            resize.online = online; resize.act = act; resize.accountUnavailable = accountUnavailable;
+            resize.walletUnavailable = walletUnavailable; resize.builtWidth = width;
         }
 
         // ---------------------------------------------------------------- top bar
 
-        static void TopBar(RectTransform root, float width, ProfileDto profile, WalletDto wallet, bool online, SupportHubActions act)
+        static void TopBar(RectTransform root, float width, ProfileDto profile, WalletDto wallet, bool online, SupportHubActions act, bool walletUnavailable)
         {
-            var bar = UiDraw.Box(root, "TopBar", UiDraw.Hex("#141c2b", .9f)).rectTransform;
+            var bar = UiDraw.Box(root, "TopBar", UIDesignTokens.WithAlpha(Low, .9f)).rectTransform;
             bar.anchorMin = new Vector2(0f, 1f); bar.anchorMax = Vector2.one; bar.pivot = new Vector2(.5f, 1f);
             bar.sizeDelta = new Vector2(0f, BarH); bar.anchoredPosition = Vector2.zero;
             UiDraw.HRule(bar, "Shadow", UiDraw.Hex("#000000", .25f), -BarH);
@@ -155,13 +250,13 @@ namespace Hotdrop.UI
             UiDraw.Place((RectTransform)back.transform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(48f, 48f));
             UiDraw.Fill(UiDraw.Icon(back.transform, "Icon", "arrow_back", 20f, OnSurface).rectTransform);
 
-            var brand = UiDraw.Text(bar, "Brand", "HOTDROP", UiFont.HeadingSemiBold, 20f, Primary, .05f);
-            var sub = UiDraw.Text(bar, "Build", "AVIONICS V" + Application.version.ToUpperInvariant(), UiFont.MonoMedium, 11f, OnVariant, .05f);
+            var brand = UiDraw.Text(bar, "Brand", "HOTDROP", UiFont.HeadingSemiBold, TitleDp, Primary, .05f);
+            var sub = UiDraw.Text(bar, "Build", "VERSION " + Application.version.ToUpperInvariant(), UiFont.MonoMedium, CaptionDp, OnVariant, .05f);
             TL(brand.rectTransform, 76f, 11f, UiDraw.Width(brand) + 4f, 24f);
             TL(sub.rectTransform, 76f, 36f, UiDraw.Width(sub) + 4f, 14f);
             float chipX = 76f + Mathf.Max(UiDraw.Width(brand), UiDraw.Width(sub)) + 16f;
             var chip = UiDraw.Box(bar, "SystemChip", High, 4f);
-            var chipText = UiDraw.Text(chip.transform, "Text", online ? "[SYS // ONLINE // ACCOUNT]" : "[SYS // OFFLINE // ACCOUNT]", UiFont.MonoMedium, 11f, OnSurface, .1f);
+            var chipText = UiDraw.Text(chip.transform, "Text", online ? "ACCOUNT  ·  ONLINE" : "ACCOUNT  ·  OFFLINE", UiFont.MonoMedium, CaptionDp, OnSurface, .1f);
             float cw = 8f + 8f + 8f + UiDraw.Width(chipText) + 8f;
             UiDraw.Place(chip.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(chipX, 0f), new Vector2(cw, 22f));
             UiDraw.Place(UiDraw.Dot(chip.transform, "Dot", 8f, online ? Primary : Secondary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(8f, 8f));
@@ -184,8 +279,8 @@ namespace Hotdrop.UI
                 bool active = i == 0;
                 var item = UiDraw.Tap(nav.transform, "Tab_" + t.label, active ? PrimaryC : new Color(0f, 0f, 0f, 0f), 4f, () => Tap(t.go));
                 var label = active
-                    ? UiDraw.Text(item.transform, "Label", t.label, UiFont.BodyBold, 14f, OnPrimaryC, 0f, TextAlignmentOptions.Midline)
-                    : UiDraw.Text(item.transform, "Label", t.label, UiFont.Heading, 12f, OnVariant, .08f, TextAlignmentOptions.Midline);
+                    ? UiDraw.Text(item.transform, "Label", t.label, UiFont.BodyBold, UiDp, OnPrimaryC, 0f, TextAlignmentOptions.Midline)
+                    : UiDraw.Text(item.transform, "Label", t.label, UiFont.Heading, CaptionDp, OnVariant, .08f, TextAlignmentOptions.Midline);
                 float iw = UiDraw.Width(label) + 24f;
                 UiDraw.Fill(label.rectTransform);
                 navItems.Add(((RectTransform)item.transform, iw));
@@ -210,13 +305,13 @@ namespace Hotdrop.UI
             UiDraw.Fill(UiDraw.Icon(avatar.transform, "Icon", "person", 18f, OnPrimary).rectTransform);
             rx -= 32f + 12f;
             var op = UiDraw.Box(bar, "Operative", High, 4f);
-            var opText = UiDraw.Text(op.transform, "Text", "<color=#bbc9cb>OP:</color> " + StreamSafePresentation.AccountAlias(profile?.alias ?? "SYNCING").ToUpperInvariant(), UiFont.MonoMedium, 11f, Primary, .05f);
+            var opText = UiDraw.Text(op.transform, "Text", $"<color=#{ColorUtility.ToHtmlStringRGB(OnVariant)}>OP:</color> " + StreamSafePresentation.AccountAlias(profile?.alias ?? Missing("SYNCING", "UNAVAILABLE")).ToUpperInvariant(), UiFont.MonoMedium, CaptionDp, Primary, .05f);
             float ow = UiDraw.Width(opText) + 16f;
             UiDraw.Place(op.rectTransform, new Vector2(0f, .5f), new Vector2(1f, .5f), new Vector2(rx, 0f), new Vector2(ow, 26f));
             UiDraw.Fill(opText.rectTransform, 8f, 0f, 8f, 0f);
             rx -= ow + 12f;
             var credits = UiDraw.Box(bar, "Credits", High, 4f);
-            var crText = UiDraw.Text(credits.transform, "Value", StreamSafePresentation.AccountProgress(wallet == null ? "—" : wallet.credits.ToString("N0")), UiFont.Mono, 14f, Tertiary, .03f);
+            var crText = UiDraw.Text(credits.transform, "Value", StreamSafePresentation.AccountProgress(walletUnavailable ? "UNAVAILABLE" : wallet == null ? "—" : wallet.credits.ToString("N0")), UiFont.Mono, walletUnavailable ? CaptionDp : UiDp, walletUnavailable ? OnVariant : Tertiary, .03f);
             float crw = 8f + 18f + 4f + UiDraw.Width(crText) + 8f;
             UiDraw.Place(credits.rectTransform, new Vector2(0f, .5f), new Vector2(1f, .5f), new Vector2(rx, 0f), new Vector2(crw, 26f));
             UiDraw.Place(UiDraw.Icon(credits.transform, "Icon", "toll", 18f, Tertiary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(18f, 18f));
@@ -228,27 +323,27 @@ namespace Hotdrop.UI
         static void Title(RectTransform page, float width, ProfileDto profile, bool online, SupportHubActions act)
         {
             var card = Card(page, "Title", Mid, Pad, 0f, width - Pad * 2f, 72f);
-            var grid = DotGrid(card, UiDraw.Hex("#38d9ec", .2f));
+            var grid = DotGrid(card, UIDesignTokens.WithAlpha(PrimaryC, .2f));
             UiDraw.Fill(grid.rectTransform, 4f, 4f, 4f, 4f);
             var back = UiDraw.Tap(card, "Back", High, 4f, () => Tap(act.Back));
             TL((RectTransform)back.transform, 12f, 12f, 48f, 48f);
             UiDraw.Fill(UiDraw.Icon(back.transform, "Icon", "arrow_back", 24f, Primary).rectTransform);
-            string state = profile == null ? "ACCOUNT SYNCING" : profile.isGuest ? "GUEST ACCOUNT" : "LINKED ACCOUNT";
-            TL(UiDraw.Text(card, "Kicker", $"ACCOUNT // NODE: AUTH-RECOVERY  <color=#bbc9cb>•</color>  <color=#ffda88>{state}</color>",
-                UiFont.MonoMedium, 11f, Primary, .05f).rectTransform, 72f, 15f, 600f, 14f);
-            TL(UiDraw.Text(card, "Heading", "ACCOUNT // SECURITY, RECOVERY & INTEGRITY", UiFont.Heading, 28f, OnSurface, -.01f).rectTransform, 72f, 28f, width - 560f, 34f);
+            string state = profile == null ? Missing("ACCOUNT SYNCING", "ACCOUNT UNAVAILABLE") : profile.isGuest ? "GUEST ACCOUNT" : "LINKED ACCOUNT";
+            TL(UiDraw.Text(card, "Kicker", $"ACCOUNT RECOVERY  <color=#{ColorUtility.ToHtmlStringRGB(OnVariant)}>•</color>  <color=#{ColorUtility.ToHtmlStringRGB(Tertiary)}>{state}</color>",
+                UiFont.MonoMedium, CaptionDp, Primary, .05f).rectTransform, 72f, 15f, 600f, 14f);
+            TL(UiDraw.Text(card, "Heading", "ACCOUNT SECURITY & RECOVERY", UiFont.Heading, TitleDp, OnSurface, -.01f).rectTransform, 72f, 28f, width - 560f, 34f);
 
             float right = width - Pad * 2f - 12f;
             var fair = UiDraw.Box(card, "FairPlay", Lowest, 4f);
-            var fairText = UiDraw.Text(fair.transform, "Text", "FAIRPLAY ACTIVE", UiFont.MonoMedium, 11f, Tertiary, .05f);
+            var fairText = UiDraw.Text(fair.transform, "Text", "FAIRPLAY ACTIVE", UiFont.MonoMedium, CaptionDp, Tertiary, .05f);
             float fw = 12f + 18f + 4f + UiDraw.Width(fairText) + 12f;
             UiDraw.Place(fair.rectTransform, new Vector2(0f, 1f), new Vector2(1f, .5f), new Vector2(right, -36f), new Vector2(fw, 26f));
             UiDraw.Place(UiDraw.Icon(fair.transform, "Icon", "verified_user", 18f, Tertiary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(12f, 0f), new Vector2(18f, 18f));
             UiDraw.Place(fairText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(34f, 0f), new Vector2(UiDraw.Width(fairText) + 2f, 14f));
             right -= fw + 8f;
             var session = UiDraw.Box(card, "Session", Lowest, 4f);
-            var sLabel = UiDraw.Text(session.transform, "Label", "SESSION:", UiFont.MonoMedium, 11f, OnVariant, .05f);
-            var sValue = UiDraw.Text(session.transform, "Value", online ? "AUTHENTICATED" : "OFFLINE", UiFont.Mono, 14f, online ? Primary : Secondary, .03f);
+            var sLabel = UiDraw.Text(session.transform, "Label", "SESSION:", UiFont.MonoMedium, CaptionDp, OnVariant, .05f);
+            var sValue = UiDraw.Text(session.transform, "Value", online ? "AUTHENTICATED" : "OFFLINE", UiFont.Mono, UiDp, online ? Primary : Secondary, .03f);
             float sw = 12f + 10f + 4f + UiDraw.Width(sLabel) + 4f + UiDraw.Width(sValue) + 12f;
             UiDraw.Place(session.rectTransform, new Vector2(0f, 1f), new Vector2(1f, .5f), new Vector2(right, -36f), new Vector2(sw, 26f));
             UiDraw.Place(UiDraw.Dot(session.transform, "Dot", 10f, online ? Primary : Secondary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(12f, 0f), new Vector2(10f, 10f));
@@ -258,13 +353,13 @@ namespace Hotdrop.UI
 
         // ---------------------------------------------------------------- left column
 
-        static float Identity(RectTransform page, float x, float y, float w, ProfileDto profile, string matchId, SupportHubActions act)
+        static float Identity(RectTransform page, float x, float y, float w, ProfileDto profile, string matchId, SupportHubActions act, bool walletUnavailable)
         {
             bool linked = profile != null && !profile.isGuest;
             var card = Card(page, "Account", Mid, x, y, w, 100f);
             float iw = w - 40f, cy = 20f;
             Header(card, "badge", "CALLSIGN IDENTITY", Primary, cy, w);
-            Badge(card, "Tier", profile == null ? "SYNCING" : StreamSafePresentation.Enabled ? "PRIVATE PROFILE" : $"LEVEL {Mathf.Clamp(profile.level, 1, 20)} PILOT", High, Primary, w - 20f, cy);
+            Badge(card, "Tier", profile == null ? Missing("SYNCING", "UNAVAILABLE") : StreamSafePresentation.Enabled ? "PRIVATE PROFILE" : $"LEVEL {Mathf.Clamp(profile.level, 1, 20)} PILOT", High, Primary, w - 20f, cy);
             cy += 18f + 12f;
 
             var brief = UiDraw.Box(card, "Dossier", Low, 8f);
@@ -274,23 +369,23 @@ namespace Hotdrop.UI
             UiDraw.Fill(UiDraw.Icon(avatar.transform, "Icon", "shield_person", 32f, Primary).rectTransform);
             var stripe = UiDraw.Box(avatar.transform, "Stripe", Primary);
             UiDraw.Place(stripe.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f), Vector2.zero, new Vector2(48f, 4f));
-            var alias = UiDraw.Text(brief.transform, "Alias", StreamSafePresentation.AccountAlias(profile?.alias ?? "ACCOUNT SYNCING").ToUpperInvariant(), UiFont.HeadingSemiBold, 20f, OnSurface);
+            var alias = UiDraw.Text(brief.transform, "Alias", StreamSafePresentation.AccountAlias(profile?.alias ?? Missing("ACCOUNT SYNCING", "ACCOUNT UNAVAILABLE")).ToUpperInvariant(), UiFont.HeadingSemiBold, TitleDp, OnSurface);
             alias.overflowMode = TextOverflowModes.Ellipsis;
             TL(alias.rectTransform, 76f, 12f, iw - 88f, 26f);
-            TL(UiDraw.Text(brief.transform, "Account", StreamSafePresentation.Enabled ? "PRIVATE ACCOUNT DETAILS" : profile == null ? "Account data is loading." : linked ? "LINKED  •  GOOGLE PLAY GAMES" : "GUEST  •  STORED ON THIS DEVICE",
-                UiFont.Body, 12f, OnVariant, .01f).rectTransform, 76f, 40f, iw - 88f, 16f);
+            TL(UiDraw.Text(brief.transform, "Account", StreamSafePresentation.Enabled ? "PRIVATE ACCOUNT DETAILS" : profile == null ? Missing("Account data is loading.", "Account data could not be loaded.") : linked ? "LINKED  •  GOOGLE PLAY GAMES" : "GUEST  •  STORED ON THIS DEVICE",
+                UiFont.Body, CaptionDp, OnVariant, .01f).rectTransform, 76f, 40f, iw - 88f, 16f);
             cy += 72f + 12f;
 
             var link = UiDraw.Box(card, "LinkStatus", High, 8f);
             TL(link.rectTransform, 20f, cy, iw, 78f);
             TL(UiDraw.Icon(link.transform, "Icon", "sports_esports", 20f, Primary).rectTransform, 12f, 13f, 20f, 20f);
-            TL(UiDraw.Text(link.transform, "Name", "GOOGLE PLAY GAMES", UiFont.Mono, 14f, OnSurface, .03f).rectTransform, 38f, 12f, iw - 160f, 22f);
-            var state = UiDraw.Text(link.transform, "State", profile == null ? "SYNCING" : linked ? "LINKED" : "NOT LINKED", UiFont.Mono, 11f, linked ? Primary : Tertiary, .05f, TextAlignmentOptions.MidlineRight);
+            TL(UiDraw.Text(link.transform, "Name", "GOOGLE PLAY GAMES", UiFont.Mono, UiDp, OnSurface, .03f).rectTransform, 38f, 12f, iw - 160f, 22f);
+            var state = UiDraw.Text(link.transform, "State", profile == null ? Missing("SYNCING", "UNKNOWN") : linked ? "LINKED" : "NOT LINKED", UiFont.Mono, CaptionDp, linked ? Primary : Tertiary, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(state.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-12f, -23f), new Vector2(UiDraw.Width(state) + 2f, 14f));
-            UiDraw.Place(UiDraw.Dot(link.transform, "Dot", 8f, linked ? Primary : Tertiary).rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-16f - UiDraw.Width(state), -23f), new Vector2(8f, 8f));
-            TL(UiDraw.Text(link.transform, "RecoveryLabel", "CLOUD RECOVERY:", UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform, 12f, 40f, 160f, 14f);
-            var recovery = UiDraw.Text(link.transform, "Recovery", profile == null ? "Checking…" : linked ? "Available after reinstall" : "This device only",
-                UiFont.MonoMedium, 11f, OnSurface, .05f, TextAlignmentOptions.MidlineRight);
+            UiDraw.Place(UiDraw.Dot(link.transform, "Dot", 8f, profile == null ? Secondary : linked ? Primary : Tertiary).rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-16f - UiDraw.Width(state), -23f), new Vector2(8f, 8f));
+            TL(UiDraw.Text(link.transform, "RecoveryLabel", "CLOUD RECOVERY:", UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 12f, 40f, 160f, 14f);
+            var recovery = UiDraw.Text(link.transform, "Recovery", profile == null ? Missing("Checking…", "Status unavailable") : linked ? "Available after reinstall" : "This device only",
+                UiFont.MonoMedium, CaptionDp, OnSurface, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(recovery.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-12f, -47f), new Vector2(iw - 180f, 14f));
             var bar = UiDraw.Box(link.transform, "Bar", Lowest, 3f);
             TL(bar.rectTransform, 12f, 60f, iw - 24f, 6f);
@@ -300,44 +395,63 @@ namespace Hotdrop.UI
 
             var notice = UiDraw.Box(card, "SecurityNotice", Lowest, 8f);
             TL(UiDraw.Icon(notice.transform, "Icon", "info", 18f, Tertiary).rectTransform, 8f, 10f, 18f, 18f);
-            var nt = Wrapped(notice.transform, "Text", "<color=#ffda88><b>SECURITY NOTICE:</b></color> " + (linked
+            var nt = Wrapped(notice.transform, "Text", $"<color=#{ColorUtility.ToHtmlStringRGB(Tertiary)}><b>SECURITY NOTICE:</b></color> " + (profile == null
+                ? Missing("Checking whether this profile is linked for recovery.",
+                    "Recovery status could not be loaded, so this page cannot confirm whether this profile is linked. Retry before relying on recovery.")
+                : linked
                 ? "This account is bound to Google Play Games. Sign in with the same Google Play identity after a reinstall or on a new phone to recover it. Accounts are never merged."
                 : "Guest accounts live on this device only and are lost on uninstall or hardware handover. Link Google Play Games to make this profile recoverable."),
-                UiFont.Body, 12f, OnVariant, iw - 40f, 19.5f);
+                UiFont.Body, CaptionDp, OnVariant, iw - 40f, 19.5f);
             TL(nt.rectTransform, 32f, 8f, iw - 40f, nt.preferredHeight);
             float nh = nt.preferredHeight + 16f;
             TL(notice.rectTransform, 20f, cy, iw, nh);
             cy += nh + 12f;
 
-            var sync = UiDraw.Box(card, "Sync", Low, 8f);
-            TL(sync.rectTransform, 20f, cy, iw, 46f);
-            UiDraw.Place(UiDraw.Icon(sync.transform, "Icon", profile == null ? "cloud_sync" : "cloud_done", 20f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(20f, 20f));
-            TL(UiDraw.Text(sync.transform, "Title", profile == null ? "SYNC PENDING" : "SYNC HEALTH NOMINAL", UiFont.MonoMedium, 11f, OnSurface, .05f).rectTransform, 36f, 8f, iw - 44f, 14f);
-            var syncBody = UiDraw.Text(sync.transform, "Body", profile == null ? "Waiting for the account service." : "Profile, inventory and credits are saved to your account.", UiFont.Body, 12f, OnVariant, .01f);
+            // Unavailable: the row becomes a 48 px retry action instead of a passive status line.
+            bool retry = (accountUnavailable || walletUnavailable) && act.RetryAccount != null;
+            float sh = retry ? 48f : 46f;
+            var sync = retry
+                ? UiDraw.Tap(card, "Sync", Low, 8f, () => Tap(act.RetryAccount)).GetComponent<Image>()
+                : UiDraw.Box(card, "Sync", Low, 8f);
+            TL(sync.rectTransform, 20f, cy, iw, sh);
+            string syncIcon = profile != null && !walletUnavailable ? "cloud_done" : accountUnavailable || walletUnavailable ? "warning" : "cloud_sync";
+            UiDraw.Place(UiDraw.Icon(sync.transform, "Icon", syncIcon, 20f, accountUnavailable || walletUnavailable ? Tertiary : Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(20f, 20f));
+            string syncTitle = accountUnavailable ? "ACCOUNT SERVICE UNAVAILABLE" : walletUnavailable ? "CREDITS UNAVAILABLE" : profile == null ? "SYNC PENDING" : "SYNC HEALTH NOMINAL";
+            TL(UiDraw.Text(sync.transform, "Title", syncTitle, UiFont.MonoMedium, CaptionDp, OnSurface, .05f).rectTransform, 36f, 8f, iw - (retry ? 76f : 44f), 14f);
+            string syncMessage = accountUnavailable
+                ? retry ? "Tap to retry. Reports and web deletion stay available." : "Reports and web deletion stay available."
+                : walletUnavailable ? "Credits could not be loaded. Tap to retry."
+                : profile == null ? "Waiting for the account service." : "Profile, inventory and credits are saved to your account.";
+            var syncBody = UiDraw.Text(sync.transform, "Body", syncMessage, UiFont.Body, CaptionDp, OnVariant, .01f);
             syncBody.overflowMode = TextOverflowModes.Ellipsis;
-            TL(syncBody.rectTransform, 36f, 23f, iw - 44f, 16f);
-            cy += 46f + 12f + 4f;
+            TL(syncBody.rectTransform, 36f, 23f, iw - (retry ? 76f : 44f), 16f);
+            if (retry)
+                UiDraw.Place(UiDraw.Icon(sync.transform, "RetryIcon", "refresh", 20f, Primary).rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-12f, 0f), new Vector2(20f, 20f));
+            cy += sh + 12f + 4f;
 
-            var recover = UiDraw.Tap(card, "RecoverAccount", PrimaryC, 8f, () => Tap(act.Recover));
-            TL((RectTransform)recover.transform, 20f, cy, iw, 48f);
-            UiDraw.Glow((RectTransform)recover.transform, UiDraw.Hex("#000000", .25f), 8f, 6f);
-            IconLabel(recover.transform, "sync", 20f, "RECOVER LINKED ACCOUNT", UiFont.HeadingSemiBold, 20f, OnPrimaryC, .025f);
-            cy += 48f + 4f;
-            float half = (iw - 4f) / 2f;
-            var manage = UiDraw.Tap(card, "ManageAccount", High, 8f, () => Tap(act.AccountSettings));
-            TL((RectTransform)manage.transform, 20f, cy, half, 48f);
-            IconLabel(manage.transform, "manage_accounts", 18f, "ACCOUNT & EMAIL", UiFont.Heading, 12f, OnSurface, .08f, Tertiary);
-            var second = UiDraw.Tap(card, linked ? "RevokeLink" : "LinkGooglePlay", High, 8f, () => Tap(linked ? act.Revoke : act.Link));
-            TL((RectTransform)second.transform, 20f + half + 4f, cy, half, 48f);
-            if (linked) IconLabel(second.transform, "link_off", 18f, "REVOKE LINK", UiFont.Heading, 12f, Secondary, .08f);
-            else IconLabel(second.transform, "add_link", 18f, "LINK GOOGLE PLAY", UiFont.Heading, 12f, Primary, .08f);
-            cy += 48f + 20f;
+            if (profile != null)
+            {
+                var recover = UiDraw.Tap(card, "RecoverAccount", PrimaryC, 8f, () => Tap(act.Recover));
+                TL((RectTransform)recover.transform, 20f, cy, iw, 48f);
+                UiDraw.Glow((RectTransform)recover.transform, UiDraw.Hex("#000000", .25f), 8f, 6f);
+                IconLabel(recover.transform, "sync", 20f, "RECOVER LINKED ACCOUNT", UiFont.HeadingSemiBold, TitleDp, OnPrimaryC, .025f);
+                cy += 48f + 4f;
+                float half = (iw - 4f) / 2f;
+                var manage = UiDraw.Tap(card, "ManageAccount", High, 8f, () => Tap(act.AccountSettings));
+                TL((RectTransform)manage.transform, 20f, cy, half, 48f);
+                IconLabel(manage.transform, "manage_accounts", 18f, "ACCOUNT & EMAIL", UiFont.Heading, CaptionDp, OnSurface, .08f, Tertiary);
+                var second = UiDraw.Tap(card, linked ? "RevokeLink" : "LinkGooglePlay", High, 8f, () => Tap(linked ? act.Revoke : act.Link));
+                TL((RectTransform)second.transform, 20f + half + 4f, cy, half, 48f);
+                if (linked) IconLabel(second.transform, "link_off", 18f, "REVOKE LINK", UiFont.Heading, CaptionDp, Secondary, .08f);
+                else IconLabel(second.transform, "add_link", 18f, "LINK GOOGLE PLAY", UiFont.Heading, CaptionDp, Primary, .08f);
+                cy += 48f + 20f;
+            }
             card.sizeDelta = new Vector2(w, cy);
 
             var node = Card(page, "MatchNode", Low, x, y + cy + Gap, w, 52f);
             UiDraw.Place(UiDraw.Icon(node, "Icon", "network_ping", 20f, OnVariant).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(20f, 20f));
-            UiDraw.Place(UiDraw.Text(node, "Label", "LAST ONLINE MATCH", UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(40f, 0f), new Vector2(200f, 14f));
-            UiDraw.Place(UiDraw.Text(node, "Match", string.IsNullOrEmpty(matchId) ? "NONE RECORDED" : "MATCH_ID #" + ShortId(matchId), UiFont.Mono, 14f, Primary, .03f, TextAlignmentOptions.MidlineRight).rectTransform,
+            UiDraw.Place(UiDraw.Text(node, "Label", "LAST ONLINE MATCH", UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(40f, 0f), new Vector2(200f, 14f));
+            UiDraw.Place(UiDraw.Text(node, "Match", string.IsNullOrEmpty(matchId) ? "NONE RECORDED" : "MATCH_ID #" + ShortId(matchId), UiFont.Mono, UiDp, Primary, .03f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-16f, 0f), new Vector2(w * .5f, 18f));
             return cy + Gap + 52f;
         }
@@ -353,31 +467,31 @@ namespace Hotdrop.UI
         };
 
         static float Report(RectTransform page, float x, float y, float w, TMP_InputField category, TMP_InputField detail,
-            IReadOnlyList<RecentMatch.Entry> roster, int localTeam, SupportHubActions act)
+            IReadOnlyList<RecentMatch.Entry> roster, int localTeam, SupportHubActions act, string keepReason)
         {
             var card = Card(page, "Report", Mid, x, y, w, 100f);
             float iw = w - 40f, cy = 20f;
             Header(card, "gavel", "TACTICAL INTEGRITY", Primary, cy, w);
             Badge(card, "Tolerance", "ZERO TOLERANCE", Highest, Tertiary, w - 20f, cy);
             cy += 18f + 12f;
-            TL(UiDraw.Text(card, "Title", "REPORT MATCH PARTICIPANT", UiFont.HeadingSemiBold, 20f, OnSurface).rectTransform, 20f, cy, iw, 26f);
+            TL(UiDraw.Text(card, "Title", "REPORT MATCH PARTICIPANT", UiFont.HeadingSemiBold, TitleDp, OnSurface).rectTransform, 20f, cy, iw, 26f);
             var desc = Wrapped(card, "Context", "Reports are reviewed by the HOTDROP team together with the match record. Pick who, why and what happened.",
-                UiFont.Body, 12f, OnVariant, iw, 16f);
+                UiFont.Body, CaptionDp, OnVariant, iw, 16f);
             TL(desc.rectTransform, 20f, cy + 28f, iw, desc.preferredHeight);
             cy += 28f + desc.preferredHeight + 12f;
 
             bool has = roster != null && roster.Count > 0;
-            TL(UiDraw.Text(card, "RosterLabel", "RECENT ENGAGEMENT ROSTER", UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform, 20f, cy, iw * .6f, 14f);
-            UiDraw.Place(UiDraw.Text(card, "RosterWindow", "LAST ONLINE MATCH", UiFont.MonoRegular, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
+            TL(UiDraw.Text(card, "RosterLabel", "RECENT ENGAGEMENT ROSTER", UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 20f, cy, iw * .6f, 14f);
+            UiDraw.Place(UiDraw.Text(card, "RosterWindow", "LAST ONLINE MATCH", UiFont.MonoRegular, CaptionDp, Primary, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-20f, -cy - 7f), new Vector2(iw * .4f, 14f));
             cy += 14f + 4f;
             if (!has)
             {
                 var empty = UiDraw.Box(card, "NoRecentMatch", Low, 8f);
                 TL(empty.rectTransform, 20f, cy, iw, 48f);
-                UiDraw.Place(UiDraw.Text(empty.transform, "Title", "NO RECENT ONLINE MATCH", UiFont.HeadingSemiBold, 12f, OnSurface, 0f, TextAlignmentOptions.Midline).rectTransform,
+                UiDraw.Place(UiDraw.Text(empty.transform, "Title", "NO RECENT ONLINE MATCH", UiFont.HeadingSemiBold, CaptionDp, OnSurface, 0f, TextAlignmentOptions.Midline).rectTransform,
                     new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 8f), new Vector2(iw, 16f));
-                UiDraw.Place(UiDraw.Text(empty.transform, "Detail", "REPORTS OPEN AFTER YOUR NEXT ONLINE MATCH", UiFont.MonoMedium, 10f, OnVariant, .05f, TextAlignmentOptions.Midline).rectTransform,
+                UiDraw.Place(UiDraw.Text(empty.transform, "Detail", "REPORTS OPEN AFTER YOUR NEXT ONLINE MATCH", UiFont.MonoMedium, CaptionDp, OnVariant, .05f, TextAlignmentOptions.Midline).rectTransform,
                     new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -9f), new Vector2(iw, 14f));
                 cy += 48f + 12f;
             }
@@ -391,19 +505,21 @@ namespace Hotdrop.UI
                     int index = i;
                     var button = UiDraw.Tap(card, "Participant_" + i, High, 8f, null);
                     TL((RectTransform)button.transform, 20f + (i % 3) * (cw + 4f), cy + (i / 3) * 52f, cw, 48f);
-                    var tint = UiDraw.Box(button.transform, "Selected", UiDraw.Hex("#30d5e8", .2f), 8f);
+                    var tint = UiDraw.Box(button.transform, "Selected", UIDesignTokens.WithAlpha(PrimaryC, .2f), 8f);
                     UiDraw.Fill(tint.rectTransform);
                     tint.enabled = false;
-                    var name = UiDraw.Text(button.transform, "Name", StreamSafePresentation.PlayerName(entry.alias ?? "PLAYER", i), UiFont.HeadingSemiBold, 12f, OnSurface, 0f, TextAlignmentOptions.Midline);
+                    var name = UiDraw.Text(button.transform, "Name", StreamSafePresentation.PlayerName(entry.alias ?? "PLAYER", i), UiFont.HeadingSemiBold, CaptionDp, OnSurface, 0f, TextAlignmentOptions.Midline);
                     name.overflowMode = TextOverflowModes.Ellipsis;
                     UiDraw.Place(name.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 8f), new Vector2(cw - 8f, 16f));
                     string side = localTeam < 0 ? $"SLOT {entry.slot + 1}" : entry.team == localTeam ? "ALLIED WINGMAN" : "CORAL OPPONENT";
-                    UiDraw.Place(UiDraw.Text(button.transform, "Side", side, UiFont.MonoMedium, 10f, OnVariant, .05f, TextAlignmentOptions.Midline).rectTransform,
+                    UiDraw.Place(UiDraw.Text(button.transform, "Side", side, UiFont.MonoMedium, CaptionDp, OnVariant, .05f, TextAlignmentOptions.Midline).rectTransform,
                         new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -9f), new Vector2(cw - 8f, 14f));
                     cards.Add((tint, name));
+                    if (i == chosenParticipant) { tint.enabled = true; name.color = Primary; }
                     button.onClick.AddListener(() =>
                     {
                         GameAudio.Play2D(GameCue.UiTap);
+                        chosenParticipant = index;
                         for (int k = 0; k < cards.Count; k++)
                         {
                             cards[k].tint.enabled = k == index;
@@ -416,11 +532,11 @@ namespace Hotdrop.UI
                 cy += rows * 52f - 4f + 12f;
             }
 
-            TL(UiDraw.Text(card, "ViolationLabel", "VIOLATION CLASS", UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform, 20f, cy, iw, 14f);
+            TL(UiDraw.Text(card, "ViolationLabel", "VIOLATION CLASS", UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 20f, cy, iw, 14f);
             cy += 18f;
             if (category != null)
             {
-                category.text = "";
+                category.text = keepReason ?? "";
                 category.transform.SetParent(card, false);
                 category.gameObject.SetActive(false); // the class pills fill it
             }
@@ -432,14 +548,19 @@ namespace Hotdrop.UI
                 int index = i;
                 var pill = UiDraw.Tap(card, "Violation_" + i, High, 8f, null);
                 TL((RectTransform)pill.transform, 20f + (i % 2) * (pw + 4f), cy + (i / 2) * 52f, pw, 48f);
-                var tint = UiDraw.Box(pill.transform, "Selected", UiDraw.Hex("#30d5e8", .2f), 8f);
+                var tint = UiDraw.Box(pill.transform, "Selected", UIDesignTokens.WithAlpha(PrimaryC, .2f), 8f);
                 UiDraw.Fill(tint.rectTransform);
                 tint.enabled = false;
                 var icon = UiDraw.Icon(pill.transform, "Icon", v.icon, 18f, OnSurface);
                 UiDraw.Place(icon.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(18f, 18f));
-                var label = UiDraw.Text(pill.transform, "Label", v.label, UiFont.Heading, 12f, OnSurface, .08f);
+                var label = UiDraw.Text(pill.transform, "Label", v.label, UiFont.Heading, CaptionDp, OnSurface, .08f);
                 UiDraw.Place(label.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(30f, 0f), new Vector2(pw - 36f, 16f));
                 pills.Add((tint, icon, label));
+                if (!string.IsNullOrEmpty(keepReason) && v.reason == keepReason)
+                {
+                    tint.enabled = true;
+                    icon.color = label.color = Primary;
+                }
                 pill.onClick.AddListener(() =>
                 {
                     GameAudio.Play2D(GameCue.UiTap);
@@ -455,8 +576,8 @@ namespace Hotdrop.UI
             cy += 48f * 2f + 4f + 12f;
 
             int limit = detail != null && detail.characterLimit > 0 ? detail.characterLimit : 180;
-            TL(UiDraw.Text(card, "LogLabel", "FLIGHT INCIDENT LOG", UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform, 20f, cy, iw * .6f, 14f);
-            var counter = UiDraw.Text(card, "Counter", $"{detail?.text?.Length ?? 0} / {limit} CHARS", UiFont.MonoMedium, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight);
+            TL(UiDraw.Text(card, "LogLabel", "FLIGHT INCIDENT LOG", UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 20f, cy, iw * .6f, 14f);
+            var counter = UiDraw.Text(card, "Counter", $"{detail?.text?.Length ?? 0} / {limit} CHARS", UiFont.MonoMedium, CaptionDp, Primary, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(counter.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-20f, -cy - 7f), new Vector2(iw * .4f, 14f));
             cy += 18f;
             if (detail != null)
@@ -482,17 +603,17 @@ namespace Hotdrop.UI
                 foreach (var p in pills) { p.tint.enabled = false; p.icon.color = p.label.color = OnSurface; }
             });
             TL((RectTransform)clear.transform, 20f, cy, bw, 48f);
-            UiDraw.Fill(UiDraw.Text(clear.transform, "Label", "CLEAR", UiFont.HeadingSemiBold, 14f, OnSurface, 0f, TextAlignmentOptions.Midline).rectTransform);
+            UiDraw.Fill(UiDraw.Text(clear.transform, "Label", "CLEAR", UiFont.HeadingSemiBold, UiDp, OnSurface, 0f, TextAlignmentOptions.Midline).rectTransform);
             var submit = UiDraw.Tap(card, "Submit", Primary, 8f, () => Tap(act.Submit));
             TL((RectTransform)submit.transform, 20f + bw + 4f, cy, bw, 48f);
             UiDraw.Glow((RectTransform)submit.transform, UiDraw.Hex("#000000", .25f), 8f, 6f);
-            IconLabel(submit.transform, "send", 18f, "TRANSMIT REPORT", UiFont.HeadingSemiBold, 14f, OnPrimary, 0f);
+            IconLabel(submit.transform, "send", 18f, "TRANSMIT REPORT", UiFont.HeadingSemiBold, UiDp, OnPrimary, 0f);
             cy += 48f + 4f;
 
             var policy = UiDraw.Box(card, "ReportNotice", Low, 8f);
             TL(UiDraw.Icon(policy.transform, "Icon", "verified", 18f, Primary).rectTransform, 8f, 10f, 18f, 18f);
-            var pt = Wrapped(policy.transform, "Text", "<color=#7cefff><b>INTEGRITY POLICY:</b></color> Every report is paired with the selected match for human review. Repeated false reports are not acted on.",
-                UiFont.Body, 12f, OnVariant, iw - 40f, 15f);
+            var pt = Wrapped(policy.transform, "Text", $"<color=#{ColorUtility.ToHtmlStringRGB(Primary)}><b>INTEGRITY POLICY:</b></color> Every report is paired with the selected match for human review. Repeated false reports are not acted on.",
+                UiFont.Body, CaptionDp, OnVariant, iw - 40f, 15f);
             TL(pt.rectTransform, 32f, 8f, iw - 40f, pt.preferredHeight);
             float ph = pt.preferredHeight + 16f;
             TL(policy.rectTransform, 20f, cy, iw, ph);
@@ -517,7 +638,7 @@ namespace Hotdrop.UI
             if (input.textComponent != null)
             {
                 UIFonts.Use(input.textComponent, UiFont.Mono);
-                input.textComponent.fontSize = 14f;
+                input.textComponent.fontSize = UiMetrics.ScaleTextSize(UiDp);
                 input.textComponent.enableAutoSizing = false;
                 input.textComponent.color = OnSurface;
                 input.textComponent.alignment = TextAlignmentOptions.TopLeft;
@@ -528,10 +649,10 @@ namespace Hotdrop.UI
             {
                 UIFonts.Use(placeholder, UiFont.Mono);
                 placeholder.text = "Describe abnormal trajectory, grief behavior, or communication breach...";
-                placeholder.fontSize = 14f;
+                placeholder.fontSize = UiMetrics.ScaleTextSize(UiDp);
                 placeholder.enableAutoSizing = false;
                 placeholder.fontStyle = FontStyles.Normal;
-                placeholder.color = UiDraw.Hex("#859396", .7f);
+                placeholder.color = UIDesignTokens.WithAlpha(UIDesignTokens.TextMuted, .7f);
                 placeholder.alignment = TextAlignmentOptions.TopLeft;
                 placeholder.textWrappingMode = TextWrappingModes.Normal;
                 placeholder.characterSpacing = 3f;
@@ -545,14 +666,14 @@ namespace Hotdrop.UI
             var card = Card(page, "Assistance", Mid, x, y, w, 170f);
             float iw = w - 40f;
             Header(card, "terminal", "COMPLIANCE & SUPPORT", Primary, 20f, w);
-            var build = UiDraw.Text(card, "Build", "BUILD " + Application.version.ToUpperInvariant(), UiFont.MonoMedium, 11f, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
+            var build = UiDraw.Text(card, "Build", "BUILD " + Application.version.ToUpperInvariant(), UiFont.MonoMedium, CaptionDp, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(build.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-20f, -29f), new Vector2(160f, 14f));
             var tiles = new (string name, string icon, Color tone, string title, string sub, Action go)[]
             {
                 ("Privacy", "policy", Primary, "PRIVACY", "DATA & EMAIL", act.AccountSettings),
                 ("WebDeletion", "description", Primary, "WEB REQUEST", "DELETION PAGE", act.WebDeletion),
-                ("Profile", "support_agent", Primary, "OPERATIVE", "PERSONAL RECORD", act.Profile),
-                ("Diagnostics", "bug_report", Tertiary, "DIAGNOSTICS", "SYS TELEMETRY", act.Diagnostics),
+                ("Profile", "support_agent", Primary, "PROFILE", "YOUR PILOT RECORD", act.Profile),
+                ("Diagnostics", "bug_report", Tertiary, "DIAGNOSTICS", "SEND A REPORT", act.Diagnostics),
             };
             float tw = (iw - 4f) / 2f;
             for (int i = 0; i < tiles.Length; i++)
@@ -561,18 +682,18 @@ namespace Hotdrop.UI
                 var tile = UiDraw.Tap(card, "Support_" + t.name, High, 8f, () => Tap(t.go));
                 TL((RectTransform)tile.transform, 20f + (i % 2) * (tw + 4f), 50f + (i / 2) * 52f, tw, 48f);
                 UiDraw.Place(UiDraw.Icon(tile.transform, "Icon", t.icon, 20f, t.tone).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(20f, 20f));
-                TL(UiDraw.Text(tile.transform, "Title", t.title, UiFont.Heading, 12f, OnSurface, .08f).rectTransform, 36f, 9f, tw - 40f, 16f);
-                TL(UiDraw.Text(tile.transform, "Sub", t.sub, UiFont.MonoMedium, 10f, OnVariant, .05f).rectTransform, 36f, 25f, tw - 40f, 14f);
+                TL(UiDraw.Text(tile.transform, "Title", t.title, UiFont.Heading, CaptionDp, OnSurface, .08f).rectTransform, 36f, 9f, tw - 40f, 16f);
+                TL(UiDraw.Text(tile.transform, "Sub", t.sub, UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 36f, 25f, tw - 40f, 14f);
             }
 
             float py = y + 170f + Gap;
-            var gate = Card(page, "Purge", UiDraw.Hex("#930d2d", .3f), x, py, w, 100f);
+            var gate = Card(page, "Purge", UIDesignTokens.WithAlpha(SecondaryC, .3f), x, py, w, 100f);
             float cy = 20f;
             Header(gate, "warning", "DESTRUCTIVE PURGE GATE", Secondary, cy, w, Secondary);
             Badge(gate, "Safety", "2-STEP SAFETY", Secondary, OnSecondary, w - 20f, cy);
             cy += 18f + 12f;
-            TL(UiDraw.Text(gate, "Title", "PERMANENT ACCOUNT PURGE", UiFont.HeadingSemiBold, 20f, Secondary).rectTransform, 20f, cy, iw, 26f);
-            TL(UiDraw.Text(gate, "Detail", "Irreversible deletion of your HOTDROP account:", UiFont.Body, 12f, OnVariant, .01f).rectTransform, 20f, cy + 30f, iw, 16f);
+            TL(UiDraw.Text(gate, "Title", "PERMANENT ACCOUNT PURGE", UiFont.HeadingSemiBold, TitleDp, Secondary).rectTransform, 20f, cy, iw, 26f);
+            TL(UiDraw.Text(gate, "Detail", "Irreversible deletion of your HOTDROP account:", UiFont.Body, CaptionDp, OnVariant, .01f).rectTransform, 20f, cy + 30f, iw, 16f);
             cy += 30f + 16f + 12f;
 
             var ledger = UiDraw.Box(gate, "Ledger", Lowest, 8f);
@@ -585,7 +706,7 @@ namespace Hotdrop.UI
             float ly = 8f;
             foreach (var r in rows)
             {
-                var line = Wrapped(ledger.transform, "Line", r.text, UiFont.MonoMedium, 11f, r.tone, iw - 44f, 14f, .05f);
+                var line = Wrapped(ledger.transform, "Line", r.text, UiFont.MonoMedium, CaptionDp, r.tone, iw - 44f, 14f, .05f);
                 TL(UiDraw.Icon(ledger.transform, "Icon", r.icon, 16f, r.tone).rectTransform, 8f, ly, 16f, 16f);
                 TL(line.rectTransform, 28f, ly + 1f, iw - 44f, line.preferredHeight);
                 ly += Mathf.Max(16f, line.preferredHeight) + 4f;
@@ -594,17 +715,17 @@ namespace Hotdrop.UI
             TL(ledger.rectTransform, 20f, cy, iw, lh);
             cy += lh + 12f;
 
-            TL(UiDraw.Text(gate, "HoldLabel", "TACTICAL SAFETY RELEASE", UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform, 20f, cy, iw * .6f, 14f);
-            var holdStatus = UiDraw.Text(gate, "HoldStatus", "HOLD 3 SECONDS", UiFont.Mono, 11f, Secondary, .05f, TextAlignmentOptions.MidlineRight);
+            TL(UiDraw.Text(gate, "HoldLabel", "TACTICAL SAFETY RELEASE", UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 20f, cy, iw * .6f, 14f);
+            var holdStatus = UiDraw.Text(gate, "HoldStatus", "HOLD 3 SECONDS", UiFont.Mono, CaptionDp, Secondary, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(holdStatus.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-20f, -cy - 7f), new Vector2(iw * .4f, 14f));
             cy += 18f;
             var hold = UiDraw.Tap(gate, "DeleteAccount", SecondaryC, 8f, null);
             TL((RectTransform)hold.transform, 20f, cy, iw, 52f);
             hold.gameObject.AddComponent<CanvasGroup>();
             hold.gameObject.AddComponent<RectMask2D>();
-            var fill = UiDraw.Box(hold.transform, "Progress", UiDraw.Hex("#ffb2b7", .4f));
+            var fill = UiDraw.Box(hold.transform, "Progress", UIDesignTokens.WithAlpha(Secondary, .4f));
             UiDraw.Place(fill.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), Vector2.zero, new Vector2(0f, 52f));
-            var holdLabel = IconLabel(hold.transform, "fingerprint", 20f, "PRESS & HOLD TO UNLOCK", UiFont.HeadingSemiBold, 20f, OnSecondaryC, .05f);
+            var holdLabel = IconLabel(hold.transform, "fingerprint", 20f, "PRESS & HOLD TO UNLOCK", UiFont.HeadingSemiBold, TitleDp, OnSecondaryC, .05f);
             var gateLogic = hold.gameObject.AddComponent<HoldGate>();
             gateLogic.Fill = fill.rectTransform; gateLogic.Width = iw;
             gateLogic.Changed = holding => holdStatus.text = holding ? "OVERRIDE ENGAGING..." : "HOLD 3 SECONDS";
@@ -615,7 +736,7 @@ namespace Hotdrop.UI
             // Typed second step, shown once the hold completes.
             var stage = UiDraw.Box(gate, "StageTwo", High, 8f);
             var prompt = Wrapped(stage.transform, "Prompt", "TYPE \"DELETE\" TO CONFIRM — This deletes your profile, progression, inventory, credits and match history.",
-                UiFont.MonoMedium, 11f, Secondary, iw - 16f, 14f, .05f);
+                UiFont.MonoMedium, CaptionDp, Secondary, iw - 16f, 14f, .05f);
             TL(prompt.rectTransform, 8f, 8f, iw - 16f, prompt.preferredHeight);
             float sy = 8f + prompt.preferredHeight + 6f;
             var typed = TypedInput(stage.transform);
@@ -623,10 +744,10 @@ namespace Hotdrop.UI
             TL((RectTransform)typed.transform, 8f, sy, iw - 16f - purgeW - cancelW - 8f, 48f);
             var cancel = UiDraw.Tap(stage.transform, "CancelPurge", Highest, 8f, null);
             TL((RectTransform)cancel.transform, iw - 8f - purgeW - 4f - cancelW, sy, cancelW, 48f);
-            UiDraw.Fill(UiDraw.Text(cancel.transform, "Label", "CANCEL", UiFont.HeadingSemiBold, 14f, OnSurface, 0f, TextAlignmentOptions.Midline).rectTransform);
+            UiDraw.Fill(UiDraw.Text(cancel.transform, "Label", "CANCEL", UiFont.HeadingSemiBold, UiDp, OnSurface, 0f, TextAlignmentOptions.Midline).rectTransform);
             var purge = UiDraw.Tap(stage.transform, "Purge", Secondary, 8f, () => Tap(act.Purge));
             TL((RectTransform)purge.transform, iw - 8f - purgeW, sy, purgeW, 48f);
-            UiDraw.Fill(UiDraw.Text(purge.transform, "Label", "PURGE", UiFont.HeadingSemiBold, 20f, OnSecondary, 0f, TextAlignmentOptions.Midline).rectTransform);
+            UiDraw.Fill(UiDraw.Text(purge.transform, "Label", "PURGE", UiFont.HeadingSemiBold, TitleDp, OnSecondary, 0f, TextAlignmentOptions.Midline).rectTransform);
             var purgeGroup = purge.gameObject.AddComponent<CanvasGroup>();
             purge.interactable = false; purgeGroup.alpha = .3f;
             typed.onValueChanged.AddListener(v =>
@@ -669,12 +790,12 @@ namespace Hotdrop.UI
             bg.sprite = UIRoundedSprites.RoundedRect(8f); bg.type = Image.Type.Sliced; bg.pixelsPerUnitMultiplier = 1f; bg.color = Lowest;
             if (input.textViewport != null) UiDraw.Fill(input.textViewport, 12f, 0f, 12f, 0f);
             UIFonts.Use(input.textComponent, UiFont.Mono);
-            input.textComponent.fontSize = 18f; input.textComponent.color = Secondary;
+            input.textComponent.fontSize = UiMetrics.ScaleTextSize(UiDp); input.textComponent.color = Secondary;
             input.textComponent.alignment = TextAlignmentOptions.MidlineLeft; input.textComponent.characterSpacing = 2f;
             if (input.placeholder is TextMeshProUGUI ph)
             {
                 UIFonts.Use(ph, UiFont.Mono);
-                ph.text = "DELETE"; ph.fontSize = 18f; ph.fontStyle = FontStyles.Normal;
+                ph.text = "DELETE"; ph.fontSize = UiMetrics.ScaleTextSize(UiDp); ph.fontStyle = FontStyles.Normal;
                 ph.color = OutlineVariant; ph.alignment = TextAlignmentOptions.MidlineLeft; ph.characterSpacing = 2f;
             }
             input.onValidateInput = (text, index, c) => char.ToUpperInvariant(c);
@@ -687,14 +808,14 @@ namespace Hotdrop.UI
         {
             var foot = UiDraw.Box(page, "PageFooter", Lowest);
             TL(foot.rectTransform, 0f, y, width, 66f);
-            var brand = UiDraw.Text(foot.transform, "Brand", "HOTDROP", UiFont.HeadingSemiBold, 20f, Primary);
+            var brand = UiDraw.Text(foot.transform, "Brand", "HOTDROP", UiFont.HeadingSemiBold, TitleDp, Primary);
             UiDraw.Place(brand.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(UiDraw.Width(brand) + 2f, 26f));
-            UiDraw.Place(UiDraw.Text(foot.transform, "Arena", "3V3 ULTRA-WIDE TACTICAL ARENA", UiFont.MonoMedium, 11f, OnVariant, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(foot.transform, "Arena", "3V3 ULTRA-WIDE TACTICAL ARENA", UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(28f + UiDraw.Width(brand), 0f), new Vector2(320f, 14f));
-            string account = profile == null ? "SYNCING" : linked ? "LINKED" : "GUEST";
+            string account = profile == null ? Missing("SYNCING", "UNAVAILABLE") : linked ? "LINKED" : "GUEST";
             var right = UiDraw.Text(foot.transform, "Protocol",
-                $"SECURE PROTOCOL ENGAGED      <color=#7cefff>ACCOUNT: {account}</color>      BUILD {Application.version.ToUpperInvariant()}",
-                UiFont.MonoMedium, 11f, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
+                $"SECURE PROTOCOL ENGAGED      <color=#{ColorUtility.ToHtmlStringRGB(Primary)}>ACCOUNT: {account}</color>      BUILD {Application.version.ToUpperInvariant()}",
+                UiFont.MonoMedium, CaptionDp, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(right.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-16f, 0f), new Vector2(width * .6f, 14f));
         }
 
@@ -709,12 +830,12 @@ namespace Hotdrop.UI
         static void Header(RectTransform card, string icon, string label, Color iconTone, float y, float w, Color? textTone = null)
         {
             TL(UiDraw.Icon(card, "HeaderIcon", icon, 18f, iconTone).rectTransform, 20f, y, 18f, 18f);
-            TL(UiDraw.Text(card, "Heading", label, UiFont.Heading, 12f, textTone ?? OnVariant, .08f).rectTransform, 42f, y + 2f, w * .6f, 14f);
+            TL(UiDraw.Text(card, "Heading", label, UiFont.Heading, CaptionDp, textTone ?? OnVariant, .08f).rectTransform, 42f, y + 2f, w * .6f, 14f);
         }
 
         static void Badge(RectTransform card, string name, string value, Color fill, Color tone, float right, float y)
         {
-            var text = UiDraw.Text(card, name + "Text", value, UiFont.Mono, 11f, tone, .05f, TextAlignmentOptions.Midline);
+            var text = UiDraw.Text(card, name + "Text", value, UiFont.Mono, CaptionDp, tone, .05f, TextAlignmentOptions.Midline);
             float bw = UiDraw.Width(text) + 8f;
             var plate = UiDraw.Box(card, name, fill, 4f);
             plate.transform.SetSiblingIndex(text.transform.GetSiblingIndex());

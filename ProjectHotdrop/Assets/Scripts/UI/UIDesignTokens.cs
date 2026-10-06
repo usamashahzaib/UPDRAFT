@@ -50,9 +50,9 @@ namespace Hotdrop.UI
         public static Color ActionCyanPressed => Color.Lerp(PrimaryAction, Background, 0.28f);
         /// <summary>Ally signal; kept separate from the primary action role.</summary>
         public static Color Ally => UiPresentationProfile.Palette.Ally;
-        /// <summary>Enemies, danger, destructive actions.</summary>
+        /// <summary>Enemy identity and damage feedback only.</summary>
         public static Color HazardCoral => UiPresentationProfile.Palette.Enemy;
-        /// <summary>Pressed-danger tint derived from the selected profile's enemy signal.</summary>
+        /// <summary>Pressed enemy cue tint derived from the selected profile's enemy signal.</summary>
         public static Color HazardCoralPressed => Color.Lerp(HazardCoral, Background, 0.28f);
         /// <summary>Objectives, rewards, contested zones.</summary>
         public static Color ObjectiveGold => UiPresentationProfile.Palette.Objective;

@@ -31,7 +31,7 @@ namespace Hotdrop.Core
     [Serializable] public class QueueStatusDto { public string state; public int elapsedSeconds; public string matchId; public string region; public string message; public string etaUtc; public string compensationNote; }
     [Serializable] public class TicketDto { public string ticket; public string expiresAt; public string matchId; public string session; public string region; public string team; public bool hasBots; public bool serverReady; public string note; }
     [Serializable] public class ReconnectDto { public string matchId; public bool reconnectAllowed; }
-    [Serializable] public class MatchReceiptDto { public bool recorded; public bool eligible; public int xpGained; public int creditsGained; public int level; public string[] unlocked; }
+    [Serializable] public class MatchReceiptDto { public bool recorded; public bool eligible; public int xpGained; public int creditsGained; public int level; public int? profileXpBefore; public int? profileXpAfter; public int xpPerLevel; public int maxLevel; public string[] unlocked; }
     [Serializable] public class PartyMemberDto { public string playerId; public string alias; public bool isReady; }
     [Serializable] public class PartyDto { public string code; public string leaderId; public List<string> memberIds; public List<string> readyIds; public PartyMemberDto[] members; }
     [Serializable] public class ProfileDto { public string id; public string alias; public int profileXp; public int level; public string equippedCosmeticId; public string linkedPlatformIdentity; public bool isGuest; public string bodyStyleId; public string weaponWrapId; public string badgeId; public string bodyRigId; }
@@ -39,7 +39,8 @@ namespace Hotdrop.Core
     [Serializable] public class ProfileStatsDto { public int eligibleMatches; public int wins; public int draws; }
     [Serializable] public class ErrorDto { public string error; public string message; public string etaUtc; public string compensationNote; }
     [Serializable] public class InventoryItemDto { public long id; public string cosmeticId; public string acquiredVia; }
-    [Serializable] public class InventoryDto { public InventoryItemDto[] items; }
+    [Serializable] public class WrapUnlockDto { public int level; public string cosmeticId; }
+    [Serializable] public class InventoryDto { public InventoryItemDto[] items; public WrapUnlockDto[] wrapUnlocks; }
     [Serializable] public class ReportRequestDto { public string reportedPlayerId; public string reason; public string matchId; public string reportedAlias; public int reportedSlot = -1; }
     [Serializable] public class LinkGooglePlayDto { public string serverAuthCode; }
     [Serializable] public class ContactEmailDto { public string email; }

@@ -17,6 +17,10 @@ competitive outcomes, progression, and commerce.
 - Backend services and endpoints own account, matchmaking, progression, and
   commerce operations. Do not trust client-submitted prices, grants, contract
   completion, or match results.
+- Server progression configuration is validated at startup so invalid level
+  thresholds, negative awards, or unreachable/malformed unlock entries cannot
+  corrupt authoritative rewards. The specific checks are recorded in
+  `docs/acceptance/PART8_PROGRESSION_CONFIG.md`.
 
 ## Movement and networking requirements
 
@@ -26,6 +30,8 @@ competitive outcomes, progression, and commerce.
 - Client prediction must use the same movement rules as server simulation.
   Reconcile on authoritative state; do not assume Unity CharacterController
   provides deterministic simulation.
+- Offline and authoritative weapon firing also read the same configured
+  grounded moving-state threshold for spread selection.
 - Any lag-compensation limit is an [ESTIMATE] and must be an explicit config
   value. The amendment proposes a 200 ms cap; measure RTT distributions before
   tuning it. Do not silently change the deployed rewind window.
@@ -33,17 +39,34 @@ competitive outcomes, progression, and commerce.
   match phases and attach fixed latency-bucket counts plus the maximum sample
   to the existing completion telemetry event. These client observations support
   tuning analysis; they are not authoritative match facts or market acceptance.
-- Keep replay/event data server-reviewable and avoid treating client replay
-  data as proof of an authoritative hit.
+- Keep replay/event data server-owned and avoid treating client replay data as
+  proof of an authoritative hit. The dedicated server now captures sanitized
+  inputs and avatar state at 10 Hz in a duration-bounded in-memory match record;
+  persistent post-match review and playback remain gated on data ownership,
+  reviewer access, and retention rules. See
+  `docs/acceptance/PART8_SERVER_REPLAY_CAPTURE.md`.
 
 ## Security requirements
 
 - Validate platform purchase receipts on the server before granting items.
 - Persist inventory grants and contract completion server-side and make
   retries idempotent.
+- Match result retries use durable per-player receipts and unique ledger/grant
+  keys. Concurrent submission conflicts are accepted as idempotent only after
+  every submitted participant receipt is confirmed persisted; otherwise the
+  database error is preserved. See
+  `docs/acceptance/PART8_MATCH_RESULT_IDEMPOTENCY.md`.
 - Apply server-side bounds to fire rate, movement speed, pad cooldowns and
   damage. Never accept client match results as the progression source of
   truth.
+  The shared fire-cadence step fails closed for non-finite or non-positive
+  simulation/weapon intervals, so malformed weapon cadence cannot bypass the
+  configured server shot rate. See
+  `docs/acceptance/PART8_MOVEMENT_INPUT_SANITIZATION.md`.
+- Player/pad damage, elimination, shot queueing, pad spawning, and pad event
+  mutation points independently require state authority and matching runner
+  ownership. Damage amounts must be finite and positive. See
+  `docs/acceptance/PART8_DAMAGE_STATE_AUTHORITY.md`.
 - Evaluate Play Integrity, emulator handling, and replay review as release
   work; these are not assumed complete merely because the architecture calls
   for them.

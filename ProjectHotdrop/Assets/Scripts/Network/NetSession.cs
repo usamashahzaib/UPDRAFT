@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Fusion;
 using Fusion.Photon.Realtime;
 using Fusion.Sockets;
+using Hotdrop.Config;
 using UnityEngine;
 
 namespace Hotdrop.Network
@@ -323,8 +324,12 @@ namespace Hotdrop.Network
             {
                 if (p.Runner != runner || p.Object.InputAuthority != player) continue;
                 p.Connected = false;
-                // Spec 10: a labeled bot takes over after 5 s; the player may still reconnect.
-                p.DisconnectGrace = TickTimer.CreateFromSeconds(runner, 5f);
+                // The labeled-bot grace uses the same live config as the other AFK windows.
+                var progression = NetConfigs.Progression;
+                float grace = progression != null
+                    ? Mathf.Max(0f, progression.disconnectBotSubstitutionSeconds)
+                    : ProgressionConfig.DefaultDisconnectBotSubstitutionSeconds;
+                p.DisconnectGrace = TickTimer.CreateFromSeconds(runner, grace);
                 p.Object.RemoveInputAuthority();
             }
         }

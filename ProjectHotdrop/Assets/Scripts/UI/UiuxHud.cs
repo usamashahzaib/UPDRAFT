@@ -17,6 +17,9 @@ namespace Hotdrop.UI
     public sealed class UiuxHud : MonoBehaviour
     {
         const float Margin = 24f;
+        const float HudCaptionDp = UIDesignTokens.CaptionDp;
+        const float HudValueDp = UIDesignTokens.BodyLargeDp;
+        const float HudEmphasisDp = UIDesignTokens.TitleMediumDp;
         static Color Primary => UiDraw.Hex("#7cefff");
         static Color PrimaryContainer => UiDraw.Hex("#30d5e8");
         static Color Secondary => UiDraw.Hex("#ffb2b7");
@@ -98,9 +101,9 @@ namespace Hotdrop.UI
             roster = UiDraw.Place(UiDraw.Node(root, "Roster"), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Margin, -Margin), new Vector2(256f, 160f));
             UiDraw.Place(UiDraw.Icon(roster, "GroupIcon", "group", 14f, Primary).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(4f, -7f), new Vector2(14f, 14f));
-            UiDraw.Place(UiDraw.Text(roster, "RosterTitle", "ROSTER // TEAM", UiFont.Heading, 12f, OnSurfaceVariant, .08f).rectTransform,
+            UiDraw.Place(UiDraw.Text(roster, "RosterTitle", "SQUAD", UiFont.Heading, HudCaptionDp, OnSurfaceVariant, .08f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(22f, -7f), new Vector2(180f, 14f));
-            rosterCount = UiDraw.Text(roster, "RosterCount", "", UiFont.MonoMedium, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight);
+            rosterCount = UiDraw.Text(roster, "RosterCount", "", UiFont.MonoMedium, HudCaptionDp, Primary, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(rosterCount.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-4f, -7f), new Vector2(120f, 14f));
             for (int i = 0; i < 2; i++)
             {
@@ -108,10 +111,10 @@ namespace Hotdrop.UI
                 var box = UiDraw.Box(roster, "Mate" + i, UiDraw.Hex("#141c2b", .9f), 8f);
                 card.rect = UiDraw.Place(box.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -16f - i * 70f), new Vector2(256f, 66f));
                 UiDraw.Place(UiDraw.Dot(card.rect, "Live", 8f, Primary).rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(8f, -19f), new Vector2(8f, 8f));
-                card.name = UiDraw.Text(card.rect, "Name", "", UiFont.BodySemiBold, 16f, OnSurface, .01f);
+                card.name = UiDraw.Text(card.rect, "Name", "", UiFont.BodySemiBold, HudValueDp, OnSurface, .01f);
                 UiDraw.Place(card.name.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(20f, -19f), new Vector2(170f, 22f));
                 card.name.overflowMode = TextOverflowModes.Ellipsis;
-                card.hp = UiDraw.Text(card.rect, "Hp", "", UiFont.MonoMedium, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight);
+                card.hp = UiDraw.Text(card.rect, "Hp", "", UiFont.MonoMedium, HudCaptionDp, Primary, .05f, TextAlignmentOptions.MidlineRight);
                 UiDraw.Place(card.hp.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-8f, -19f), new Vector2(70f, 14f));
                 var track = UiDraw.Box(card.rect, "Track", Highest, 3f);
                 UiDraw.Place(track.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(8f, -34f), new Vector2(240f, 6f));
@@ -119,9 +122,9 @@ namespace Hotdrop.UI
                 card.fill.rectTransform.anchorMin = Vector2.zero; card.fill.rectTransform.anchorMax = new Vector2(0f, 1f);
                 card.fill.rectTransform.pivot = new Vector2(0f, .5f);
                 card.fill.rectTransform.sizeDelta = new Vector2(240f, 0f);
-                card.weapon = UiDraw.Text(card.rect, "Weapon", "", UiFont.MonoMedium, 11f, OnSurfaceVariant, .05f);
+                card.weapon = UiDraw.Text(card.rect, "Weapon", "", UiFont.MonoMedium, HudCaptionDp, OnSurfaceVariant, .05f);
                 UiDraw.Place(card.weapon.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(8f, -51f), new Vector2(150f, 14f));
-                card.state = UiDraw.Text(card.rect, "State", "", UiFont.MonoMedium, 11f, Tertiary, .05f, TextAlignmentOptions.MidlineRight);
+                card.state = UiDraw.Text(card.rect, "State", "", UiFont.MonoMedium, HudCaptionDp, Tertiary, .05f, TextAlignmentOptions.MidlineRight);
                 UiDraw.Place(card.state.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-8f, -51f), new Vector2(120f, 14f));
                 cards.Add(card);
             }
@@ -135,33 +138,33 @@ namespace Hotdrop.UI
             board = UiDraw.Place(plate.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -Margin), new Vector2(228f, 52f));
             // Ally block.
             UiDraw.Place(UiDraw.Box(board, "AllyBar", Primary, 2f).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(12f, 0f), new Vector2(8f, 24f));
-            UiDraw.Place(UiDraw.Text(board, "AllyLabel", "ALLY", UiFont.Heading, 12f, Primary, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(board, "AllyLabel", "ALLY", UiFont.Heading, HudCaptionDp, Primary, .05f).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(24f, 13f), new Vector2(40f, 14f));
-            allyScore = UiDraw.Text(board, "AllyScore", "0", UiFont.Heading, 20f, Primary, -.025f);
+            allyScore = UiDraw.Text(board, "AllyScore", "0", UiFont.Heading, HudEmphasisDp, Primary, -.025f);
             UiDraw.Place(allyScore.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(24f, -7f), new Vector2(40f, 26f));
             // Clock.
             var clockBox = UiDraw.Box(board, "ClockBox", High, 4f);
             UiDraw.Place(clockBox.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(76f, 44f));
-            UiDraw.Place(UiDraw.Text(clockBox.transform, "ClockLabel", "CLOCK", UiFont.Heading, 12f, Outline, .1f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(clockBox.transform, "ClockLabel", "CLOCK", UiFont.Heading, HudCaptionDp, Outline, .1f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 11f), new Vector2(80f, 14f));
-            clock = UiDraw.Text(clockBox.transform, "Clock", "03:00", UiFont.Mono, 18f, OnSurface, .05f, TextAlignmentOptions.Midline);
+            clock = UiDraw.Text(clockBox.transform, "Clock", "03:00", UiFont.Mono, HudValueDp, OnSurface, .05f, TextAlignmentOptions.Midline);
             UiDraw.Place(clock.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -7f), new Vector2(80f, 22f));
             // Enemy block.
             UiDraw.Place(UiDraw.Box(board, "EnemyBar", Secondary, 2f).rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-12f, 0f), new Vector2(8f, 24f));
-            UiDraw.Place(UiDraw.Text(board, "EnemyLabel", "ENEMY", UiFont.Heading, 12f, Secondary, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
+            UiDraw.Place(UiDraw.Text(board, "EnemyLabel", "ENEMY", UiFont.Heading, HudCaptionDp, Secondary, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-24f, 13f), new Vector2(60f, 14f));
-            enemyScore = UiDraw.Text(board, "EnemyScore", "0", UiFont.Heading, 20f, Secondary, -.025f, TextAlignmentOptions.MidlineRight);
+            enemyScore = UiDraw.Text(board, "EnemyScore", "0", UiFont.Heading, HudEmphasisDp, Secondary, -.025f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(enemyScore.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-24f, -7f), new Vector2(60f, 26f));
 
             var zone = UiDraw.Box(root, "ZonePanel", UiDraw.Hex("#141c2b", .95f), 8f);
             zonePanel = UiDraw.Place(zone.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -Margin - 56f), new Vector2(280f, 38f));
             UiDraw.Place(UiDraw.Icon(zonePanel, "Spin", "refresh", 13f, Primary).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(12f, -13f), new Vector2(13f, 13f));
-            zoneName = UiDraw.Text(zonePanel, "ZoneName", "", UiFont.MonoMedium, 11f, Primary, .05f);
+            zoneName = UiDraw.Text(zonePanel, "ZoneName", "", UiFont.MonoMedium, HudCaptionDp, Primary, .05f);
             UiDraw.Place(zoneName.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(29f, -13f), new Vector2(110f, 14f));
-            zoneState = UiDraw.Text(zonePanel, "ZoneState", "", UiFont.Heading, 12f, Tertiary, .1f, TextAlignmentOptions.Midline);
+            zoneState = UiDraw.Text(zonePanel, "ZoneState", "", UiFont.Heading, HudCaptionDp, Tertiary, .1f, TextAlignmentOptions.Midline);
             UiDraw.Place(zoneState.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(4f, -13f), new Vector2(110f, 14f));
-            zoneNext = UiDraw.Text(zonePanel, "ZoneNext", "", UiFont.MonoMedium, 11f, Outline, .05f, TextAlignmentOptions.MidlineRight);
+            zoneNext = UiDraw.Text(zonePanel, "ZoneNext", "", UiFont.MonoMedium, HudCaptionDp, Outline, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(zoneNext.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-12f, -13f), new Vector2(100f, 14f));
             var track = UiDraw.Box(zonePanel, "Tug", Highest, 4f);
             var t = UiDraw.Place(track.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(0f, 6f), new Vector2(256f, 8f));
@@ -189,18 +192,18 @@ namespace Hotdrop.UI
             // Ping and menu are the touch controls' own buttons, placed at 40x40 in this row by
             // TouchInputManager; the region chip sits to their left.
             var chip = UiDraw.Box(topRight, "RegionChip", UiDraw.Hex("#060e1d", .8f), 4f);
-            regionText = UiDraw.Text(chip.transform, "Region", "", UiFont.MonoMedium, 11f, OnSurfaceVariant, .05f);
+            regionText = UiDraw.Text(chip.transform, "Region", "", UiFont.MonoMedium, HudCaptionDp, OnSurfaceVariant, .05f);
             UiDraw.Place(UiDraw.Dot(chip.transform, "Live", 8f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(8f, 0f), new Vector2(8f, 8f));
             UiDraw.Place(regionText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(22f, 0f), new Vector2(150f, 14f));
             SetRegion("PRACTICE");
 
             // Live facts sit in the narrow column beside the radar; they never cover the map
             // or the two 40 px controls above it. Offline sessions have no network latency.
-            latencyText = UiDraw.Text(topRight, "Latency", "Ping —", UiFont.MonoMedium, 10f, Primary);
+            latencyText = UiDraw.Text(topRight, "Latency", "Ping —", UiFont.MonoMedium, HudCaptionDp, Primary);
             UiDraw.Place(latencyText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -51f), new Vector2(92f, 15f));
-            performanceText = UiDraw.Text(topRight, "Performance", "K/D 0/0", UiFont.MonoMedium, 10f, Tertiary);
+            performanceText = UiDraw.Text(topRight, "Performance", "K/D 0/0", UiFont.MonoMedium, HudCaptionDp, Tertiary);
             UiDraw.Place(performanceText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -70f), new Vector2(92f, 15f));
-            identityText = UiDraw.Text(topRight, "Identity", "", UiFont.BodySemiBold, 10f, OnSurface);
+            identityText = UiDraw.Text(topRight, "Identity", "", UiFont.BodySemiBold, HudCaptionDp, OnSurface);
             UiDraw.Place(identityText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -89f), new Vector2(92f, 30f));
             identityText.textWrappingMode = TextWrappingModes.Normal;
             identityText.overflowMode = TextOverflowModes.Ellipsis;
@@ -249,9 +252,9 @@ namespace Hotdrop.UI
             }
             radarSelf = UiDraw.Place(UiDraw.Dot(radar, "Self", 12f, Primary).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(12f, 12f));
             UiDraw.Fill(UiDraw.Icon(radarSelf, "Heading", "navigation", 10f, UiDraw.Hex("#00363c"), true).rectTransform);
-            radarHeading = UiDraw.Text(radar, "Hdg", "HDG 000°", UiFont.MonoMedium, 9f, OnSurfaceVariant);
+            radarHeading = UiDraw.Text(radar, "Hdg", "HDG 000°", UiFont.MonoMedium, HudCaptionDp, OnSurfaceVariant);
             UiDraw.Place(radarHeading.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(8f, 4f), new Vector2(80f, 12f));
-            radarSector = UiDraw.Text(radar, "Sector", "", UiFont.MonoMedium, 9f, Primary, 0f, TextAlignmentOptions.MidlineRight);
+            radarSector = UiDraw.Text(radar, "Sector", "", UiFont.MonoMedium, HudCaptionDp, Primary, 0f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(radarSector.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-8f, -4f), new Vector2(100f, 12f));
         }
 
@@ -288,7 +291,7 @@ namespace Hotdrop.UI
             var plate = UiDraw.Box(root, "GameplaySoundCaption", UiDraw.Hex("#060e1d", .92f), 8f);
             soundCaptionRoot = UiDraw.Place(plate.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f),
                 new Vector2(0f, 112f), new Vector2(320f, 42f));
-            soundCaptionText = UiDraw.Text(soundCaptionRoot, "Caption", "", UiFont.HeadingSemiBold, 16f,
+            soundCaptionText = UiDraw.Text(soundCaptionRoot, "Caption", "", UiFont.HeadingSemiBold, HudValueDp,
                 UiDraw.Hex("#f4f7fb"), .04f, TextAlignmentOptions.Midline);
             UiDraw.Fill(soundCaptionText.rectTransform, 12f, 0f, 12f, 0f);
             soundCaptionText.alignment = TextAlignmentOptions.Midline;
@@ -319,9 +322,9 @@ namespace Hotdrop.UI
             armor = UiDraw.Place(pill.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(0f, 36f), new Vector2(292f, 62f));
             UiDraw.Place(UiDraw.Icon(armor, "Heart", "favorite", 15f, Primary).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(12f, -13f), new Vector2(15f, 15f));
-            UiDraw.Place(UiDraw.Text(armor, "ArmorLabel", "ARMOR INTEGRITY", UiFont.Mono, 11f, Primary, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(armor, "ArmorLabel", "SUIT INTEGRITY", UiFont.Mono, HudCaptionDp, Primary, .05f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(33f, -13f), new Vector2(160f, 14f));
-            armorValue = UiDraw.Text(armor, "ArmorValue", "100 / 100", UiFont.Mono, 14f, Primary, .03f, TextAlignmentOptions.MidlineRight);
+            armorValue = UiDraw.Text(armor, "ArmorValue", "100 / 100", UiFont.Mono, HudValueDp, Primary, .03f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(armorValue.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-12f, -13f), new Vector2(110f, 18f));
             var track = UiDraw.Box(armor, "Segments", Highest, 2f);
             var t = UiDraw.Place(track.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -26f), new Vector2(268f, 12f));
@@ -332,10 +335,10 @@ namespace Hotdrop.UI
                 UiDraw.Place(s.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(i * (seg + 2f), 0f), new Vector2(seg, 12f));
                 armorSegments.Add(s);
             }
-            armorZone = UiDraw.Text(armor, "ArmorZone", "", UiFont.MonoMedium, 11f, Outline, .05f);
+            armorZone = UiDraw.Text(armor, "ArmorZone", "", UiFont.MonoMedium, HudCaptionDp, Outline, .05f);
             UiDraw.Place(armorZone.rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(12f, 11f), new Vector2(140f, 14f));
             UiDraw.Place(UiDraw.Icon(armor, "Air", "air", 13f, Primary).rectTransform, new Vector2(1f, 0f), new Vector2(1f, .5f), new Vector2(-150f, 11f), new Vector2(13f, 13f));
-            armorPad = UiDraw.Text(armor, "ArmorPad", "", UiFont.MonoMedium, 11f, Primary, .05f, TextAlignmentOptions.MidlineRight);
+            armorPad = UiDraw.Text(armor, "ArmorPad", "", UiFont.MonoMedium, HudCaptionDp, Primary, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(armorPad.rectTransform, new Vector2(1f, 0f), new Vector2(1f, .5f), new Vector2(-12f, 11f), new Vector2(134f, 14f));
         }
 
@@ -420,6 +423,36 @@ namespace Hotdrop.UI
             }
         }
 
+        // ------------------------------------------------------------ physical size
+
+        RectTransform[] scaledPanels;
+        Vector2[] panelBasePositions;
+        float appliedScale = 1f;
+
+        /// <summary>
+        /// Draws the edge-anchored panels at physical dp on phones where a canvas unit is smaller
+        /// than one (the same factor the touch controls use), so the clock, scores and suit
+        /// integrity are not half-size on dense screens. Each panel scales about its own anchor
+        /// edge and its offset from that edge scales with it, keeping the composition intact.
+        /// </summary>
+        void ApplyPhysicalScale(float k)
+        {
+            k = Mathf.Max(1f, k);
+            if (scaledPanels == null)
+            {
+                scaledPanels = new[] { roster, board, zonePanel, topRight, armor, soundCaptionRoot };
+                panelBasePositions = new Vector2[scaledPanels.Length];
+                for (int i = 0; i < scaledPanels.Length; i++) panelBasePositions[i] = scaledPanels[i].anchoredPosition;
+            }
+            if (Mathf.Approximately(k, appliedScale)) return;
+            appliedScale = k;
+            for (int i = 0; i < scaledPanels.Length; i++)
+            {
+                scaledPanels[i].localScale = new Vector3(k, k, 1f);
+                scaledPanels[i].anchoredPosition = panelBasePositions[i] * k;
+            }
+        }
+
         // ------------------------------------------------------------ per-frame reads
 
         void LateUpdate()
@@ -430,9 +463,10 @@ namespace Hotdrop.UI
                 if (soundCaptionRemaining <= 0f && soundCaptionRoot != null) soundCaptionRoot.gameObject.SetActive(false);
             }
             if (spinRing != null) spinRing.localRotation = Quaternion.Euler(0f, 0f, -Time.unscaledTime * 20f);
+            ApplyPhysicalScale(Touch != null ? Touch.ControlScale : 1f);
             if (Touch != null)
             {
-                armorPad.text = Touch.LaunchAvailable ? "READY FOR AIR-DRAFT" : !Touch.PadAvailable ? "PAD RECHARGING" : "PAD READY";
+                armorPad.text = Touch.LaunchAvailable ? "LAUNCH READY" : !Touch.PadAvailable ? "PAD RECHARGING" : "PAD READY";
                 // The glyph leads its caption by 4 px, as the reference's inline icon does.
                 var air = (RectTransform)armor.Find("Air");
                 if (air != null) air.anchoredPosition = new Vector2(-12f - UiDraw.Width(armorPad) - 4f, air.anchoredPosition.y);

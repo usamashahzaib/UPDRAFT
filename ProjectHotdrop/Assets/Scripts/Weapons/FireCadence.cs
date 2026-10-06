@@ -17,6 +17,16 @@ namespace Hotdrop.Weapons
         /// </summary>
         public static bool Step(ref float debt, float deltaTime, bool triggerHeld, float interval)
         {
+            // A malformed weapon cadence must never turn into one shot per simulation tick.
+            // Reject invalid server configuration and recover a corrupted timer without
+            // changing any valid configured cadence.
+            if (!IsFinite(deltaTime) || deltaTime <= 0f || !IsFinite(interval) || interval <= 0f)
+            {
+                debt = 0f;
+                return false;
+            }
+            if (!IsFinite(debt)) debt = 0f;
+
             debt -= deltaTime;
             if (!triggerHeld || debt > Epsilon)
             {
@@ -29,6 +39,8 @@ namespace Hotdrop.Weapons
             debt += interval;
             return true;
         }
+
+        static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
     }
 }
 

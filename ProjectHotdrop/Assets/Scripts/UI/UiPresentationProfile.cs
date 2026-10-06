@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -105,10 +106,80 @@ namespace Hotdrop.UI
 
         static void RecolorExistingGraphics(UiPresentationPalette from, UiPresentationPalette to)
         {
+            foreach (var label in Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (label == null || string.IsNullOrEmpty(label.text)) continue;
+                label.text = RemapRichTextPalette(label.text, from, to);
+            }
+
             foreach (var graphic in Object.FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (graphic == null || !TryRemap(graphic.color, from, to, out var color)) continue;
                 graphic.color = color;
+            }
+        }
+
+        // TMP rich-text colors are independent of Graphic.color, so remap only exact
+        // six-digit colors that belong to a semantic palette role. Image/art colors stay put.
+        static string RemapRichTextPalette(string text, UiPresentationPalette from, UiPresentationPalette to)
+        {
+            const string marker = "<color=#";
+            var cursor = 0;
+            while ((cursor = text.IndexOf(marker, cursor, System.StringComparison.OrdinalIgnoreCase)) >= 0)
+            {
+                int hexStart = cursor + marker.Length;
+                int close = hexStart + 6;
+                if (close >= text.Length || text[close] != '>')
+                {
+                    cursor = hexStart;
+                    continue;
+                }
+
+                if (int.TryParse(text.Substring(hexStart, 6), System.Globalization.NumberStyles.HexNumber,
+                        System.Globalization.CultureInfo.InvariantCulture, out int rgb) &&
+                    TryRemapRichTextColor(rgb, from, to, out var mapped))
+                {
+                    string replacement = ColorUtility.ToHtmlStringRGB(mapped);
+                    text = text.Substring(0, hexStart) + replacement + text.Substring(close);
+                    cursor = hexStart + replacement.Length + 1;
+                }
+                else cursor = close + 1;
+            }
+
+            return text;
+        }
+
+        /// <summary>Maps semantic palette tags on newly generated text to the active profile.</summary>
+        public static string NormalizeRichText(string text) => string.IsNullOrEmpty(text)
+            ? text
+            : RemapRichTextPalette(text, Palette, Palette);
+
+        static bool TryRemapRichTextColor(int rgb, UiPresentationPalette from, UiPresentationPalette to, out Color mapped)
+        {
+            if (TryRemap(UIDesignTokens.Rgb(rgb), from, to, out mapped)) return true;
+            switch (rgb & 0xFFFFFF)
+            {
+                case 0x101827: case 0x060E1D: case 0x0C1220: case 0x121619: mapped = to.Background; return true;
+                case 0x1B2940: case 0x0B1322: case 0x141C2B: case 0x17202E: case 0x20272B: mapped = to.Surface; return true;
+                case 0x263A59: case 0x263444: case 0x303A3D: case 0x18202F: case 0x222A3A: case 0x2D3545:
+                    mapped = to.Selected; return true;
+                case 0x49627B: case 0x434B4B: case 0x859396: case 0x3C494B: mapped = to.Structural; return true;
+                case 0x536176: case 0x4E5858: mapped = to.Disabled; return true;
+                case 0xF4F7FB: case 0xDBE2F8: case 0xEDF2F7: case 0xF0F0EA: mapped = to.TextPrimary; return true;
+                case 0xBBC6D8: case 0xBBC9CB: case 0x8A94A6: case 0xA6AEAD: mapped = to.TextSecondary; return true;
+                case 0x7F8CA3: case 0x858D8C: mapped = to.TextMuted; return true;
+                case 0x30D5E8: case 0x7CEFFF: case 0x38D9EC: case 0x3DE0C0: case 0x54D2B3: mapped = to.PrimaryAction; return true;
+                case 0x4DA3FF: case 0x66A7D9: mapped = to.Ally; return true;
+                case 0xFF6376: case 0xFFB2B7: case 0xFF5A66: case 0xD85D61: mapped = to.Enemy; return true;
+                case 0xFFD166: case 0xFFDA88: case 0xEDC157: case 0xFFB84D: case 0xE2B85F: mapped = to.Objective; return true;
+                case 0xFFB45C: case 0xD2A94F: mapped = to.Warning; return true;
+                case 0x7ED68A: case 0x7FBE8B: mapped = to.Success; return true;
+                case 0x930D2D: mapped = Color.Lerp(to.Enemy, to.Background, .65f); return true;
+                case 0x67001B: mapped = Color.Lerp(to.Enemy, to.Background, .8f); return true;
+                case 0xFF9DA4: mapped = Color.Lerp(to.Enemy, to.TextPrimary, .35f); return true;
+                case 0x00363C: mapped = UIDesignTokens.TextOn(to.PrimaryAction); return true;
+                case 0x3F2E00: mapped = UIDesignTokens.TextOn(to.Objective); return true;
+                default: mapped = default; return false;
             }
         }
 
@@ -129,6 +200,7 @@ namespace Hotdrop.UI
             else if (Match(current, from.TextPrimary)) mapped = to.TextPrimary;
             else if (Match(current, from.TextSecondary)) mapped = to.TextSecondary;
             else if (Match(current, from.TextMuted)) mapped = to.TextMuted;
+            else if (Match(current, Color.Lerp(from.Background, from.Surface, .55f))) mapped = Color.Lerp(to.Background, to.Surface, .55f);
             else if (Match(current, Color.Lerp(from.Enemy, from.Background, .65f))) mapped = Color.Lerp(to.Enemy, to.Background, .65f);
             else if (Match(current, Color.Lerp(from.Enemy, from.Background, .8f))) mapped = Color.Lerp(to.Enemy, to.Background, .8f);
             else if (Match(current, Color.Lerp(from.Enemy, from.TextPrimary, .35f))) mapped = Color.Lerp(to.Enemy, to.TextPrimary, .35f);

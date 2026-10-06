@@ -14,10 +14,17 @@ server resolution.
   authoritative balance assets. Bible targets (TTK 0.9–1.4 s, head multiplier
   1.5x, hitscan under 25 m) are [ESTIMATE] and must not override current live
   settings without balance review.
+- Keep the network camera aim-ray distance and minimum submitted aim-point
+  distance in the shared `MatchRulesConfig`; the server uses the same upper
+  limit as the client ray and still resolves hits within each weapon's own
+  configured maximum range.
 - Recoil uses a configured authored pattern plus bounded spread, not pure
   random recoil. ARC, ZIP, and BRICK currently have eight-shot vertical
   multiplier curves in their weapon assets; offline and online local feedback
   use the same curve. These are starting patterns and require playtest tuning.
+- The stationary/moving grounded spread-state threshold is shared through
+  `MovementConfig`, so offline fire and authoritative online fire classify the
+  same ground velocity consistently.
 - Pad launch applies the configured 0.3 s weapon lockout [ESTIMATE] to create
   counterplay; tune after playtest.
 - Never show a hit marker until authoritative damage is confirmed online.

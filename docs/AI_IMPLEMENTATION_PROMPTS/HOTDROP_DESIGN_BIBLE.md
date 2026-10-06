@@ -101,7 +101,7 @@ Between-match activity share is [ESTIMATE] and must be measured with telemetry. 
 - **When idle 48h:** ONE push max, with a real hook ("Your contract is 90% done — one match finishes it"), never "we miss you."
 
 ## 1.7 Exit & return
-- Exit mid-match: bot takeover (your bots exist), rejoin window 90s, no rank penalty if rejoined.
+- Exit mid-match: the server substitutes a labeled bot after the configured disconnect grace period and may restore the same reserved avatar when the player reconnects before match completion. Per A5, the exact rejoin lifetime follows the existing backend reservation contract; the 90-second join-ticket lifetime is refreshed and is not itself the rejoin window. No rank penalty is applied for a successful reconnect.
 - Session recap on next launch: "Yesterday: 7 matches, 4 wins, best flight chain 22s" → immediate PLAY button.
 
 ---

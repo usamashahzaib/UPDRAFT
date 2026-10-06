@@ -14,8 +14,8 @@
     "grounded_tactical_flight": {"concrete":"#969993","structure":"#434B4B","cover":"#737B78","equipment":"#303637","safety":"#D2A94F","facade":"#4C5554","window":"#788B90","sky":"#8F9CA0","ambient":"#717877","sun":"#D9D1BE","zone_west":"#9E9270","zone_center":"#788A84","zone_east":"#8B8B7E","sun_intensity":0.9},
     "hybrid": {"concrete":"#B1B1A8","structure":"#46545E","cover":"#7F8D92","equipment":"#2E3D48","safety":"#E0AD52","facade":"#5F7076","window":"#92AFC1","sky":"#A3BED0","ambient":"#81939E","sun":"#E6D4B8","zone_west":"#BCA36F","zone_center":"#82968E","zone_east":"#A28B80","sun_intensity":1.0}
   },
-  "typography": {"display":"44","title":"30","section":"22","ui":"17","body":"14","caption":"12","max_sizes_per_screen":3,"status":"requires font audit and migration"},
+  "typography": {"display":"44","title":"30","section":"22","ui":"17","body":"14","caption":"12","max_sizes_per_screen":3,"status":"UI-script font audit and token migration complete; Unity visual, device-size, A/B/C contrast, and localization verification pending"},
   "spacing": {"unit":"dp","scale":[4,8,12,16,24],"touch_target_min":48},
   "radius": {"system_dp":12},
-  "motion": {"transition_ms":[180,250],"button_press_scale":0.96,"status":"shared button component applies press scale; screen transition audit remains"}
+  "motion": {"transition_ms":[180,250],"button_press_scale":0.96,"status":"MenuLayout, settings, Preparation, Results, and Match Search use 200 ms ease-out parallax entry/exit or a Reduce Motion fade; queue and countdown refreshes update in place"}
 }

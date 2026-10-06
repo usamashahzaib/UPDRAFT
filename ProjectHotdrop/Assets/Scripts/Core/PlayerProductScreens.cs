@@ -37,7 +37,12 @@ namespace Hotdrop.Core
             home = homePanel;
             screenVersion++;
             ClosePreview();
-            if (panel != null) Discard(panel);
+            if (panel != null)
+            {
+                var replacedPanel = panel;
+                panel = null;
+                UiScreenEnterMotion.Exit(replacedPanel, () => Discard(replacedPanel));
+            }
             // QA-019/020: density-aware scrolling layout; BACK and status live outside the page
             // rows (top bar / bottom line), so clearing rows can never remove the exit (QA-002).
             var screen = MenuLayout.Create(parent, "PlayerProductScreen", page.ToUpperInvariant(), () => Close());
@@ -151,6 +156,7 @@ namespace Hotdrop.Core
             int version = screenVersion;
             if (watchedVersion == version) return; // one watcher per opened screen
             watchedVersion = version;
+            bool refreshFailed = false;
             while (!Stale(version))
             {
                 await Task.Delay(3000);
@@ -166,8 +172,19 @@ namespace Hotdrop.Core
                 }
                 var party = await BackendClient.Instance.CurrentPartyAsync();
                 if (Stale(version)) return;
-                if (party.Ok && party.Value != null) RenderParty(party.Value);
+                if (party.Ok && party.Value != null)
+                {
+                    RenderParty(party.Value);
+                    if (refreshFailed) SetStatus("Party status is current.");
+                    refreshFailed = false;
+                }
                 else if (party.Error == BackendError.NotFound) { ShowPartyEntry(); SetStatus("You are no longer in a party."); return; }
+                else if (!refreshFailed)
+                {
+                    // Keep the last known room visible but do not present it as current.
+                    refreshFailed = true;
+                    SetStatus("Party status could not refresh; showing the last known members and readiness. Retrying automatically.");
+                }
             }
         }
 
@@ -179,27 +196,27 @@ namespace Hotdrop.Core
             int version = screenVersion;
             var profile = await BackendClient.Instance.GetProfileAsync();
             if (Stale(version)) return;
-            if (!profile.Ok || profile.Value == null) { SetStatus(profile.Message); Retry("RETRY PROFILE", OpenProfile); return; }
+            if (!profile.Ok || profile.Value == null) { SetStatus(profile.Message); ShowProfile(null, null, null, OpenProfile); return; }
             var wallet = await BackendClient.Instance.GetWalletAsync();
             if (Stale(version)) return;
-            if (!wallet.Ok) { SetStatus("Credits unavailable: " + wallet.Message); ShowProfile(profile.Value, null, null); Retry("RETRY PROFILE", OpenProfile); return; }
+            if (!wallet.Ok) { SetStatus("Credits unavailable: " + wallet.Message); ShowProfile(profile.Value, null, null, OpenProfile); return; }
             var stats = await BackendClient.Instance.GetProfileStatsAsync();
             if (Stale(version)) return;
             // A brand-new account has no match-stats record yet; that is a normal empty
             // state, not a failure, and must read like one rather than a raw backend error.
             if (!stats.Ok && stats.Error == BackendError.NotFound)
             { SetStatus("Profile loaded."); ShowProfile(profile.Value, wallet.Value, new ProfileStatsDto()); return; }
-            if (!stats.Ok || stats.Value == null) { SetStatus("Match record unavailable: " + stats.Message); ShowProfile(profile.Value, wallet.Value, null); Retry("RETRY PROFILE", OpenProfile); return; }
+            if (!stats.Ok || stats.Value == null) { SetStatus("Match record unavailable: " + stats.Message); ShowProfile(profile.Value, wallet.Value, null, OpenProfile); return; }
             SetStatus("Profile loaded.");
             ShowProfile(profile.Value, wallet.Value, stats.Value);
         }
 
-        static void ShowProfile(ProfileDto profile, WalletDto wallet, ProfileStatsDto stats)
+        static void ShowProfile(ProfileDto profile, WalletDto wallet, ProfileStatsDto stats, Action retry = null)
         {
             var challenges = GameBootstrap.Instance?.GetComponent<OfflineChallengeRuntime>()?.Controller;
             OperativeProfileView.Show(panel, profile, wallet, stats, challenges,
                 status != null ? status.text : "", Close,
-                () => Open(panel.transform.parent, home, "Appearance"));
+                () => Open(panel.transform.parent, home, "Appearance"), retry: retry);
         }
 
         // These pages are reachable only through the local dark-launch gate. They render server state
@@ -263,8 +280,8 @@ namespace Hotdrop.Core
             if (!result.Ok || result.Value == null)
             {
                 SetStatus(result.Message);
-                RenderLocker(Array.Empty<InventoryItemDto>(), CosmeticLook.LocalEquipped,
-                    CosmeticLook.LocalWrap, CosmeticLook.LocalBadge);
+                RenderLocker(null, CosmeticLook.LocalEquipped, CosmeticLook.LocalWrap,
+                    CosmeticLook.LocalBadge, inventoryUnavailable: true);
                 Retry("RETRY INVENTORY", OpenAppearance);
                 return;
             }
@@ -286,25 +303,35 @@ namespace Hotdrop.Core
             }
             ShowPreview(CosmeticLook.LocalComposite);
             var items = result.Value.items ?? Array.Empty<InventoryItemDto>();
-            SetStatus(items.Length == 0 ? "No cosmetic inventory is available yet. Retry when online."
+            int currentLevel = profile.Ok && profile.Value != null ? Mathf.Max(1, profile.Value.level) : 0;
+            SetStatus(!profile.Ok || profile.Value == null
+                ? "Inventory loaded, but account equipment and level status could not be checked. Displayed equipment uses the last locally saved choice."
+                : items.Length == 0 ? "No cosmetics are owned yet. Your standard pilot look remains available."
                 : "Owned items shown. Locked cosmetics are unavailable; no shop prices are shown.");
-            RenderLocker(items, equippedBody, equippedWrap, equippedBadge);
+            RenderLocker(items, equippedBody, equippedWrap, equippedBadge, currentLevel,
+                result.Value.wrapUnlocks ?? Array.Empty<WrapUnlockDto>());
         }
 
         static string appearanceCategory = "Body Presentation";
 
         static void RenderLocker(InventoryItemDto[] items, string equippedBody, string equippedWrap,
-            string equippedBadge)
+            string equippedBadge, int currentLevel = 1, WrapUnlockDto[] wrapUnlocks = null,
+            bool inventoryUnavailable = false)
         {
             AppearanceLockerView.Show(panel, previewImage, items, appearanceCategory, equippedBody,
-                equippedWrap, equippedBadge, status != null ? status.text : "", Close,
+                equippedWrap, equippedBadge, currentLevel, wrapUnlocks, inventoryUnavailable,
+                status != null ? status.text : "", Close,
                 () =>
                 {
                     var owner = GameBootstrap.Instance;
                     if (owner == null) { SetStatus("Runner selection is unavailable outside the game."); return; }
                     Close(); owner.GetComponent<OfflineHomeScreen>()?.ShowRigChoice(false);
                 },
-                category => { appearanceCategory = category; RenderLocker(items, equippedBody, equippedWrap, equippedBadge); },
+                category =>
+                {
+                    appearanceCategory = category;
+                    RenderLocker(items, equippedBody, equippedWrap, equippedBadge, currentLevel, wrapUnlocks, inventoryUnavailable);
+                },
                 item =>
                 {
                     string id = item.cosmeticId;
@@ -326,7 +353,8 @@ namespace Hotdrop.Core
                     else if (appearanceCategory == "Badge") CosmeticLook.LocalBadge = id;
                     else CosmeticLook.LocalEquipped = id;
                     OpenAppearance();
-                });
+                },
+                retry: OpenAppearance); // shown only while the inventory is unavailable
         }
 
         static void RenderAppearanceInventory(InventoryItemDto[] items, string equippedBody, string equippedWrap, string equippedBadge)
@@ -489,13 +517,30 @@ namespace Hotdrop.Core
         {
             int version = screenVersion;
             var profile = await BackendClient.Instance.GetProfileAsync();
-            if (Stale(version) || !profile.Ok || profile.Value == null) return;
+            if (Stale(version)) return;
+            if (!profile.Ok || profile.Value == null)
+            {
+                // Say the account could not be loaded instead of leaving the page "syncing";
+                // reports, compliance and web deletion remain usable without it.
+                DrawSupport(null, null, accountUnavailable: true);
+                SetStatus(profile.Message);
+                return;
+            }
             var wallet = await BackendClient.Instance.GetWalletAsync();
             if (Stale(version)) return;
-            DrawSupport(profile.Value, wallet.Ok ? wallet.Value : null);
+            DrawSupport(profile.Value, wallet.Ok ? wallet.Value : null, walletUnavailable: !wallet.Ok || wallet.Value == null);
+            if (!wallet.Ok || wallet.Value == null)
+                SetStatus("Credits could not be loaded. Retry account details to refresh.");
         }
 
-        static void DrawSupport(ProfileDto profile, WalletDto wallet)
+        static void RetrySupportAccount()
+        {
+            DrawSupport(null, null);
+            SetStatus("Loading account recovery status…");
+            LoadSupportAccount();
+        }
+
+        static void DrawSupport(ProfileDto profile, WalletDto wallet, bool accountUnavailable = false, bool walletUnavailable = false)
         {
             reportTarget = null;
             bool hasRecent = RecentMatch.TryGet(out string recentMatchId, out var recentPlayers);
@@ -521,9 +566,10 @@ namespace Hotdrop.Core
                 Choose = chosen => { reportTarget = chosen; SetStatus(ReportTargetMessage(chosen)); },
                 Submit = () => SubmitReport(hasRecent, recentMatchId),
                 Purge = ExecuteDelete,
+                RetryAccount = RetrySupportAccount,
             };
             SupportHubView.Show(panel, reasonInput, playerInput, hasRecent ? recentMatchId : null, recentPlayers,
-                RecentMatch.LocalTeam(), profile, wallet, client.HasSession, actions);
+                RecentMatch.LocalTeam(), profile, wallet, client.HasSession, actions, accountUnavailable, walletUnavailable);
         }
 
         static async void SubmitReport(bool hasRecent, string matchId)
@@ -688,9 +734,11 @@ namespace Hotdrop.Core
             screenVersion++;
             navBack = null;
             status = null;
-            if (panel != null) Discard(panel);
+            var closingPanel = panel;
             panel = null;
             if (home != null) home.SetActive(true);
+            if (closingPanel != null)
+                UiScreenEnterMotion.Exit(closingPanel, () => Discard(closingPanel));
         }
 
         /// <summary>True when the screen that issued a request has since been closed or replaced.</summary>

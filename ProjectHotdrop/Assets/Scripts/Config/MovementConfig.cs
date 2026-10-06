@@ -14,6 +14,8 @@ namespace Hotdrop.Config
         public float speedWhileFiring = 5.1f;
         public float groundAcceleration = 35f;
         public float gravity = 20f;
+        [Tooltip("Ground speed at which weapon spread switches from stationary to moving.")]
+        [Min(0f)] public float weaponMovingGroundSpeedThreshold = 0.5f;
 
         [Header("Jump")]
         public float jumpUpwardVelocity = 6f;

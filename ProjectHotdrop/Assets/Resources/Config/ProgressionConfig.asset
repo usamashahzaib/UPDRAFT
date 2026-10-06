@@ -20,6 +20,7 @@ MonoBehaviour:
   minPresenceFraction: 0.75
   afkWarningSeconds: 30
   afkRemovalAfterWarningSeconds: 15
+  disconnectBotSubstitutionSeconds: 5
   creditsPerEligibleMatch: 20
   creditsWinBonus: 5
   creditsPerLevelUp: 20

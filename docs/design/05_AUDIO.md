@@ -33,8 +33,11 @@ weapon balance remain unchanged; only the camera presentation is suppressed.
 Gameplay sound captions cover objective-zone activation, contest and score
 milestones; nearby pad launch, arm and destruction; and clear-line-of-sight
 distant ARC, ZIP, and BRICK fire. Weapon captions exclude the local firing range
-and are rate-limited. Keep quick-chat and threat callouts legible while music is
-active; flight and remaining critical cues still need coverage.
+and are rate-limited. Flight wind currently emits a caption once when the local
+player enters flight. There is no quick-chat or threat-callout system in the
+current client, so their audio mix/caption behavior has no implementation yet.
+Other critical-cue caption coverage and voice-priority behavior still need
+acceptance; do not treat the implemented subset as complete audio coverage.
 
 ## Remaining acceptance
 

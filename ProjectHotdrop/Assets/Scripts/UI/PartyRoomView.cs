@@ -14,14 +14,18 @@ namespace Hotdrop.UI
     /// </summary>
     public static class PartyRoomView
     {
-        static Color Ink => UiDraw.Hex("#101827");
-        static Color Panel => UiDraw.Hex("#1b2940");
-        static Color Edge => UiDraw.Hex("#49627b");
-        static Color Cyan => UiDraw.Hex("#30d5e8");
-        static Color Gold => UiDraw.Hex("#ffd166");
-        static Color Text1 => UiDraw.Hex("#f4f7fb");
-        static Color Text2 => UiDraw.Hex("#bbc6d8");
-        static Color Muted => UiDraw.Hex("#7f8ca3");
+        static Color Ink => UIDesignTokens.Background;
+        static Color Panel => UIDesignTokens.SurfacePanel;
+        static Color Edge => UIDesignTokens.SurfaceStructural;
+        static Color Cyan => UIDesignTokens.PrimaryAction;
+        static Color Gold => UIDesignTokens.ObjectiveGold;
+        static Color Text1 => UIDesignTokens.TextPrimary;
+        static Color Text2 => UIDesignTokens.TextSecondary;
+        static Color Muted => UIDesignTokens.TextMuted;
+
+        const float CaptionDp = UIDesignTokens.CaptionDp;
+        const float UiDp = UIDesignTokens.BodyLargeDp;
+        const float TitleDp = UIDesignTokens.TitleMediumDp;
 
         const float CardW = 368f, CardH = 360f, CardGap = 24f;
 
@@ -49,12 +53,12 @@ namespace Hotdrop.UI
             // Code pill in its join form: an 8-character field and JOIN.
             var pill = UiDraw.Box(header, "PartyCode", Panel, 8f, Edge);
             UiDraw.Place(pill.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, 0f), new Vector2(330f, 38f));
-            UiDraw.Place(UiDraw.Text(pill.transform, "CodeHeading", "JOIN CODE:", UiFont.HeadingSemiBold, 11f, Muted, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(pill.transform, "CodeHeading", "JOIN CODE:", UiFont.HeadingSemiBold, CaptionDp, Muted, .05f).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(14f, 0f), new Vector2(80f, 16f));
             var input = CodeField(pill.transform);
-            var joinButton = UiDraw.Tap(pill.transform, "JoinCode", UiDraw.Hex("#30d5e8", .15f), 6f, () => join?.Invoke(input.text), UiDraw.Hex("#30d5e8", .4f));
+            var joinButton = UiDraw.Tap(pill.transform, "JoinCode", UIDesignTokens.WithAlpha(Cyan, .15f), 6f, () => join?.Invoke(input.text), UIDesignTokens.WithAlpha(Cyan, .4f));
             UiDraw.Place((RectTransform)joinButton.transform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-5f, 0f), new Vector2(60f, 28f));
-            UiDraw.Fill(UiDraw.Text(joinButton.transform, "Label", "JOIN", UiFont.Heading, 12f, Cyan, .05f, TextAlignmentOptions.Midline).rectTransform);
+            UiDraw.Fill(UiDraw.Text(joinButton.transform, "Label", "JOIN", UiFont.Heading, CaptionDp, Cyan, .05f, TextAlignmentOptions.Midline).rectTransform);
 
             var row = Row(root);
             Seat(row, 0, alias ?? "YOU", false, false, true, false, null);
@@ -79,8 +83,8 @@ namespace Hotdrop.UI
             string shown = StreamSafePresentation.Enabled ? StreamSafePresentation.PrivateCode(code)
                 : code.Length == 8 ? code.Substring(0, 4) + "-" + code.Substring(4) : code;
             var pill = UiDraw.Box(header, "PartyCode", Panel, 8f, Edge);
-            var heading = UiDraw.Text(pill.transform, "CodeHeading", "PARTY CODE:", UiFont.HeadingSemiBold, 11f, Muted, .05f);
-            var value = UiDraw.Text(pill.transform, "CodeValue", shown, UiFont.Mono, 16f, Cyan, .1f);
+            var heading = UiDraw.Text(pill.transform, "CodeHeading", "PARTY CODE:", UiFont.HeadingSemiBold, CaptionDp, Muted, .05f);
+            var value = UiDraw.Text(pill.transform, "CodeValue", shown, UiFont.Mono, UiDp, Cyan, .1f);
             float hw = UiDraw.Width(heading), vw = UiDraw.Width(value);
             float pw = 14f + hw + 10f + vw + 10f + 24f + 4f + 24f + 10f;
             UiDraw.Place(pill.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, 0f), new Vector2(pw, 38f));
@@ -109,7 +113,7 @@ namespace Hotdrop.UI
                 : isReady ? "Ready. The party leader starts the search."
                 : "Set yourself ready for the party leader.", allReady);
             var leaveButton = UiDraw.Tap(footer, "LeaveParty", Panel, 12f, leave, Edge);
-            var leaveText = UiDraw.Text(leaveButton.transform, "Label", "LEAVE PARTY", UiFont.Heading, 12f, Text2, .05f);
+            var leaveText = UiDraw.Text(leaveButton.transform, "Label", "LEAVE PARTY", UiFont.Heading, CaptionDp, Text2, .05f);
             float lw = 20f + 16f + 8f + UiDraw.Width(leaveText) + 20f;
             UiDraw.Place((RectTransform)leaveButton.transform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(lw, 48f));
             UiDraw.Place(UiDraw.Icon(leaveButton.transform, "Icon", "logout", 16f, Text2).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(20f, 0f), new Vector2(16f, 16f));
@@ -151,30 +155,30 @@ namespace Hotdrop.UI
             dots.color = new Color(Cyan.r, Cyan.g, Cyan.b, .15f);
             dots.raycastTarget = false;
 
-            var header = UiDraw.Box(root, "Header", UiDraw.Hex("#101827", .8f)).rectTransform;
+            var header = UiDraw.Box(root, "Header", UIDesignTokens.WithAlpha(Ink, .8f)).rectTransform;
             header.anchorMin = new Vector2(0f, 1f); header.anchorMax = Vector2.one; header.pivot = new Vector2(.5f, 1f);
             header.sizeDelta = new Vector2(0f, 72f); header.anchoredPosition = Vector2.zero;
-            var rule = UiDraw.Box(header, "HeaderRule", UiDraw.Hex("#49627b", .4f)).rectTransform;
+            var rule = UiDraw.Box(header, "HeaderRule", UIDesignTokens.WithAlpha(Edge, .4f)).rectTransform;
             rule.anchorMin = Vector2.zero; rule.anchorMax = new Vector2(1f, 0f); rule.pivot = new Vector2(.5f, 0f); rule.sizeDelta = new Vector2(0f, 1f);
             var home = UiDraw.Tap(header, "HomeButton", Panel, 8f, back, Edge);
-            var homeText = UiDraw.Text(home.transform, "Label", "HOME", UiFont.Heading, 12f, Text1, .05f);
+            var homeText = UiDraw.Text(home.transform, "Label", "HOME", UiFont.Heading, CaptionDp, Text1, .05f);
             float hw = 16f + 18f + 8f + UiDraw.Width(homeText) + 16f;
             UiDraw.Place((RectTransform)home.transform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(hw, 44f));
             UiDraw.Place(UiDraw.Icon(home.transform, "Icon", "arrow_back", 18f, Text1).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(18f, 18f));
             UiDraw.Place(homeText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(42f, 0f), new Vector2(UiDraw.Width(homeText) + 2f, 16f));
             float x = 32f + hw + 16f;
-            UiDraw.Place(UiDraw.Box(header, "Divider", UiDraw.Hex("#49627b", .5f)).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(x, 0f), new Vector2(1f, 24f));
+            UiDraw.Place(UiDraw.Box(header, "Divider", UIDesignTokens.WithAlpha(Edge, .5f)).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(x, 0f), new Vector2(1f, 24f));
             x += 17f;
-            var title = UiDraw.Text(header, "PartyTitle", "PARTY ROOM", UiFont.Heading, 20f, Text1, -.025f);
+            var title = UiDraw.Text(header, "PartyTitle", "PARTY ROOM", UiFont.Heading, TitleDp, Text1, -.025f);
             float tw = UiDraw.Width(title);
             UiDraw.Place(title.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(x, 9f), new Vector2(tw + 2f, 28f));
-            var chipText = UiDraw.Text(header, "SquadMax", "3 SQUAD MAX", UiFont.Mono, 11f, Cyan, 0f, TextAlignmentOptions.Midline);
+            var chipText = UiDraw.Text(header, "SquadMax", "3 SQUAD MAX", UiFont.Mono, CaptionDp, Cyan, 0f, TextAlignmentOptions.Midline);
             float cw = UiDraw.Width(chipText) + 18f;
-            var chip = UiDraw.Box(header, "SquadMaxChip", UiDraw.Hex("#30d5e8", .15f), 4f, UiDraw.Hex("#30d5e8", .4f));
+            var chip = UiDraw.Box(header, "SquadMaxChip", UIDesignTokens.WithAlpha(Cyan, .15f), 4f, UIDesignTokens.WithAlpha(Cyan, .4f));
             chip.transform.SetSiblingIndex(chipText.transform.GetSiblingIndex());
             UiDraw.Place(chip.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(x + tw + 8f, 9f), new Vector2(cw, 20f));
             UiDraw.Place(chipText.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(x + tw + 8f, 9f), new Vector2(cw, 20f));
-            UiDraw.Place(UiDraw.Text(header, "PartySubtitle", "Play together in 3v3 Relay matches", UiFont.Body, 12f, Text2).rectTransform,
+            UiDraw.Place(UiDraw.Text(header, "PartySubtitle", "Play together in 3v3 Relay matches", UiFont.Body, CaptionDp, Text2).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(x, -13f), new Vector2(300f, 16f));
             return root;
         }
@@ -197,16 +201,16 @@ namespace Hotdrop.UI
             Color roleColor = leader ? Gold : Text2;
             UiDraw.Place(UiDraw.Icon(card, "RoleIcon", open ? "person_add" : leader ? "stars" : "person", 18f, leader ? Gold : Muted).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad, -32f), new Vector2(18f, 18f));
-            UiDraw.Place(UiDraw.Text(card, "Role", role, UiFont.Heading, 12f, roleColor, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(card, "Role", role, UiFont.Heading, CaptionDp, roleColor, .05f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad + 26f, -32f), new Vector2(200f, 16f));
             string badge = open ? "OPEN" : !present ? "NOT IN PARTY" : ready ? "READY" : "NOT READY";
-            var badgeText = UiDraw.Text(card, "Readiness", badge, UiFont.Mono, 12f, ready ? Cyan : Muted, 0f, TextAlignmentOptions.Midline);
+            var badgeText = UiDraw.Text(card, "Readiness", badge, UiFont.Mono, CaptionDp, ready ? Cyan : Muted, 0f, TextAlignmentOptions.Midline);
             float bw = UiDraw.Width(badgeText) + 18f;
-            var badgePlate = UiDraw.Box(card, "ReadinessChip", ready ? UiDraw.Hex("#30d5e8", .2f) : UiDraw.Hex("#1b2940"), 4f, ready ? UiDraw.Hex("#30d5e8", .5f) : UiDraw.Hex("#49627b", .6f));
+            var badgePlate = UiDraw.Box(card, "ReadinessChip", ready ? UIDesignTokens.WithAlpha(Cyan, .2f) : Panel, 4f, ready ? UIDesignTokens.WithAlpha(Cyan, .5f) : UIDesignTokens.WithAlpha(Edge, .6f));
             badgePlate.transform.SetSiblingIndex(badgeText.transform.GetSiblingIndex());
             UiDraw.Place(badgePlate.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-pad, -32f), new Vector2(bw, 22f));
             UiDraw.Place(badgeText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-pad, -32f), new Vector2(bw, 22f));
-            UiDraw.HRule(card, "TopRule", UiDraw.Hex("#49627b", .4f), 56f, pad, pad);
+            UiDraw.HRule(card, "TopRule", UIDesignTokens.WithAlpha(Edge, .4f), 56f, pad, pad);
 
             // Portrait: 112 px circle on the venue, ringed cyan for the leader.
             var ring = UiDraw.Dot(card, "Portrait", 112f, Ink);
@@ -221,45 +225,45 @@ namespace Hotdrop.UI
                 art.texture = Resources.Load<Texture2D>("HomeRooftop");
                 art.raycastTarget = false;
             }
-            else UiDraw.Place(UiDraw.Icon(ring.transform, "Empty", "person_add", 40f, UiDraw.Hex("#49627b")).rectTransform,
+            else UiDraw.Place(UiDraw.Icon(ring.transform, "Empty", "person_add", 40f, Edge).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(40f, 40f));
-            var outline = UiDraw.Ring(ring.transform, "Rim", 112f, leader || self ? 2f : 1f, leader || self ? UiDraw.Hex("#30d5e8", .6f) : Edge);
+            var outline = UiDraw.Ring(ring.transform, "Rim", 112f, leader || self ? 2f : 1f, leader || self ? UIDesignTokens.WithAlpha(Cyan, .6f) : Edge);
             outline.rectTransform.anchoredPosition = Vector2.zero;
 
             string visibleAlias = open ? "AWAITING PLAYER" : StreamSafePresentation.PlayerName(alias, index).ToUpperInvariant();
-            UiDraw.Place(UiDraw.Text(card, "Alias", visibleAlias, UiFont.Heading, 18f, open ? Muted : Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(card, "Alias", visibleAlias, UiFont.Heading, UiDp, open ? Muted : Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -232f), new Vector2(CardW - 2f * pad, 28f));
             UiDraw.Place(UiDraw.Text(card, "SeatDescription", open ? "Share the party code to fill this seat" : self && !present ? "Create a party to host this room" : self ? "YOU" : ready ? "READY TO LAUNCH" : "AWAITING READY",
-                    UiFont.MonoRegular, 12f, open ? Muted : self ? Cyan : Text2, 0f, TextAlignmentOptions.Midline).rectTransform,
+                    UiFont.MonoRegular, CaptionDp, open ? Muted : self ? Cyan : Text2, 0f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -256f), new Vector2(CardW - 2f * pad, 16f));
 
             // Footer: seat role and the seat's own action.
-            UiDraw.Place(UiDraw.Box(card, "BottomRule", UiDraw.Hex("#49627b", .4f)).rectTransform,
+            UiDraw.Place(UiDraw.Box(card, "BottomRule", UIDesignTokens.WithAlpha(Edge, .4f)).rectTransform,
                 new Vector2(.5f, 0f), new Vector2(.5f, .5f), new Vector2(0f, pad + 28f), new Vector2(CardW - 2f * pad, 1f));
             UiDraw.Place(UiDraw.Text(card, "FooterRole", open ? "INVITE OPEN" : !present ? "ROLE: HOST ON CREATE" : leader ? "ROLE: HOST" : ready ? "READY TO LAUNCH" : "SQUAD MEMBER",
-                    UiFont.HeadingMedium, 11f, Muted, .05f).rectTransform,
+                    UiFont.HeadingMedium, CaptionDp, Muted, .05f).rectTransform,
                 new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(pad, pad + 8f), new Vector2(200f, 16f));
             if (self && toggleReady != null)
             {
                 var toggle = UiDraw.Tap(card, "ToggleReady", new Color(0f, 0f, 0f, 0f), 4f, toggleReady);
                 UiDraw.Place((RectTransform)toggle.transform, new Vector2(1f, 0f), new Vector2(1f, .5f), new Vector2(-pad + 6f, pad + 8f), new Vector2(130f, 32f));
-                UiDraw.Place(UiDraw.Text(toggle.transform, "Label", ready ? "SET NOT READY" : "SET READY", UiFont.Mono, 11f, Cyan, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
+                UiDraw.Place(UiDraw.Text(toggle.transform, "Label", ready ? "SET NOT READY" : "SET READY", UiFont.Mono, CaptionDp, Cyan, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
                     new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-6f, 0f), new Vector2(124f, 16f));
             }
             else if (self)
-                UiDraw.Place(UiDraw.Text(card, "You", "YOU", UiFont.MonoRegular, 11f, Cyan, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
+                UiDraw.Place(UiDraw.Text(card, "You", "YOU", UiFont.MonoRegular, CaptionDp, Cyan, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
                     new Vector2(1f, 0f), new Vector2(1f, .5f), new Vector2(-pad, pad + 8f), new Vector2(60f, 16f));
         }
 
         static RectTransform Footer(RectTransform root, string summary, string status, bool good)
         {
-            var footer = UiDraw.Box(root, "Footer", UiDraw.Hex("#101827", .9f)).rectTransform;
+            var footer = UiDraw.Box(root, "Footer", UIDesignTokens.WithAlpha(Ink, .9f)).rectTransform;
             footer.anchorMin = Vector2.zero; footer.anchorMax = new Vector2(1f, 0f); footer.pivot = new Vector2(.5f, 0f);
             footer.sizeDelta = new Vector2(0f, 77f); footer.anchoredPosition = Vector2.zero;
-            UiDraw.HRule(footer, "FooterRule", UiDraw.Hex("#49627b", .4f), 0f);
-            UiDraw.Place(UiDraw.Text(footer, "ReadySummary", summary, UiFont.Heading, 11f, good ? Cyan : Text2, .05f).rectTransform,
+            UiDraw.HRule(footer, "FooterRule", UIDesignTokens.WithAlpha(Edge, .4f), 0f);
+            UiDraw.Place(UiDraw.Text(footer, "ReadySummary", summary, UiFont.Heading, CaptionDp, good ? Cyan : Text2, .05f).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 9f), new Vector2(420f, 16f));
-            UiDraw.Place(UiDraw.Text(footer, "RoomStatus", status, UiFont.Body, 11f, Muted).rectTransform,
+            UiDraw.Place(UiDraw.Text(footer, "RoomStatus", status, UiFont.Body, CaptionDp, Muted).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, -9f), new Vector2(520f, 16f));
             return footer;
         }
@@ -267,10 +271,10 @@ namespace Hotdrop.UI
         static Button Primary(RectTransform footer, string name, string icon, string caption, Action action)
         {
             var button = UiDraw.Tap(footer, name, Cyan, 12f, () => { GameAudio.Play2D(GameCue.UiTap); action?.Invoke(); });
-            var label = UiDraw.Text(button.transform, "Label", caption, UiFont.Heading, 14f, Ink, .05f);
+            var label = UiDraw.Text(button.transform, "Label", caption, UiFont.Heading, UiDp, Ink, .05f);
             float w = 32f + 20f + 8f + UiDraw.Width(label) + 32f;
             UiDraw.Place((RectTransform)button.transform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, 0f), new Vector2(w, 48f));
-            UiDraw.Glow((RectTransform)button.transform, UiDraw.Hex("#30d5e8", .35f), 12f, 24f);
+            UiDraw.Glow((RectTransform)button.transform, UIDesignTokens.WithAlpha(Cyan, .35f), 12f, 24f);
             UiDraw.Place(UiDraw.Icon(button.transform, "Icon", icon, 20f, Ink).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(20f, 20f));
             UiDraw.Place(label.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(60f, 0f), new Vector2(UiDraw.Width(label) + 2f, 20f));
             return button;
@@ -285,15 +289,15 @@ namespace Hotdrop.UI
 
         static TMP_InputField CodeField(Transform pill)
         {
-            var box = UiDraw.Box(pill, "CodeInput", Ink, 6f, UiDraw.Hex("#49627b", .6f));
+            var box = UiDraw.Box(pill, "CodeInput", Ink, 6f, UIDesignTokens.WithAlpha(Edge, .6f));
             box.raycastTarget = true;
             UiDraw.Place(box.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(98f, 0f), new Vector2(158f, 28f));
             var area = UiDraw.Node(box.transform, "Text Area");
             UiDraw.Fill(area, 10f, 2f, 10f, 2f);
             area.gameObject.AddComponent<RectMask2D>();
-            var placeholder = UiDraw.Text(area, "Placeholder", "ABCD-EFGH", UiFont.Mono, 14f, UiDraw.Hex("#49627b"), .1f);
+            var placeholder = UiDraw.Text(area, "Placeholder", "ABCD-EFGH", UiFont.Mono, UiDp, Muted, .1f);
             UiDraw.Fill(placeholder.rectTransform);
-            var text = UiDraw.Text(area, "Text", "", UiFont.Mono, 14f, Cyan, .1f);
+            var text = UiDraw.Text(area, "Text", "", UiFont.Mono, UiDp, Cyan, .1f);
             UiDraw.Fill(text.rectTransform);
             var input = box.gameObject.AddComponent<TMP_InputField>();
             input.textViewport = area;

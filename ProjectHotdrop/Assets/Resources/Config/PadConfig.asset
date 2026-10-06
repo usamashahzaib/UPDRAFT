@@ -23,6 +23,7 @@ MonoBehaviour:
   launchWeaponLockoutSeconds: 0.3
   maxActivePadsPerOwner: 1
   maxActivePadsPerMatch: 6
+  maxPlacementsPerPlayerPerMatch: 60
   perPlayerActivationLockoutSeconds: 1
   placementForwardOffset: 1.6
   previewHoldThresholdSeconds: 0.18

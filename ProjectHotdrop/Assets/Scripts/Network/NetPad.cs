@@ -32,6 +32,7 @@ namespace Hotdrop.Network
 
         public void Init(int ownerSlot, int team, Vector3 forward)
         {
+            if (!HasStateAuthority) return;
             OwnerSlot = ownerSlot;
             Team = team;
             Forward = forward;
@@ -76,6 +77,7 @@ namespace Hotdrop.Network
         /// <summary>Enemy fire only (spec: friendly fire can't destroy pads).</summary>
         public void ServerDamage(float amount, int attackerTeam)
         {
+            if (!HasStateAuthority || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
             bool live = NetMatch.For(Runner)?.IsLive == true;
             if (!live || Removed || attackerTeam == Team) return;
             HitPoints -= amount;

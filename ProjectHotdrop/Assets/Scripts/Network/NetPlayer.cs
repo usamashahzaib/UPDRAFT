@@ -373,8 +373,6 @@ namespace Hotdrop.Network
 
         bool ActivationLockoutRunning() => ActivationLockout.IsRunning && !ActivationLockout.Expired(Runner);
 
-        const float MaxAimDistance = 100f; // matches the client's crosshair ray (NetClientPresenter.SampleInput)
-
         void Weapons(NetInput input, NetMatch match)
         {
             var weapon = Weapon;
@@ -413,13 +411,15 @@ namespace Hotdrop.Network
             // Honest clients derive Yaw/Pitch from this same eye→point ray, so their shots are unchanged.
             Vector3 lookDir = Quaternion.Euler(input.Pitch, input.Yaw, 0f) * Vector3.forward;
             float aimDistance = input.AimPoint == Vector3.zero ? weapon.maxRange
-                : Mathf.Clamp(Vector3.Distance(input.AimPoint, eye), 0.5f, MaxAimDistance);
+                : Mathf.Clamp(Vector3.Distance(input.AimPoint, eye), NetConfigs.Rules.minimumAimPointDistanceMeters,
+                    NetConfigs.Rules.cameraAimRayDistanceMeters);
             Vector3 cameraAimPoint = eye + lookDir * aimDistance;
             Vector3 aim = (cameraAimPoint - muzzle).sqrMagnitude > 0.0001f
                 ? (cameraAimPoint - muzzle).normalized
                 : Quaternion.Euler(input.Pitch, input.Yaw, 0f) * Vector3.forward;
             var state = !Kcc.IsGrounded ? MovementState.Airborne
-                : new Vector2(Velocity.x, Velocity.z).sqrMagnitude > 0.25f ? MovementState.MovingGrounded : MovementState.StationaryGrounded;
+                : new Vector2(Velocity.x, Velocity.z).magnitude > M.weaponMovingGroundSpeedThreshold
+                    ? MovementState.MovingGrounded : MovementState.StationaryGrounded;
             // Server-seeded spread: the seed is derived from shared tick/shot data, so client
             // prediction and the server roll the same pellets (spec section 7).
             uint seed = (uint)(Runner.Tick.Raw * 2654435761u) ^ (uint)(Slot * 40503 + ShotCounter * 97);
@@ -508,7 +508,7 @@ namespace Hotdrop.Network
         {
             if (Dead) return;
             string reason = EvaluatePadPlacement(match, yaw, out var position, out var forward);
-            if (reason == null && PadPlacements >= P.maxActivePadsPerMatch * 10) reason = "ARENA PAD LIMIT"; // sanity bound against a modified client
+            if (reason == null && PadPlacements >= P.maxPlacementsPerPlayerPerMatch) reason = "ARENA PAD LIMIT"; // authoritative lifetime cap against a modified client
             if (reason != null) { RejectPad(reason); return; }
             match.SpawnPad(this, position, forward);
             HasPadCharge = false;
@@ -521,7 +521,7 @@ namespace Hotdrop.Network
 
         public void ServerDamage(float amount, int attackerSlot, int weapon)
         {
-            if (!Match.IsLive || Dead || IsSpawnProtected) return;
+            if (!HasStateAuthority || !IsFinitePositive(amount) || Match == null || !Match.IsLive || Dead || IsSpawnProtected) return;
             Health -= amount;
             RegenDelay = TickTimer.CreateFromSeconds(Runner, M.recoveryDelayAfterDamage);
             if (Health <= 0f) Match.Eliminate(this, attackerSlot, weapon);
@@ -529,6 +529,7 @@ namespace Hotdrop.Network
 
         public void ServerKill(int killerSlot, int weapon)
         {
+            if (!HasStateAuthority || Dead) return;
             Dead = true;
             Health = 0f;
             DeathCount++;
@@ -547,8 +548,11 @@ namespace Hotdrop.Network
             RespawnTimer = TickTimer.CreateFromSeconds(Runner, M.respawnDelaySeconds);
         }
 
+        static bool IsFinitePositive(float value) => value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
+
         public void MarkBotSubstitution(bool afk = false)
         {
+            if (!HasStateAuthority) return;
             BotControlled = true;
             HadBotSubstitution = true;
             if (afk) AfkRemoved = true;
@@ -559,6 +563,7 @@ namespace Hotdrop.Network
         /// <summary>C04: server-only. Accumulate time spent holding the current weapon.</summary>
         public void RecordWeaponTime(float dt)
         {
+            if (!HasStateAuthority || dt <= 0f || float.IsNaN(dt) || float.IsInfinity(dt)) return;
             // Matches the goal catalog's weapon ids (ARC / ZIP / BRICK).
             string id = Weapon.id.ToString().ToUpperInvariant();
             weaponSeconds.TryGetValue(id, out var held);
@@ -577,6 +582,7 @@ namespace Hotdrop.Network
 
         public void ServerRespawn(Pose spawn, bool matchStart)
         {
+            if (!HasStateAuthority) return;
             if (PendingWeapon >= 0) EquipWeapon(PendingWeapon);
             PendingWeapon = -1;
             Kcc.SetPosition(spawn.position);

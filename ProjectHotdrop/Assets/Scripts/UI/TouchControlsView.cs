@@ -27,6 +27,7 @@ namespace Hotdrop.UI
     [RequireComponent(typeof(RectTransform))]
     public class TouchControlsView : MonoBehaviour
     {
+        const float HudCaptionDp = UIDesignTokens.CaptionDp;
         TouchInputManager input;
         RectTransform canvasRect;
         Canvas canvas;
@@ -193,7 +194,7 @@ namespace Hotdrop.UI
                 new Vector2(26f, 15f), new Vector2(17f, 17f));
             fireFlash.gameObject.SetActive(false);
             fireLabel.transform.SetAsLastSibling();
-            Caption(fireLabel, UiFont.Heading, 13f, OnPrimaryContainer, -.05f, -20f);
+            Caption(fireLabel, UiFont.Heading, OnPrimaryContainer, -.05f, -20f);
 
             // LAUNCH / JUMP: 64 px rounded-2xl; cyan with a glow when a pad can launch.
             jumpGlow = UiDraw.Glow(jumpDisc, UiDraw.Hex("#7cefff", .25f), 16f, 20f);
@@ -202,24 +203,24 @@ namespace Hotdrop.UI
             jumpIcon = UiDraw.Icon(jumpDisc, "Icon", "keyboard_double_arrow_up", 28f, OnPrimaryContainer);
             UiDraw.Place(jumpIcon.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 7f), new Vector2(28f, 28f));
             jumpLabel.transform.SetAsLastSibling();
-            Caption(jumpLabel, UiFont.Heading, 10f, OnPrimaryContainer, .05f, -16f);
+            Caption(jumpLabel, UiFont.Heading, OnPrimaryContainer, .05f, -16f);
 
             // PAD: 56 px rounded-xl, gold take-off glyph and status.
             Plate(padDisc, 56f, 12f);
             UiDraw.Place(UiDraw.Icon(padDisc, "Icon", "flight_takeoff", 22f, Tertiary).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 6f), new Vector2(22f, 22f));
             padLabel.transform.SetAsLastSibling();
-            Caption(padLabel, UiFont.MonoMedium, 9f, Tertiary, 0f, -14f);
+            Caption(padLabel, UiFont.MonoMedium, Tertiary, 0f, -14f);
 
             // RELOAD: weapon + magazine, sync glyph, live ammo.
             Plate(reloadDisc, 56f, 12f);
-            reloadWeapon = UiDraw.Text(reloadDisc, "Weapon", "", UiFont.Mono, 10f, Outline, .05f, TextAlignmentOptions.Midline);
+            reloadWeapon = UiDraw.Text(reloadDisc, "Weapon", "", UiFont.Mono, HudCaptionDp, Outline, .05f, TextAlignmentOptions.Midline);
             UiDraw.Place(reloadWeapon.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 15f), new Vector2(56f, 14f));
             reloadIcon = UiDraw.Icon(reloadDisc, "Icon", "sync", 16f, Primary);
             UiDraw.Place(reloadIcon.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 0f), new Vector2(16f, 16f));
             reloadAmmo = reloadLabel;
             reloadLabel.transform.SetAsLastSibling();
-            Caption(reloadLabel, UiFont.MonoMedium, 9f, OnSurfaceVariant, .05f, -15f);
+            Caption(reloadLabel, UiFont.MonoMedium, OnSurfaceVariant, .05f, -15f);
 
             // Ping (explore) and menu (settings): 40 px rounded-lg in the top-right row.
             Plate(pingDisc, 40f, 8f, 1f);
@@ -256,7 +257,7 @@ namespace Hotdrop.UI
             padPreview = UIKit.Rect(transform, "PadPreview", new Vector2(460f, 54f));
             var previewFill = UiDraw.Box(padPreview, "Fill", UiDraw.Hex("#060e1d", .9f), 12f, UiDraw.Hex("#49627b", .5f));
             UiDraw.Fill(previewFill.rectTransform);
-            padPreviewLabel = UiDraw.Text(padPreview, "Label", "", UiFont.Mono, 12f, Primary, .05f, TextAlignmentOptions.Midline);
+            padPreviewLabel = UiDraw.Text(padPreview, "Label", "", UiFont.Mono, HudCaptionDp, Primary, .05f, TextAlignmentOptions.Midline);
             UiDraw.Fill(padPreviewLabel.rectTransform);
             padPreview.gameObject.SetActive(false);
 
@@ -269,10 +270,10 @@ namespace Hotdrop.UI
             UiDraw.Place(plate.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(size, size));
         }
 
-        static void Caption(TextMeshProUGUI label, UiFont font, float size, Color color, float tracking, float y)
+        static void Caption(TextMeshProUGUI label, UiFont font, Color color, float tracking, float y)
         {
             UIFonts.Use(label, font);
-            label.fontSize = UiMetrics.ScaleTextSize(size);
+            label.fontSize = UiMetrics.ScaleTextSize(HudCaptionDp);
             label.enableAutoSizing = false;
             label.color = color;
             label.characterSpacing = tracking * 100f;
@@ -293,7 +294,7 @@ namespace Hotdrop.UI
             border = borderRoot.gameObject.AddComponent<Image>();
             border.color = new Color(0f, 0f, 0f, 0f);
             border.raycastTarget = false;
-            label = UiDraw.Text(root, "Label", "", UiFont.Heading, 10f, Color.white, 0f, TextAlignmentOptions.Midline);
+            label = UiDraw.Text(root, "Label", "", UiFont.Heading, HudCaptionDp, Color.white, 0f, TextAlignmentOptions.Midline);
         }
 
         void BuildEditor()
@@ -324,13 +325,13 @@ namespace Hotdrop.UI
                 UIKit.Stretch(editorActionLabels[i].rectTransform, 4f, 0f, 4f, 0f);
                 editorActionLabels[i].enableAutoSizing = true;
                 editorActionLabels[i].fontSizeMin = UiMetrics.MinTextUnits;
-                editorActionLabels[i].fontSizeMax = 24f;
+                editorActionLabels[i].fontSizeMax = UiMetrics.ScaleTextSize(UIDesignTokens.TitleMediumDp);
             }
             editorHint = UIKit.CenteredLabel(editorRoot, "Hint", "", UiTextRole.Caption, UiTone.Neutral);
             editorHint.rectTransform.sizeDelta = new Vector2(1100f, 40f);
             editorHint.enableAutoSizing = true;
             editorHint.fontSizeMin = UiMetrics.MinTextUnits;
-            editorHint.fontSizeMax = 24f;
+            editorHint.fontSizeMax = UiMetrics.ScaleTextSize(UIDesignTokens.TitleMediumDp);
             editorRoot.gameObject.SetActive(false);
         }
 
@@ -408,8 +409,10 @@ namespace Hotdrop.UI
                 // thumb is down it follows the thumb, and the nub shows the real deflection.
                 joystickBase.gameObject.SetActive(!input.EditingLayout);
                 bool moving = input.JoystickActive;
-                var rest = new Vector2(ComposedSafeLeft(frame) + (24f + 48f + 16f + 72f) * u, (32f + 72f) * u);
-                Place(joystickBase, moving ? input.JoystickCenter : rest, new Vector2(144f, 144f) * u);
+                float ju = u * Mathf.Max(1f, input.ControlScale);
+                var rest = new Vector2(ComposedSafeLeft(frame) + (24f + 48f + 16f + 72f) * ju, (32f + 72f) * ju);
+                Place(joystickBase, moving ? input.JoystickCenter : rest, new Vector2(144f, 144f) * ju);
+                ScaleFace(joystickBase);
                 var offset = moving ? input.JoystickOffset / Mathf.Max(1f, input.JoystickReachPx) : Vector2.zero;
                 joystickNub.anchoredPosition = offset * 40f;
             }
@@ -422,7 +425,7 @@ namespace Hotdrop.UI
                     padPreviewLabel.text = input.PadPreviewCaption;
                     float w = UiDraw.Width(padPreviewLabel) + 32f;
                     Place(padPreview, new Vector2(frame.x * 0.5f, frame.y * 0.5f - 72f * u), new Vector2(w, 40f) * u);
-                    padPreviewLabel.color = input.PadPreviewReason == null ? Primary : UiDraw.Hex("#ff6376");
+                    padPreviewLabel.color = input.PadPreviewReason == null ? Primary : UIDesignTokens.SignalWarning;
                 }
             }
             UpdateEditor();
@@ -475,6 +478,19 @@ namespace Hotdrop.UI
             if (target.gameObject.activeSelf != (rect.width > 0f)) target.gameObject.SetActive(rect.width > 0f);
             if (rect.width <= 0f) return;
             Place(target, rect.center, new Vector2(rect.width, rect.height));
+            ScaleFace(target);
+        }
+
+        /// <summary>
+        /// Faces are authored in design px at the centre of their hit rect. Scaling the control
+        /// root (and shrinking its size by the same factor) draws them at physical dp on dense
+        /// phones while the root still covers exactly the hit rect.
+        /// </summary>
+        void ScaleFace(RectTransform target)
+        {
+            float k = input != null ? Mathf.Max(1f, input.ControlScale) : 1f;
+            target.localScale = new Vector3(k, k, 1f);
+            target.sizeDelta /= k;
         }
 
         /// <summary>

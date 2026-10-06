@@ -30,17 +30,18 @@ namespace Hotdrop.UI
         {
             switch (hex?.Trim().ToLowerInvariant())
             {
-                case "#101827": case "#060e1d": return UIDesignTokens.Background;
-                case "#1b2940": case "#0b1322": case "#141c2b": return UIDesignTokens.SurfacePanel;
-                case "#263a59": case "#18202f": case "#222a3a": case "#2d3545": return UIDesignTokens.SurfaceSelected;
-                case "#49627b": case "#859396": case "#3c494b": return UIDesignTokens.SurfaceStructural;
-                case "#536176": return UIDesignTokens.SurfaceDisabled;
-                case "#f4f7fb": case "#dbe2f8": return UIDesignTokens.TextPrimary;
-                case "#bbc6d8": case "#bbc9cb": return UIDesignTokens.TextSecondary;
+                case "#101827": case "#060e1d": case "#0c1220": case "#121619": return UIDesignTokens.Background;
+                case "#1b2940": case "#0b1322": case "#141c2b": case "#17202e": case "#20272b": return UIDesignTokens.SurfacePanel;
+                case "#263a59": case "#263444": case "#303a3d": case "#18202f": case "#222a3a": case "#2d3545": return UIDesignTokens.SurfaceSelected;
+                case "#49627b": case "#434b4b": case "#859396": case "#3c494b": return UIDesignTokens.SurfaceStructural;
+                case "#536176": case "#4e5858": return UIDesignTokens.SurfaceDisabled;
+                case "#f4f7fb": case "#dbe2f8": case "#edf2f7": case "#f0f0ea": return UIDesignTokens.TextPrimary;
+                case "#bbc6d8": case "#bbc9cb": case "#8a94a6": case "#a6aead": return UIDesignTokens.TextSecondary;
                 case "#7f8ca3": return UIDesignTokens.TextMuted;
-                case "#30d5e8": case "#7cefff": case "#38d9ec": return UIDesignTokens.PrimaryAction;
-                case "#ff6376": case "#ffb2b7": return UIDesignTokens.HazardCoral;
-                case "#ffd166": case "#ffda88": case "#edc157": return UIDesignTokens.ObjectiveGold;
+                case "#30d5e8": case "#7cefff": case "#38d9ec": case "#3de0c0": case "#54d2b3": return UIDesignTokens.PrimaryAction;
+                case "#4da3ff": case "#66a7d9": return UIDesignTokens.Ally;
+                case "#ff6376": case "#ffb2b7": case "#ff5a66": case "#d85d61": return UIDesignTokens.HazardCoral;
+                case "#ffd166": case "#ffda88": case "#edc157": case "#ffb84d": case "#e2b85f": return UIDesignTokens.ObjectiveGold;
                 case "#ffb45c": return UIDesignTokens.SignalWarning;
                 case "#7ed68a": return UIDesignTokens.SignalSuccess;
                 case "#930d2d": return Color.Lerp(UIDesignTokens.HazardCoral, UIDesignTokens.Background, .65f);
@@ -57,6 +58,7 @@ namespace Hotdrop.UI
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            UiPhysicalSizeFloor.MarkDirty();
             return (RectTransform)go.transform;
         }
 
@@ -88,7 +90,7 @@ namespace Hotdrop.UI
             var rt = Node(parent, name);
             var text = rt.gameObject.AddComponent<TextMeshProUGUI>();
             UIFonts.Use(text, font);
-            text.text = value;
+            text.text = UiPresentationProfile.NormalizeRichText(value);
             text.fontSize = UiMetrics.ScaleTextSize(px);
             // White was used as a neutral text default by older screens. Resolve it
             // through the active profile so profile switching also reaches labels

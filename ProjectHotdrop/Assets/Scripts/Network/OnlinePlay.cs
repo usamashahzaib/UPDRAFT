@@ -58,6 +58,7 @@ namespace Hotdrop.Network
             searchParty = null;
             BuildPanel();
             panel.SetActive(true);
+            Hotdrop.UI.UiScreenEnterMotion.Reopen(panel);
             var config = BackendConfig.Load();
             if (config.UsesDevDirectSession) _ = JoinDevAsync(config);
             else _ = MatchmakeAsync();
@@ -151,7 +152,8 @@ namespace Hotdrop.Network
                 // Keep offline practice reachable throughout queue search.
                 string region = string.IsNullOrEmpty(queue.Value.region) ? "" : $"  ·  Region {queue.Value.region.ToUpperInvariant()}";
                 string body = $"Searching {s / 60}:{s % 60:00}{region}\nFair matches first — empty seats fill automatically after a short wait.";
-                Show("FINDING A 3v3 MATCH", body, "CANCEL", Cancel, "PRACTICE INSTEAD", PracticeInstead);
+                Show("FINDING A 3v3 MATCH", body, "CANCEL", Cancel, "PRACTICE INSTEAD", PracticeInstead,
+                    preserveMatchSearch: true);
                 MatchSearchView.Show(panel, s, queue.Value.region, searchParty, api.PlayerId,
                     practiceAvailable: true, cancel: Cancel, practice: PracticeInstead);
                 await Task.Delay(2000);
@@ -269,7 +271,11 @@ namespace Hotdrop.Network
                 if (string.IsNullOrEmpty(matchId)) Failed(reason);
                 else _ = Recover(matchId, net, reason);
             };
-            panel.SetActive(false);
+            var joinedPanel = panel;
+            Hotdrop.UI.UiScreenEnterMotion.Exit(joinedPanel, () =>
+            {
+                if (joinedPanel != null) joinedPanel.SetActive(false);
+            });
             game.touchInput.enabled = true;
         }
 
@@ -428,7 +434,12 @@ namespace Hotdrop.Network
 
         void ReturnHome()
         {
-            if (panel != null) panel.SetActive(false);
+            var closingPanel = panel;
+            if (closingPanel != null)
+                Hotdrop.UI.UiScreenEnterMotion.Exit(closingPanel, () =>
+                {
+                    if (closingPanel != null) closingPanel.SetActive(false);
+                });
             session = null;
             Telemetry.CurrentMatchId = ""; Telemetry.Region = "offline"; Telemetry.CurrentMatchHasBots = false;
             TelemetryUploader.Kick(); // QA-027: deliver this match's events
@@ -436,11 +447,12 @@ namespace Hotdrop.Network
         }
 
         void Show(string heading, string body, string action, UnityEngine.Events.UnityAction onAction,
-            string secondary = null, UnityEngine.Events.UnityAction onSecondary = null)
+            string secondary = null, UnityEngine.Events.UnityAction onSecondary = null, bool preserveMatchSearch = false)
         {
             BuildPanel();
             panel.SetActive(true);
-            MatchSearchView.Clear(panel);
+            Hotdrop.UI.UiScreenEnterMotion.Reopen(panel);
+            if (!preserveMatchSearch) MatchSearchView.Clear(panel);
             title.text = heading;
             status.text = body;
             actionButton.gameObject.SetActive(action != null); // no action = a transient status, not a dead button

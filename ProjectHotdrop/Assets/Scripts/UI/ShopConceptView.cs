@@ -14,7 +14,6 @@ namespace Hotdrop.UI
         static Color Raised => UIDesignTokens.SurfaceSelected;
         static Color Cyan => UIDesignTokens.PrimaryAction;
         static Color Muted => UIDesignTokens.TextSecondary;
-        static Color Coral => UIDesignTokens.HazardCoral;
 
         public static void Show(GameObject owner, Action back)
         {
@@ -30,15 +29,15 @@ namespace Hotdrop.UI
             var header = Rect(root, "Header", 0, .925f, 1, 1);
             Fill(header, UIDesignTokens.Background);
             Label(header, "Brand", "HOTDROP", .025f, .16f, .18f, .84f, 24, Color.white);
-            Label(header, "Page", "COSMETIC REQUISITIONS", .2f, .15f, .7f, .85f, 21, Cyan);
-            Label(header, "State", "ISOLATED CONCEPT", .75f, .15f, .975f, .85f,
+            Label(header, "Page", "COSMETICS", .2f, .15f, .7f, .85f, 21, Cyan);
+            Label(header, "State", "PREVIEW", .75f, .15f, .975f, .85f,
                 13, Muted, TextAlignmentOptions.MidlineRight);
-            var guard = Panel(root, "Guard", 0, .837f, 1, .915f, Coral);
-            Label(guard, "Text", "PROD GUARD  //  CONCEPT REVIEW ONLY  ·  Purchases are unavailable. This page is disconnected from Home.",
+            var guard = Panel(root, "Guard", 0, .837f, 1, .915f, Raised);
+            Label(guard, "Text", "Preview  ·  Purchases are unavailable in this build.",
                 .03f, .13f, .97f, .87f, 16, Color.white);
-            Label(root, "Kicker", "SEC SYS // TIER-03 REQUISITIONS", .025f, .79f,
+            Label(root, "Kicker", "PERMANENT COSMETICS", .025f, .79f,
                 .95f, .83f, 14, Cyan);
-            Label(root, "Title", "COSMETIC REQUISITIONS // PERMANENT BUNDLES", .025f,
+            Label(root, "Title", "Own it forever. No duplicates.", .025f,
                 .727f, .975f, .79f, 29, Color.white);
             var principles = Panel(root, "Principles", .025f, .674f, .975f, .722f, Card);
             Label(principles, "Text", "100% COSMETIC ONLY     ·     ZERO LOOT BOXES     ·     NO TIMERS     ·     NO POWER MODIFIERS",
@@ -47,7 +46,7 @@ namespace Hotdrop.UI
             string[] themes = { "TACTICAL RECON", "HEAVY UTILITY", "AERO MONARCH" };
             string[][] contents =
             {
-                new[] { "Flight suit concept", "ARC rifle wrap concept", "Operative badge concept" },
+                new[] { "Flight suit concept", "ARC rifle wrap concept", "Pilot badge concept" },
                 new[] { "Industrial chassis concept", "ZIP SMG wrap concept", "Deployable pad concept" },
                 new[] { "Apex flight suit concept", "BRICK wrap concept", "Jump pad FX concept" }
             };
@@ -61,7 +60,7 @@ namespace Hotdrop.UI
                 art.color = i == 1 ? new Color(.82f, .58f, .39f, .85f)
                     : i == 2 ? new Color(.35f, .7f, .9f, .9f) : Color.white;
                 art.raycastTarget = false;
-                Label(card, "Spec", $"SPEC // {i + 1:00}  ·  VISUAL CONCEPT", .04f, .93f,
+                Label(card, "Spec", $"CONCEPT {i + 1}", .04f, .93f,
                     .95f, .99f, 12, Cyan);
                 Label(card, "Theme", themes[i], .04f, .46f, .95f, .54f, 13, Muted);
                 Label(card, "Name", titles[i], .04f, .36f, .95f, .46f, 25, Color.white);
@@ -75,7 +74,7 @@ namespace Hotdrop.UI
                     .98f, 15, Muted, TextAlignmentOptions.Center);
             }
             var transparency = Panel(root, "Transparency", .025f, .095f, .975f, .153f, Card);
-            Label(transparency, "Policy", "TRANSPARENCY  //  Billing products, localized prices, ownership and restore are shown only when backed by the store.",
+            Label(transparency, "Policy", "Transparency: billing products, localized prices, ownership and restore are shown only when backed by the store.",
                 .025f, .1f, .975f, .9f, 14, Muted);
             var footer = Rect(root, "Footer", 0, 0, 1, .08f);
             Fill(footer, UIDesignTokens.Background);

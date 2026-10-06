@@ -95,6 +95,10 @@ public class MatchParticipation
     // show authoritative rewards from a receipt (0/empty when ineligible).
     public int XpGained { get; set; }
     public int CreditsGained { get; set; }
+    // Exact authoritative profile-XP bounds let the results client animate the
+    // level meter without guessing from a later account snapshot.
+    public int? ProfileXpBefore { get; set; }
+    public int? ProfileXpAfter { get; set; }
     public string? UnlockedCsv { get; set; }
 }
 

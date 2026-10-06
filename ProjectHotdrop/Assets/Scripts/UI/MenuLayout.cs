@@ -39,6 +39,7 @@ namespace Hotdrop.UI
             root.transform.SetParent(parent, false);
             Stretch(root.GetComponent<RectTransform>());
             root.GetComponent<Image>().color = Background;
+            root.AddComponent<UiScreenEnterMotion>();
             screen.Root = root;
 
             // Top bar: title centred, BACK on the left.

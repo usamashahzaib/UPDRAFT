@@ -183,12 +183,12 @@ namespace Hotdrop.UI
             var root = UIKit.Rect(parent, name, new Vector2(UIDesignTokens.Dp(400f), UIDesignTokens.Dp(120f)));
             var view = root.gameObject.AddComponent<ErrorRetryView>();
 
-            var fill = UIKit.Surface(root, "Fill", UIDesignTokens.WithAlpha(UIDesignTokens.HazardCoral, 0.14f), UIDesignTokens.RadiusMdDp);
+            var fill = UIKit.Surface(root, "Fill", UIDesignTokens.WithAlpha(UIDesignTokens.SignalWarning, 0.14f), UIDesignTokens.RadiusMdDp);
             UIKit.Stretch(fill.rectTransform);
-            UIKit.Border(root, "Border", UIDesignTokens.HazardCoral, UIDesignTokens.BorderNormalUnits);
+            UIKit.Border(root, "Border", UIDesignTokens.SignalWarning, UIDesignTokens.BorderNormalUnits);
 
-            // The shape cue means the block still reads when the coral tint does not.
-            var cue = UICue.Create(root, UiTone.Enemy, "OFFLINE", UIDesignTokens.Dp(UIDesignTokens.BodyDp));
+            // The shape cue means the block still reads when the warning tint does not.
+            var cue = UICue.Create(root, UiTone.Warning, "OFFLINE", UIDesignTokens.Dp(UIDesignTokens.BodyDp));
             cue.Shape = CueShape.Cross;
             var cueRt = cue.GetComponent<RectTransform>();
             cueRt.anchorMin = cueRt.anchorMax = new Vector2(0f, 1f);
@@ -362,7 +362,7 @@ namespace Hotdrop.UI
         /// <summary>The tone shown for a quality level.</summary>
         public static UiTone ToneFor(int quality) => quality switch
         {
-            <= 0 => UiTone.Enemy,
+            <= 0 => UiTone.Warning,
             1 => UiTone.Warning,
             2 => UiTone.Objective,
             _ => UiTone.Success,

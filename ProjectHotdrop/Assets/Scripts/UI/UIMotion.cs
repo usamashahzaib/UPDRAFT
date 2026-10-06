@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Hotdrop.UI
@@ -158,7 +160,8 @@ namespace Hotdrop.UI
             {
                 if (rect != null)
                 {
-                    rect.anchoredPosition = Vector2.LerpUnclamped(fromOffset, toOffset, Progress);
+                    float travel = UIMotion.Animates(MotionChannel.Translation) ? UIMotion.EaseOut(Progress) : 0f;
+                    rect.anchoredPosition = Vector2.LerpUnclamped(fromOffset, toOffset, travel);
                     float scale = UIMotion.Value(fromScale, toScale, Progress, MotionChannel.Scale);
                     rect.localScale = new Vector3(scale, scale, 1f);
                 }
@@ -226,6 +229,218 @@ namespace Hotdrop.UI
             }
         }
 
+        /// <summary>Settles every active motion before a screen begins its outgoing transition.</summary>
+        public void FinishAll()
+        {
+            for (int i = 0; i < running.Count; i++)
+            {
+                var motion = running[i];
+                motion.Finish();
+            }
+            running.Clear();
+        }
+
+        /// <summary>Stops active motions without settling or invoking completion callbacks.</summary>
+        public void CancelAll() => running.Clear();
+
         void Update() => Tick(Time.unscaledDeltaTime);
+    }
+
+    /// <summary>
+    /// Gives shared full-screen menus their entry motion after the caller has finished building
+    /// the page. The opaque root stays still while its visual layers enter at different depths.
+    /// </summary>
+    [DisallowMultipleComponent]
+    public sealed class UiScreenEnterMotion : MonoBehaviour
+    {
+        Coroutine pendingEntry;
+        bool exiting;
+        readonly Dictionary<RectTransform, Vector2> restingPositions = new Dictionary<RectTransform, Vector2>();
+
+        public bool IsExiting => exiting;
+
+        void OnEnable()
+        {
+            exiting = false;
+            var group = GetComponent<CanvasGroup>();
+            if (group != null)
+            {
+                group.interactable = true;
+                group.blocksRaycasts = true;
+            }
+            // Delay one frame so factory callers can finish adding their direct visual layers.
+            if (pendingEntry == null) pendingEntry = StartCoroutine(EnterAfterBuild());
+        }
+
+        void OnDisable()
+        {
+            if (pendingEntry == null) return;
+            StopCoroutine(pendingEntry);
+            pendingEntry = null;
+        }
+
+        IEnumerator EnterAfterBuild()
+        {
+            yield return null;
+            pendingEntry = null;
+            Enter();
+        }
+
+        void Enter()
+        {
+            if (exiting) return;
+            // MenuLayout callers populate the root synchronously after Create returns. This runs
+            // before the next rendered frame, so the complete page enters as one transition.
+            Canvas.ForceUpdateCanvases();
+            var root = transform as RectTransform;
+            if (root == null) return;
+
+            var group = GetComponent<CanvasGroup>();
+            if (group == null) group = gameObject.AddComponent<CanvasGroup>();
+            group.interactable = true;
+            group.blocksRaycasts = true;
+            var driver = GetComponent<UiMotionDriver>();
+            if (driver == null) driver = gameObject.AddComponent<UiMotionDriver>();
+            driver.FinishAll();
+            CaptureRestingPositions();
+
+            if (UIMotionSettings.ReduceMotionEnabled)
+            {
+                group.alpha = 0f;
+                driver.Play(UIMotion.Fade(group, null, 0f, 1f, MotionRole.Standard));
+                return;
+            }
+
+            group.alpha = 1f;
+            float travel = UIMotion.EnterOffset(root);
+            if (travel <= 0f) return;
+
+            foreach (var pair in restingPositions)
+            {
+                var layer = pair.Key;
+                if (layer == null) continue;
+                Vector2 restingPosition = pair.Value;
+                Vector2 enteringPosition = restingPosition + Vector2.down * (travel * ParallaxDepth(layer.name));
+                layer.anchoredPosition = enteringPosition;
+                driver.Play(UIMotion.Play(layer, null, 0f, 1f, MotionRole.Standard,
+                    MotionChannel.Translation, enteringPosition, restingPosition, 1f, 1f));
+            }
+        }
+
+        /// <summary>Slides the menu layers out, then lets the caller hide or destroy this root.</summary>
+        public void Exit(Action onComplete)
+        {
+            if (exiting) return;
+            exiting = true;
+            if (pendingEntry != null)
+            {
+                StopCoroutine(pendingEntry);
+                pendingEntry = null;
+            }
+            if (!gameObject.activeInHierarchy)
+            {
+                CompleteExit(onComplete);
+                return;
+            }
+            var root = transform as RectTransform;
+            if (root == null) { onComplete?.Invoke(); return; }
+
+            var group = GetComponent<CanvasGroup>();
+            if (group == null) group = gameObject.AddComponent<CanvasGroup>();
+            group.interactable = false;
+
+            var driver = GetComponent<UiMotionDriver>();
+            if (driver == null) driver = gameObject.AddComponent<UiMotionDriver>();
+            driver.FinishAll();
+            CaptureRestingPositions();
+
+            if (UIMotionSettings.ReduceMotionEnabled)
+            {
+                group.alpha = 1f;
+                driver.Play(UIMotion.Fade(group, null, 1f, 0f, MotionRole.Standard,
+                    () => CompleteExit(onComplete)));
+                return;
+            }
+
+            group.alpha = 1f;
+            float travel = UIMotion.EnterOffset(root);
+            if (restingPositions.Count == 0 || travel <= 0f) { CompleteExit(onComplete); return; }
+
+            int remaining = restingPositions.Count;
+            foreach (var pair in restingPositions)
+            {
+                var layer = pair.Key;
+                if (layer == null) { remaining--; continue; }
+                Vector2 leavingPosition = layer.anchoredPosition;
+                Vector2 exitPosition = leavingPosition + Vector2.up * (travel * ParallaxDepth(layer.name));
+                Action layerDone = --remaining == 0 ? () => CompleteExit(onComplete) : null;
+                var motion = UIMotion.Play(layer, null, 0f, 1f, MotionRole.Standard,
+                    MotionChannel.Translation, leavingPosition, exitPosition, 1f, 1f);
+                motion.onComplete = layerDone;
+                driver.Play(motion);
+            }
+        }
+
+        /// <summary>Reverses an in-flight close when a reusable menu is shown again.</summary>
+        public void Reopen()
+        {
+            if (!exiting) return;
+            exiting = false;
+            GetComponent<UiMotionDriver>()?.CancelAll();
+            RestoreRestingPositions();
+            var group = GetComponent<CanvasGroup>();
+            if (group != null)
+            {
+                group.alpha = 1f;
+                group.interactable = true;
+                group.blocksRaycasts = true;
+            }
+            Enter();
+        }
+
+        void CaptureRestingPositions()
+        {
+            restingPositions.Clear();
+            foreach (Transform child in transform)
+            {
+                if (!child.gameObject.activeInHierarchy) continue;
+                var layer = child as RectTransform;
+                if (layer != null) restingPositions[layer] = layer.anchoredPosition;
+            }
+        }
+
+        void RestoreRestingPositions()
+        {
+            foreach (var pair in restingPositions)
+                if (pair.Key != null) pair.Key.anchoredPosition = pair.Value;
+        }
+
+        void CompleteExit(Action onComplete)
+        {
+            RestoreRestingPositions();
+            onComplete?.Invoke();
+        }
+
+        /// <summary>Runs the outgoing motion when available, or completes immediately for older roots.</summary>
+        public static void Exit(GameObject root, Action onComplete)
+        {
+            var transition = root != null ? root.GetComponent<UiScreenEnterMotion>() : null;
+            if (transition == null) onComplete?.Invoke();
+            else transition.Exit(onComplete);
+        }
+
+        /// <summary>Reverses a close in progress for reusable full-screen menu roots.</summary>
+        public static void Reopen(GameObject root) => root?.GetComponent<UiScreenEnterMotion>()?.Reopen();
+
+        static float ParallaxDepth(string layerName)
+        {
+            if (string.Equals(layerName, "Nav_Scroll", StringComparison.Ordinal)) return 1f;
+            if (string.Equals(layerName, "Nav_Bar", StringComparison.Ordinal)) return 0.45f;
+            if (string.Equals(layerName, "StatusFill", StringComparison.Ordinal) ||
+                string.Equals(layerName, "Nav_Status", StringComparison.Ordinal)) return 0.25f;
+            if (layerName.IndexOf("backdrop", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                layerName.IndexOf("background", StringComparison.OrdinalIgnoreCase) >= 0) return 0.15f;
+            return 0.65f;
+        }
     }
 }
