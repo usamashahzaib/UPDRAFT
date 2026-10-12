@@ -8,7 +8,8 @@ phase without requiring players to stare at a meter.
 ## Required sound groups
 
 - Weapon report: body, mechanism, transient, and environment tail, mixed per
-  weapon and distance.
+  weapon and distance. Spatial reports now use the Bible's full-mix below 15 m,
+  filtered-body 15–under-40 m, and distant-report 40–50 m bands.
 - Flight: velocity-linked wind, cloth flutter, and pitch shift when diving.
 - Pad: pneumatic launch cue audible to nearby opponents, with charge/launch
   timing that supports counterplay.
@@ -32,12 +33,30 @@ impact shake, and reduces interface movement. Authoritative recoil patterns and
 weapon balance remain unchanged; only the camera presentation is suppressed.
 Gameplay sound captions cover objective-zone activation, contest and score
 milestones; nearby pad launch, arm and destruction; and clear-line-of-sight
-distant ARC, ZIP, and BRICK fire. Weapon captions exclude the local firing range
-and are rate-limited. Flight wind currently emits a caption once when the local
-player enters flight. There is no quick-chat or threat-callout system in the
-current client, so their audio mix/caption behavior has no implementation yet.
+distant ARC, ZIP, and BRICK fire, plus nearby weapon fire within the existing
+10 m caption band. Remote weapon captions require clear line of sight, exclude
+the local player's own shots, and share the existing per-weapon rate limit.
+Flight wind currently emits a caption once when the local
+player enters flight. Audible remote-player footstep events also publish a
+rate-limited caption within the shared spatial-audio distance; the local
+player's own steps do not produce a caption. The existing local feedback cues
+also caption damage taken, low health, confirmed hits, and confirmed
+eliminations. The local own-death drone captions as “ELIMINATED” when gameplay
+sound captions are enabled. Offline damage
+captions use the same cue publisher without replaying the direct player
+AudioSource sound. The localized fixed-choice quick-chat wheel is text-only and
+uses the existing UI tap sound; reviewed regional voice packs and contextual
+threat-callout audio remain unimplemented.
+Relay countdown beeps caption the visible number, the GO cue uses the existing
+localized GO label, and result cues caption the localized VICTORY, DRAW, or
+DEFEAT label. Offline and online Relay use the same result mapping; cancelled
+online matches do not announce a result. Victory/defeat cues use the existing
+priority-80 announcer tier.
 Other critical-cue caption coverage and voice-priority behavior still need
 acceptance; do not treat the implemented subset as complete audio coverage.
+Damage, low-health, confirmed-hit, and confirmed-elimination cues use the
+existing priority-20 threat tier, ahead of launch/landing (40),
+objective/announcer (80), and UI (160) cues.
 
 ## Remaining acceptance
 
@@ -46,3 +65,10 @@ are directional, critical cues win voice priority, mono does not erase team
 identity, and reduced motion disables camera kick and unnecessary screen shake.
 Measure haptic strength and verify mono-mode behavior on Android and iOS devices;
 the editor/batch environment cannot establish physical device behavior.
+
+Fixed-choice teammate pings use distinct generated SFX for enemy here, group up,
+pad ready, and go here. Each received teammate ping also publishes its existing
+localized kind label through the gameplay sound-caption path, so the type remains
+identifiable when its projected world caption is hidden. Sound captions retain
+their existing preference and priority behavior. Device mix and concurrent-ping
+readability remain open in docs/acceptance/PART5_RADAR_TEAM_CUES.md.

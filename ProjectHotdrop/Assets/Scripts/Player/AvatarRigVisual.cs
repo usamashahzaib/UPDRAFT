@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace Hotdrop.Player
 {
@@ -28,6 +29,9 @@ namespace Hotdrop.Player
         public const float Height = 1.8f;
 
         static Material skin, dark;
+        static Shader characterRimShader;
+        static Material suitRim, darkRim, damageScuff;
+        static readonly Dictionary<Material, Material> rimMaterials = new Dictionary<Material, Material>();
         static Mesh roundedBox;
         static bool materialsResolved;
 
@@ -53,13 +57,42 @@ namespace Hotdrop.Player
         static Material Original(string resourcePath, Color colour, float smoothness)
         {
             var asset = Resources.Load<Material>(resourcePath);
-            if (asset != null) return asset;
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (asset != null) return WithRim(asset);
+            var shader = CharacterRimShader();
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             var material = new Material(shader) { name = resourcePath };
             material.color = colour;
             material.SetFloat("_Smoothness", smoothness);
+            if (material.HasProperty("_RimColor")) material.SetColor("_RimColor", new Color(.68f, .79f, .87f, 1f));
             return material;
+        }
+
+        static Shader CharacterRimShader()
+        {
+            if (characterRimShader == null)
+            {
+                characterRimShader = Resources.Load<Shader>("Shaders/CharacterRimLit");
+                if (characterRimShader == null) characterRimShader = Shader.Find("Hotdrop/Character Rim Lit");
+            }
+            return characterRimShader;
+        }
+
+        /// <summary>Returns a shared rim-lit variant while preserving the source tint and maps.</summary>
+        public static Material WithRim(Material source)
+        {
+            if (source == null) return null;
+            var shader = CharacterRimShader();
+            if (shader == null) return source;
+            if (rimMaterials.TryGetValue(source, out var cached) && cached != null) return cached;
+            cached = new Material(source) { shader = shader, name = source.name + " Rim" };
+            if (source.HasProperty("_BaseColor")) cached.SetColor("_BaseColor", source.GetColor("_BaseColor"));
+            else if (source.HasProperty("_Color")) cached.SetColor("_BaseColor", source.GetColor("_Color"));
+            if (source.HasProperty("_BaseMap")) cached.SetTexture("_BaseMap", source.GetTexture("_BaseMap"));
+            if (source.HasProperty("_Smoothness")) cached.SetFloat("_Smoothness", source.GetFloat("_Smoothness"));
+            cached.SetColor("_RimColor", new Color(.68f, .79f, .87f, 1f));
+            rimMaterials[source] = cached;
+            return cached;
         }
 
         /// <summary>
@@ -85,7 +118,10 @@ namespace Hotdrop.Player
                 existing.SetParent(null, false);
                 if (Application.isPlaying) Object.Destroy(existing.gameObject); else Object.DestroyImmediate(existing.gameObject);
             }
-            return Build(root, rig, primary, accent, includeGun);
+            var parts = Build(root, rig, primary, accent, includeGun);
+            var damageVisual = root.GetComponent<AvatarDamageTelegraph>();
+            if (damageVisual != null) damageVisual.RefreshAfterRigRebuild();
+            return parts;
         }
 
         /// <summary>Wires a motion component to the built parts (any part may be absent).</summary>
@@ -99,9 +135,51 @@ namespace Hotdrop.Player
             motion.torso = parts.Torso;
         }
 
+        static GameObject operatorPrefab;
+        static bool operatorResolved;
+        static Material suit;
+
+        /// <summary>
+        /// The CC0 skinned operator (07_WORLD_ART: Quaternius Universal Animation Library, Humanoid,
+        /// fitted to the 1.8 m capsule). Null falls back to the original primitive humanoid.
+        /// </summary>
+        public static GameObject OperatorPrefab
+        {
+            get
+            {
+                if (!operatorResolved) { operatorResolved = true; operatorPrefab = Resources.Load<GameObject>("Characters/Operator"); }
+                return operatorPrefab;
+            }
+        }
+
+        public static bool UsesOperator => OperatorPrefab != null;
+
+        /// <summary>Matte tactical suit under the team armour; shared so SRP batching holds.</summary>
+        public static Material SuitMaterial
+        {
+            get
+            {
+                if (suit == null) suit = Original("Materials/AvatarSuit", new Color(0.27f, 0.30f, 0.33f), 0.22f);
+                return suit;
+            }
+        }
+
+        /// <summary>Shared base layers that carry the silhouette rim on both avatar rigs.</summary>
+        static Material RimBaseMaterial(bool useDark)
+        {
+            var source = useDark ? DarkMaterial : SuitMaterial;
+            var cached = useDark ? darkRim : suitRim;
+            if (cached != null) return cached;
+            cached = WithRim(source);
+            if (useDark) darkRim = cached; else suitRim = cached;
+            return cached;
+        }
+
         /// <summary>Builds the humanoid in a child "Rig" node; returns the driven parts.</summary>
         public static AvatarVisualParts Build(GameObject root, BodyRig rig, Material primary, Material accent, bool includeGun)
         {
+            var prefab = OperatorPrefab;
+            if (prefab != null) return BuildOperator(root, rig, primary, accent, includeGun, prefab);
             bool female = rig == BodyRig.Female;
             var rigRoot = new GameObject("Rig").transform;
             rigRoot.SetParent(root.transform, false);
@@ -189,6 +267,118 @@ namespace Hotdrop.Player
             return parts;
         }
 
+        /// <summary>
+        /// Skinned operator: animated athletic body in a matte suit, with team-coloured armour
+        /// (chest plate, flight-pack stripe, helmet band) on its bones so friend/foe colour sits on
+        /// dedicated pieces. Torso is the chest plate, which keeps the team-colour path unchanged.
+        /// </summary>
+        static AvatarVisualParts BuildOperator(GameObject root, BodyRig rig, Material primary, Material accent, bool includeGun, GameObject prefab)
+        {
+            bool female = rig == BodyRig.Female;
+            var rigRoot = new GameObject("Rig").transform;
+            rigRoot.SetParent(root.transform, false);
+            var model = Object.Instantiate(prefab, rigRoot, false);
+            model.name = "Operator";
+            // Female shares the skeleton, clips and capsule; only the silhouette is slimmer.
+            if (female) model.transform.localScale = Vector3.Scale(model.transform.localScale, new Vector3(.93f, 1f, .93f));
+            var animator = model.GetComponent<Animator>();
+            foreach (var skinned in model.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                int count = skinned.sharedMesh != null ? Mathf.Max(1, skinned.sharedMesh.subMeshCount) : 1;
+                var materials = new Material[count];
+                for (int i = 0; i < count; i++) materials[i] = i == 0 ? RimBaseMaterial(false) : RimBaseMaterial(true);
+                skinned.sharedMaterials = materials;
+                skinned.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            }
+
+            Transform Bone(HumanBodyBones bone) => animator != null && animator.isHuman ? animator.GetBoneTransform(bone) : null;
+            var hips = Bone(HumanBodyBones.Hips) ?? model.transform;
+            var chest = Bone(HumanBodyBones.UpperChest) ?? Bone(HumanBodyBones.Chest) ?? hips;
+            var head = Bone(HumanBodyBones.Head) ?? chest;
+            var parts = new AvatarVisualParts
+            {
+                Root = rigRoot,
+                Head = head,
+                LeftArm = Bone(HumanBodyBones.LeftUpperArm),
+                RightArm = Bone(HumanBodyBones.RightUpperArm),
+                LeftLeg = Bone(HumanBodyBones.LeftUpperLeg) ?? hips,
+                RightLeg = Bone(HumanBodyBones.RightUpperLeg) ?? hips,
+            };
+
+            float chestY = chest.position.y - rigRoot.position.y;
+            float headY = head.position.y - rigRoot.position.y;
+            parts.Torso = Armour(rigRoot, chest, "Chest plate", PrimitiveType.Cube, new Vector3(0f, chestY - .02f, .115f), new Vector3(.30f, .24f, .07f), primary);
+            Armour(rigRoot, chest, "Plate carrier", PrimitiveType.Cube, new Vector3(0f, chestY - .05f, .02f), new Vector3(.36f, .30f, .2f), DarkMaterial);
+            // The flight pack is the HOTDROP silhouette: a dark shell, team stripe, twin thrusters.
+            Armour(rigRoot, chest, "Flight pack", PrimitiveType.Cube, new Vector3(0f, chestY - .04f, -.17f), new Vector3(.30f, .40f, .15f), DarkMaterial);
+            Armour(rigRoot, chest, "Flight pack stripe", PrimitiveType.Cube, new Vector3(0f, chestY + .06f, -.248f), new Vector3(.22f, .05f, .012f), primary);
+            foreach (float side in new[] { -1f, 1f })
+                Armour(rigRoot, chest, "Thruster", PrimitiveType.Cylinder, new Vector3(side * .1f, chestY - .27f, -.19f), new Vector3(.08f, .07f, .08f), accent);
+            Armour(rigRoot, head, "Helmet", PrimitiveType.Sphere, new Vector3(0f, headY + .045f, -.01f), new Vector3(.25f, .23f, .27f), DarkMaterial);
+            Armour(rigRoot, head, "Visor", PrimitiveType.Cube, new Vector3(0f, headY + .03f, .105f), new Vector3(.19f, .065f, .06f), accent);
+            Armour(rigRoot, head, "Helmet team band", PrimitiveType.Cube, new Vector3(0f, headY + .14f, 0f), new Vector3(.05f, .03f, .24f), primary);
+            if (female)
+                Armour(rigRoot, head, "Helmet rear", PrimitiveType.Sphere, new Vector3(0f, headY - .04f, -.13f), new Vector3(.12f, .14f, .1f), DarkMaterial);
+            foreach (var arm in new[] { parts.LeftArm, parts.RightArm })
+                if (arm != null)
+                    Armour(rigRoot, arm, "Shoulder guard", PrimitiveType.Sphere, rigRoot.InverseTransformPoint(arm.position) + new Vector3(0f, .03f, 0f), new Vector3(.15f, .12f, .16f), accent);
+
+            // Field kit on the legs and hands: the silhouette reads as an equipped operator rather
+            // than a bare mannequin. Legs are vertical at bind pose, so rig-space boxes line up.
+            Vector3 At(Transform bone) => rigRoot.InverseTransformPoint(bone.position);
+            foreach (var side in new[] { (HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot, HumanBodyBones.LeftHand),
+                                         (HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot, HumanBodyBones.RightHand) })
+            {
+                var thigh = Bone(side.Item1); var shin = Bone(side.Item2); var foot = Bone(side.Item3); var handBone = Bone(side.Item4);
+                if (thigh != null && shin != null)
+                {
+                    var mid = (At(thigh) + At(shin)) * .5f;
+                    Armour(rigRoot, thigh, "Thigh rig", PrimitiveType.Cube, mid + new Vector3(0f, 0f, .075f), new Vector3(.13f, .2f, .05f), DarkMaterial);
+                    Armour(rigRoot, shin, "Knee pad", PrimitiveType.Cube, At(shin) + new Vector3(0f, .02f, .07f), new Vector3(.11f, .11f, .05f), accent);
+                }
+                if (shin != null && foot != null)
+                {
+                    var mid = (At(shin) + At(foot)) * .5f;
+                    Armour(rigRoot, shin, "Shin guard", PrimitiveType.Cube, mid + new Vector3(0f, 0f, .055f), new Vector3(.1f, .22f, .04f), DarkMaterial);
+                    Armour(rigRoot, foot, "Boot", PrimitiveType.Cube, At(foot) + new Vector3(0f, -.035f, .05f), new Vector3(.12f, .11f, .26f), DarkMaterial);
+                }
+                if (handBone != null)
+                    Armour(rigRoot, handBone, "Glove", PrimitiveType.Sphere, At(handBone), new Vector3(.09f, .09f, .09f), DarkMaterial);
+            }
+
+            if (includeGun)
+            {
+                // A direct Rig child (weapon wraps and tests find "Rig/Gun") that follows the hand.
+                var gun = Part(rigRoot, "Gun", PrimitiveType.Cube, Vector3.zero, Vector3.one, accent);
+                var follow = gun.gameObject.AddComponent<OperatorWeaponFollow>();
+                follow.hand = Bone(HumanBodyBones.RightHand);
+                follow.rig = rigRoot;
+                // CC0 weapon models (07_WORLD_ART); the primitive rifle remains the fallback.
+                if (!follow.SetWeapon("ARC"))
+                {
+                    gun.localScale = new Vector3(.07f, .11f, .42f);
+                    Part(gun, "Barrel", PrimitiveType.Cylinder, new Vector3(0f, .1f, .82f), new Vector3(.45f, .45f, .5f), DarkMaterial).localRotation = Quaternion.Euler(90f, 0f, 0f);
+                    Part(gun, "Magazine", PrimitiveType.Cube, new Vector3(0f, -.75f, .15f), new Vector3(.7f, .9f, .22f), DarkMaterial);
+                    Part(gun, "Stock", PrimitiveType.Cube, new Vector3(0f, -.1f, -.62f), new Vector3(.8f, .8f, .35f), DarkMaterial);
+                    Part(gun, "Sight", PrimitiveType.Cube, new Vector3(0f, .62f, .05f), new Vector3(.7f, .35f, .3f), DarkMaterial);
+                }
+            }
+            return parts;
+        }
+
+        /// <summary>Rigid armour on a bone: placed in rig space at bind pose, then carried by the bone.</summary>
+        static Transform Armour(Transform rigRoot, Transform bone, string name, PrimitiveType type, Vector3 rigPosition, Vector3 size, Material material)
+        {
+            var t = Part(bone, name, type, Vector3.zero, Vector3.one, material);
+            t.position = rigRoot.TransformPoint(rigPosition);
+            t.rotation = rigRoot.rotation;
+            var lossy = bone.lossyScale;
+            t.localScale = new Vector3(size.x / Mathf.Max(1e-4f, lossy.x), size.y / Mathf.Max(1e-4f, lossy.y), size.z / Mathf.Max(1e-4f, lossy.z));
+            var renderer = t.GetComponent<Renderer>();
+            if (renderer != null) renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            return t;
+        }
+
         /// <summary>A joint pivot with one visible limb hanging below it.</summary>
         static Transform Limb(Transform parent, string name, Vector3 pivot, Vector3 size, Material material)
         {
@@ -217,8 +407,37 @@ namespace Hotdrop.Player
             var renderer = go.GetComponent<Renderer>();
             if (type == PrimitiveType.Cube) go.GetComponent<MeshFilter>().sharedMesh = RoundedBox();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            if (material != null) renderer.sharedMaterial = material;
+            if (material != null) renderer.sharedMaterial = WithRim(material);
             return go.transform;
+        }
+
+        /// <summary>Persists a non-gore suit-damage cue for the current life only.</summary>
+        public static void SetPersistentDamage(GameObject avatarRoot, bool damaged)
+        {
+            if (avatarRoot == null) return;
+            var visual = avatarRoot.GetComponent<AvatarDamageTelegraph>();
+            if (visual == null)
+            {
+                if (!damaged) return;
+                visual = avatarRoot.AddComponent<AvatarDamageTelegraph>();
+            }
+            visual.SetDamaged(damaged);
+        }
+
+        internal static Material DamageScuffMaterial
+        {
+            get
+            {
+                if (damageScuff != null) return damageScuff;
+                var shader = CharacterRimShader();
+                if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null) shader = Shader.Find("Standard");
+                if (shader == null) return null;
+                damageScuff = new Material(shader) { name = "Avatar suit scuff" };
+                damageScuff.color = new Color(.72f, .74f, .72f, 1f);
+                damageScuff.SetFloat("_Smoothness", .2f);
+                return damageScuff;
+            }
         }
 
         // Shared original mesh: bevels catch the key light without changing any collider.
@@ -257,6 +476,112 @@ namespace Hotdrop.Player
         }
     }
 
+    /// <summary>Collider-free marks retained on the avatar until respawn after taking damage.</summary>
+    public sealed class AvatarDamageTelegraph : MonoBehaviour
+    {
+        Transform damageRoot;
+        bool damaged;
+
+        public void SetDamaged(bool damaged)
+        {
+            this.damaged = damaged;
+            if (damageRoot == null)
+            {
+                if (!damaged) return; // Rebuild lazily after a rig replacement only when needed.
+                Build();
+            }
+            if (damageRoot != null) damageRoot.gameObject.SetActive(damaged);
+        }
+
+        public void RefreshAfterRigRebuild()
+        {
+            damageRoot = null;
+            if (damaged) SetDamaged(true);
+        }
+
+        void Build()
+        {
+            damageRoot = new GameObject("DamageTelegraph").transform;
+            damageRoot.SetParent(transform, false);
+            var material = AvatarRigVisual.DamageScuffMaterial;
+            if (material == null) return;
+
+            // Fractured visor strokes and suit scrapes are visual-only and do not alter hitboxes.
+            Mark("Visor crack 1", new Vector3(-.025f, 1.69f, .143f), new Vector3(.009f, .075f, .006f), 24f, material);
+            Mark("Visor crack 2", new Vector3(.005f, 1.675f, .144f), new Vector3(.008f, .048f, .006f), -32f, material);
+            Mark("Visor crack 3", new Vector3(.025f, 1.657f, .143f), new Vector3(.007f, .038f, .006f), 35f, material);
+            Mark("Chest scrape 1", new Vector3(.105f, 1.285f, .158f), new Vector3(.009f, .085f, .006f), -38f, material);
+            Mark("Chest scrape 2", new Vector3(.09f, 1.255f, .159f), new Vector3(.007f, .048f, .006f), 30f, material);
+            damageRoot.gameObject.SetActive(false);
+        }
+
+        void Mark(string name, Vector3 position, Vector3 size, float angle, Material material)
+        {
+            var mark = AvatarRigVisual.Part(damageRoot, name, PrimitiveType.Cube, position, size, material);
+            mark.localRotation = Quaternion.Euler(0f, 0f, angle);
+            var renderer = mark.GetComponent<Renderer>();
+            if (renderer != null) renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+    }
+
+    /// <summary>Holds the operator's weapon in its right hand, aimed along the runner's facing.</summary>
+    public sealed class OperatorWeaponFollow : MonoBehaviour
+    {
+        public Transform hand, rig;
+        string current;
+        bool gripOrigin;
+
+        /// <summary>
+        /// Shows the CC0 model for a weapon id (Resources/Weapons/ARC|ZIP|BRICK).
+        /// Its source materials change with the model; CosmeticLook retains an active body wrap.
+        /// </summary>
+        public bool SetWeapon(string id)
+        {
+            if (id == current) return true;
+            var prefab = Resources.Load<GameObject>("Weapons/" + id);
+            if (prefab == null) return false;
+            var source = prefab.GetComponent<MeshFilter>();
+            var filter = GetComponent<MeshFilter>();
+            if (source == null || filter == null) return false;
+            current = id;
+            gripOrigin = true;
+            transform.localScale = Vector3.one;
+            filter.sharedMesh = source.sharedMesh;
+            var renderer = GetComponent<MeshRenderer>();
+            if (renderer != null)
+                Hotdrop.UI.CosmeticLook.SetWeaponBaseMaterial(renderer, prefab.GetComponent<MeshRenderer>().sharedMaterial);
+            var metal = transform.Find("Metal");
+            var sourceMetal = prefab.transform.Find("Metal");
+            if (sourceMetal != null)
+            {
+                if (metal == null)
+                {
+                    metal = new GameObject("Metal", typeof(MeshFilter), typeof(MeshRenderer)).transform;
+                    metal.SetParent(transform, false);
+                    var r = metal.GetComponent<MeshRenderer>();
+                    r.sharedMaterial = sourceMetal.GetComponent<MeshRenderer>().sharedMaterial;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                }
+                metal.GetComponent<MeshFilter>().sharedMesh = sourceMetal.GetComponent<MeshFilter>().sharedMesh;
+                var sourceMetalRenderer = sourceMetal.GetComponent<MeshRenderer>();
+                var metalRenderer = metal.GetComponent<MeshRenderer>();
+                if (sourceMetalRenderer != null && metalRenderer != null)
+                    metalRenderer.sharedMaterial = sourceMetalRenderer.sharedMaterial;
+            }
+            if (renderer != null) renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            return true;
+        }
+
+        void LateUpdate()
+        {
+            if (hand == null || rig == null) return;
+            var forward = rig.forward;
+            // CC0 models have their origin at the grip; the primitive fallback is centred on the receiver.
+            var offset = gripOrigin ? forward * .04f : forward * .14f + rig.up * .02f;
+            transform.SetPositionAndRotation(hand.position + offset, Quaternion.LookRotation(forward, rig.up));
+        }
+    }
+
     /// <summary>
     /// Amendment 1/2: the local player's body-rig preference, stored like every other local
     /// setting. The first launch offers the choice; Appearance and the More menu can change it
@@ -266,15 +591,35 @@ namespace Hotdrop.Player
     {
         public const string PrefKey = "BodyRig";
         public const string ChosenKey = "BodyRigChosen";
+        public const string SyncPendingKey = "BodyRigSyncPending";
 
         public static BodyRig Current => BodyRigs.FromStoredId(PlayerPrefs.GetString(PrefKey, ""));
 
         public static bool Chosen => PlayerPrefs.GetInt(ChosenKey, 0) != 0;
+        public static bool SyncPending => PlayerPrefs.GetInt(SyncPendingKey, 0) != 0;
 
         public static void Set(BodyRig rig, bool markChosen = true)
         {
             PlayerPrefs.SetString(PrefKey, BodyRigs.Id(rig));
             if (markChosen) PlayerPrefs.SetInt(ChosenKey, 1);
+            PlayerPrefs.SetInt(SyncPendingKey, 1);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>Applies an account-owned preference without queuing it back to the account.</summary>
+        public static void ApplyAccountPreference(BodyRig rig)
+        {
+            PlayerPrefs.SetString(PrefKey, BodyRigs.Id(rig));
+            PlayerPrefs.SetInt(ChosenKey, 1);
+            PlayerPrefs.SetInt(SyncPendingKey, 0);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>Clears the pending marker only if the saved local choice is still current.</summary>
+        public static void MarkAccountSynced(BodyRig rig)
+        {
+            if (Current != rig) return;
+            PlayerPrefs.SetInt(SyncPendingKey, 0);
             PlayerPrefs.Save();
         }
     }

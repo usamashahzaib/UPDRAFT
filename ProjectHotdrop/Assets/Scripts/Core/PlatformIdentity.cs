@@ -1,8 +1,19 @@
 using System;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Hotdrop.Core
 {
+    public enum PlatformAuthCodeState { Ready, Cancelled, Unavailable, Failed }
+
+    public readonly struct PlatformAuthCodeResult
+    {
+        public readonly string Code;
+        public readonly PlatformAuthCodeState State;
+        public PlatformAuthCodeResult(string code, PlatformAuthCodeState state)
+        { Code = code; State = state; }
+    }
+
     /// <summary>
     /// QA-026: the device's platform identity (Google Play Games). A Play Games integration
     /// sets <see cref="ServerAuthCodeProvider"/> at startup to return a one-time server auth
@@ -15,11 +26,22 @@ namespace Hotdrop.Core
 
         public static bool Available => ServerAuthCodeProvider != null;
 
-        public static async Task<string> RequestServerAuthCodeAsync()
+        public static async Task<PlatformAuthCodeResult> RequestServerAuthCodeAsync()
         {
-            if (ServerAuthCodeProvider == null) return null;
-            try { return await ServerAuthCodeProvider(); }
-            catch (Exception) { return null; }
+            var provider = ServerAuthCodeProvider;
+            if (provider == null) return new PlatformAuthCodeResult(null, PlatformAuthCodeState.Unavailable);
+            try
+            {
+                string code = await provider();
+                return string.IsNullOrWhiteSpace(code)
+                    ? new PlatformAuthCodeResult(null, PlatformAuthCodeState.Cancelled)
+                    : new PlatformAuthCodeResult(code, PlatformAuthCodeState.Ready);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Google Play Games sign-in failed: {exception.Message}");
+                return new PlatformAuthCodeResult(null, PlatformAuthCodeState.Failed);
+            }
         }
     }
 }

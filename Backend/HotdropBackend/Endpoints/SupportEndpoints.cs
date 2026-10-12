@@ -107,7 +107,8 @@ public static class SupportEndpoints
             }
             string token = AccountDeletionService.NewToken();
             pending.VerificationTokenHash = AccountDeletionService.Hash(token);
-            pending.VerificationExpiresAt = DateTimeOffset.UtcNow.AddHours(Math.Clamp(support.DeletionLinkLifetimeHours, 1, 168));
+            int lifetimeHours = support.EffectiveDeletionLinkLifetimeHours;
+            pending.VerificationExpiresAt = DateTimeOffset.UtcNow.AddHours(lifetimeHours);
             await db.SaveChangesAsync();
 
             string baseUrl = string.IsNullOrWhiteSpace(support.PublicBaseUrl)
@@ -118,7 +119,7 @@ public static class SupportEndpoints
             {
                 await emailSender.SendAsync(new EmailMessage(email, "Confirm your Project HOTDROP account deletion",
                     "We received a request to delete the Project HOTDROP account associated with this email address.\n\n" +
-                    $"To confirm, open this link within {support.DeletionLinkLifetimeHours} hours:\n{link}\n\n" +
+                    $"To confirm, open this link within {lifetimeHours} hours:\n{link}\n\n" +
                     "The link works once. If you did not make this request, ignore this email and nothing will change.\n"),
                     ctx.RequestAborted);
             }
@@ -126,6 +127,11 @@ public static class SupportEndpoints
             {
                 // The request is stored; the player can resubmit to get a fresh link.
                 loggers.CreateLogger("HotdropBackend.Support").LogError(ex, "Failed to send account-deletion verification email");
+                return Results.Content(
+                    "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Request not sent</title>" +
+                    "<body><main><h1>We could not send the verification email</h1>" +
+                    "<p>Please submit your request again later. No account data has been deleted.</p></main></body></html>",
+                    "text/html", System.Text.Encoding.UTF8, StatusCodes.Status503ServiceUnavailable);
             }
             return Results.Content(
                 "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Request received</title>" +
@@ -178,7 +184,7 @@ public static class SupportEndpoints
                 return Results.BadRequest(new { error = "valid_email_required" });
             var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
             var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
-            if (account is null) return Results.NotFound();
+            if (account is null) return Results.NotFound(new { error = "profile_not_found" });
             account.ContactEmailHash = AccountDeletionService.HashEmail(email);
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(new { saved = true });
@@ -188,7 +194,7 @@ public static class SupportEndpoints
         {
             var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
             var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
-            if (account is null) return Results.NotFound();
+            if (account is null) return Results.NotFound(new { error = "profile_not_found" });
             account.ContactEmailHash = null;
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(new { removed = true });
@@ -198,7 +204,8 @@ public static class SupportEndpoints
             CancellationToken cancellationToken) =>
         {
             var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
-            if (!await deletion.DeleteAccountAsync(playerId, db, cancellationToken)) return Results.NotFound();
+            if (!await deletion.DeleteAccountAsync(playerId, db, cancellationToken))
+                return Results.NotFound(new { error = "profile_not_found" });
             return Results.Ok(new { deleted = true, retainedPurchaseRecords = true });
         }).RequireAuthorization();
 
@@ -209,7 +216,8 @@ public static class SupportEndpoints
             string path = Path.Combine(AppContext.BaseDirectory, "account-deletion.html");
             return File.Exists(path)
                 ? Results.File(path, "text/html")
-                : Results.Problem("Account-deletion page is unavailable.", statusCode: 503);
+                : Results.Problem("Account-deletion page is unavailable.", statusCode: 503,
+                    extensions: new Dictionary<string, object?> { ["code"] = "account_deletion_page_unavailable" });
         }).AllowAnonymous();
     }
 
@@ -262,8 +270,9 @@ public static class SupportEndpoints
     /// </summary>
     const string BotPrefix = "[BOT] ";
 
-    static bool AliasMatches(string candidate, string reported)
+    static bool AliasMatches(string? candidate, string reported)
     {
+        if (string.IsNullOrEmpty(candidate)) return false;
         if (string.Equals(candidate, reported, StringComparison.OrdinalIgnoreCase)) return true;
         string Trimmed(string value) => value.StartsWith(BotPrefix, StringComparison.Ordinal) ? value.Substring(BotPrefix.Length) : value;
         return string.Equals(Trimmed(candidate), Trimmed(reported), StringComparison.OrdinalIgnoreCase);

@@ -16,12 +16,15 @@ namespace Hotdrop.Core
         [Serializable] public class Entry { public string alias; public int slot; public int team; }
         [Serializable] class Roster { public string matchId; public string endedUtc; public int localTeam = -1; public List<Entry> players = new List<Entry>(); }
 
+        public static bool IsReportableAlias(string alias) =>
+            !string.IsNullOrEmpty(alias) && !alias.StartsWith("[BOT]");
+
         public static void Remember(string matchId, IEnumerable<Entry> others, int localTeam = -1)
         {
             if (string.IsNullOrEmpty(matchId)) return;
             var roster = new Roster { matchId = matchId, endedUtc = DateTime.UtcNow.ToString("o"), localTeam = localTeam };
             foreach (var e in others)
-                if (e != null && !string.IsNullOrEmpty(e.alias) && !e.alias.StartsWith("[BOT]")) roster.players.Add(e);
+                if (e != null && IsReportableAlias(e.alias)) roster.players.Add(e);
             PlayerPrefs.SetString(Key, JsonUtility.ToJson(roster));
             PlayerPrefs.Save();
         }
@@ -46,7 +49,12 @@ namespace Hotdrop.Core
             return roster != null ? roster.localTeam : -1;
         }
 
-        public static void Forget() { PlayerPrefs.DeleteKey(Key); PlayerPrefs.Save(); }
+        public static void Forget()
+        {
+            PlayerPrefs.DeleteKey(Key);
+            PlayerPrefs.Save();
+            PlayerProductScreens.ClearReportTargetSelection();
+        }
     }
 }
 

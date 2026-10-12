@@ -6,6 +6,7 @@ using Fusion;
 using Fusion.Photon.Realtime;
 using Fusion.Sockets;
 using Hotdrop.Config;
+using Hotdrop.UI;
 using UnityEngine;
 
 namespace Hotdrop.Network
@@ -115,14 +116,14 @@ namespace Hotdrop.Network
 
         public static string Describe(ShutdownReason reason) => reason switch
         {
-            ShutdownReason.GameNotFound => "The match server is not available. Please queue again.",
-            ShutdownReason.GameIsFull => "That match is already full.",
-            ShutdownReason.ConnectionRefused => "The match server refused this connection (ticket expired or invalid).",
-            ShutdownReason.PhotonCloudTimeout or ShutdownReason.ConnectionTimeout => "Connection timed out. Check your network and try again.",
-            ShutdownReason.InvalidAuthentication or ShutdownReason.CustomAuthenticationFailed => "Online services rejected this build's credentials.",
-            ShutdownReason.MaxCcuReached => "Online play is at capacity right now. Try again shortly.",
-            ShutdownReason.IncompatibleConfiguration => "This app version cannot join that match. Please update.",
-            _ => $"Disconnected ({reason}).",
+            ShutdownReason.GameNotFound => UiDraw.L("network.shutdown.gameNotFound", "The match server is not available. Please queue again."),
+            ShutdownReason.GameIsFull => UiDraw.L("network.shutdown.gameIsFull", "That match is already full."),
+            ShutdownReason.ConnectionRefused => UiDraw.L("network.shutdown.connectionRefused", "The match server refused this connection (ticket expired or invalid)."),
+            ShutdownReason.PhotonCloudTimeout or ShutdownReason.ConnectionTimeout => UiDraw.L("network.shutdown.timeout", "Connection timed out. Check your network and try again."),
+            ShutdownReason.InvalidAuthentication or ShutdownReason.CustomAuthenticationFailed => UiDraw.L("network.shutdown.authentication", "Online services rejected this build's credentials."),
+            ShutdownReason.MaxCcuReached => UiDraw.L("network.shutdown.capacity", "Online play is at capacity right now. Try again shortly."),
+            ShutdownReason.IncompatibleConfiguration => UiDraw.L("network.shutdown.incompatible", "This app version cannot join that match. Please update."),
+            _ => UiDraw.LFormat("network.shutdown.unknownTemplate", "Disconnected ({0}).", reason),
         };
 
         void Fail(string reason)
@@ -326,9 +327,7 @@ namespace Hotdrop.Network
                 p.Connected = false;
                 // The labeled-bot grace uses the same live config as the other AFK windows.
                 var progression = NetConfigs.Progression;
-                float grace = progression != null
-                    ? Mathf.Max(0f, progression.disconnectBotSubstitutionSeconds)
-                    : ProgressionConfig.DefaultDisconnectBotSubstitutionSeconds;
+                float grace = progression.disconnectBotSubstitutionSeconds;
                 p.DisconnectGrace = TickTimer.CreateFromSeconds(runner, grace);
                 p.Object.RemoveInputAuthority();
             }

@@ -1,5 +1,13 @@
 # HOTDROP UIUX reference parity — 2026-10-02
 
+## Follow-up — 2026-10-07
+
+The saved 6 October PlayMode report failed both preparation objective-marker
+captures against the measured panels. The runtime now suppresses the marker when
+no collision-free slot exists, and the behind-camera capture targets active
+gameplay. The old 07/07b marker-placement statement below is historical evidence;
+the updated PlayMode capture has compiled but has not been run.
+
 ## Follow-up — 2026-10-04
 
 The shared Unity menu frame now uses a compact left-aligned title and Back control, a shorter status rail, and left-aligned content. The Party entry and live room show a clearer invite-code hierarchy and three squad cards. Appearance has a proportional live runner preview beside an information card, plus functional category tabs for actual owned items and their equip state; Profile has a visible loading card and, when the backend responds, separate identity, progression, eligible-match and saved-identity sections. Failed backend pages now show a framed error and retry action. These changes are in `MenuLayout.cs` and `PlayerProductScreens.cs`.

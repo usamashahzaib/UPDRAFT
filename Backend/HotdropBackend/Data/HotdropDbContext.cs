@@ -112,6 +112,10 @@ public class HotdropDbContext : DbContext
             .HasIndex(e => new { e.PseudonymousId, e.EventDate });
 
         modelBuilder.Entity<InventoryItem>()
+            .Property(i => i.SupportedBodyRigMask)
+            .HasDefaultValue((int)BodyRigVariantMask.All);
+
+        modelBuilder.Entity<InventoryItem>()
             .HasIndex(i => new { i.PlayerId, i.CosmeticId })
             .IsUnique();
 

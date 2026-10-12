@@ -21,7 +21,7 @@ public sealed class AnalyticsRetentionService(IServiceScopeFactory scopeFactory,
     static readonly HashSet<string> GameplayActivityEvents =
     [
         "tutorial_started", "tutorial_step", "tutorial_completed",
-        "queue_started", "matchmaking_started", "match_joining", "online_match_joined", "online_match_completed",
+        "queue_started", "queue_abandoned", "matchmaking_started", "match_joining", "online_match_joined", "online_match_completed",
         "offline_challenge_started", "offline_challenge_completed",
         "match_started", "match_completed", "pad_placed", "pad_used", "pad_destroyed",
     ];

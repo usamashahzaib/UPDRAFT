@@ -26,7 +26,10 @@ public class CommerceEndpointsTests : IClassFixture<HotdropWebApplicationFactory
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
-            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            db.PlayerAccounts.Add(new PlayerAccount
+            {
+                Id = playerId, IsGuest = false, LinkedPlatformIdentity = "verified-google-player-1"
+            });
             await db.SaveChangesAsync();
         }
 
@@ -69,7 +72,10 @@ public class CommerceEndpointsTests : IClassFixture<HotdropWebApplicationFactory
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
-            db.PlayerAccounts.Add(new PlayerAccount { Id = playerId, IsGuest = true });
+            db.PlayerAccounts.Add(new PlayerAccount
+            {
+                Id = playerId, IsGuest = false, LinkedPlatformIdentity = "verified-google-player-2"
+            });
             await db.SaveChangesAsync();
         }
 

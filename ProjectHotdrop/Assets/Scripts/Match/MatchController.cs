@@ -77,6 +77,10 @@ namespace Hotdrop.Match
 
         MatchRulesConfig IMatchView.Rules => matchRules;
         MapConfig IMatchView.MapConfig => mapConfig;
+        bool IMatchView.IsEndgame => flowController != null && (flowController.Phase == MatchPhase.Overtime ||
+            flowController.MatchTime >= Mathf.Max(0f, matchRules.regulationDurationSeconds - matchRules.endgameHudTrimSeconds));
+        string IMatchView.StudyCohort => Hotdrop.Core.Telemetry.Cohort;
+        bool IMatchView.PadsEnabled => Hotdrop.Core.StudySettings.PadsEnabled;
         bool IMatchView.IsLiveMatch => allPlayers.Count > 0;
         IMatchParticipant IMatchView.LocalParticipant => localPlayer;
         IReadOnlyList<IMatchParticipant> IMatchView.Participants => allPlayers;
@@ -138,6 +142,8 @@ namespace Hotdrop.Match
             localPlayer.OnDeath += OnPlayerDeath;
             localPlayer.OnRespawn += OnPlayerRespawn;
             localPlayer.OnHealthChanged += (hp) => matchHUD?.UpdateHealth(hp);
+            localPlayer.OnDamagedFrom += direction => matchHUD?.ShowDamageFrom(direction);
+            localPlayer.OnFlightMotion += (speed, airborne) => matchHUD?.UpdateFlightMotion(speed, airborne);
             localPlayer.OnAmmoChanged += (cur, max) => matchHUD?.UpdateAmmo(cur, max);
             localPlayer.OnPadPlaced += (pad) => matchHUD?.UpdatePadState(pad);
             localPlayer.OnPadActivated += (pad) => matchHUD?.ShowPadActivated();
@@ -148,7 +154,7 @@ namespace Hotdrop.Match
             localPlayer.OnEliminated += (killerId, weapon) =>
             {
                 var killer = PlayerController.Find(killerId);
-                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer.DisplayName : "", weapon, localPlayer.LastAttackDirection);
+                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer : null, weapon, localPlayer.LastAttackDirection);
             };
 
             // Initialize
@@ -192,7 +198,7 @@ namespace Hotdrop.Match
                     if (localPlayer != null && killerId == localPlayer.PlayerId)
                     {
                         matchHUD?.ShowHitConfirmed(elimination: true);
-                        matchHUD?.ShowEliminationConfirmed(victim.DisplayName);
+                        matchHUD?.ShowEliminationConfirmed(victim);
                     }
                 };
 
@@ -207,17 +213,18 @@ namespace Hotdrop.Match
         void TrackPadEvents(PlayerController player)
         {
             player.OnPadPlaced += pad => Hotdrop.Core.Telemetry.TrackOfflineMatchFact("pad_placed",
-                ("byBot", player.IsBot), ("team", player.TeamId), ("matchTime", MatchTime),
-                ("x", pad.Position.x), ("z", pad.Position.z));
+                ("mapId", mapConfig != null ? mapConfig.mapName : "unknown"), ("padId", pad.TelemetryId), ("byBot", player.IsBot), ("team", player.TeamId), ("matchTime", MatchTime),
+                ("x", pad.Position.x), ("y", pad.Position.y), ("z", pad.Position.z));
             player.OnPadActivated += pad => Hotdrop.Core.Telemetry.TrackOfflineMatchFact("pad_used",
-                ("byBot", player.IsBot), ("team", player.TeamId), ("padTeam", pad.TeamId), ("ownPad", pad.OwnerId == player.PlayerId),
-                ("matchTime", MatchTime));
+                ("mapId", mapConfig != null ? mapConfig.mapName : "unknown"), ("padId", pad.TelemetryId), ("byBot", player.IsBot), ("team", player.TeamId), ("padTeam", pad.TeamId), ("ownPad", pad.OwnerId == player.PlayerId),
+                ("matchTime", MatchTime), ("x", pad.Position.x), ("y", pad.Position.y), ("z", pad.Position.z));
         }
 
         void BeginMatch()
         {
             float loadStarted = Time.realtimeSinceStartup;
             Hotdrop.Core.Telemetry.CurrentMatchId = System.Guid.NewGuid().ToString("N");
+            Hotdrop.Core.Telemetry.CurrentMapId = mapConfig != null ? mapConfig.mapName : "unknown";
             Hotdrop.Core.Telemetry.CurrentMatchHasBots = bots.Count > 0;
             Hotdrop.Core.Telemetry.TrackOfflineMatchFact("match_started", ("mode", "offline_practice"),
                 ("bots", bots.Count), ("padsEnabled", Hotdrop.Core.StudySettings.PadsEnabled));
@@ -314,15 +321,30 @@ namespace Hotdrop.Match
         void UpdateMatchAudio()
         {
             var phase = flowController.Phase;
-            Hotdrop.Core.GameAudio.SetMusic(phase == MatchPhase.InProgress || phase == MatchPhase.Overtime);
+            if (phase == MatchPhase.InProgress || phase == MatchPhase.Overtime)
+                Hotdrop.Core.GameAudio.SetMatchMusic(flowController.MatchTime, phase == MatchPhase.Overtime, matchRules);
+            else if (phase == MatchPhase.Countdown)
+                Hotdrop.Core.GameAudio.SetCountdownMusic(flowController.PhaseElapsed, matchRules.countdownSeconds, matchRules);
+            else
+                Hotdrop.Core.GameAudio.StopMusic();
             if (phase == MatchPhase.Countdown)
             {
                 int n = Mathf.CeilToInt(matchRules.countdownSeconds - flowController.PhaseElapsed);
-                if (n != lastCountdownBeep && n > 0) { lastCountdownBeep = n; Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.Countdown); }
+                if (n != lastCountdownBeep && n > 0)
+                {
+                    lastCountdownBeep = n;
+                    Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.Countdown);
+                    Hotdrop.Core.GameAudio.ReportLocalCaption(Hotdrop.Core.GameCue.Countdown, n.ToString());
+                }
                 return;
             }
             if (phase != MatchPhase.InProgress && phase != MatchPhase.Overtime) return;
-            if (lastCountdownBeep != 0) { lastCountdownBeep = 0; Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.CountdownGo); }
+            if (lastCountdownBeep != 0)
+            {
+                lastCountdownBeep = 0;
+                Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.CountdownGo);
+                Hotdrop.Core.GameAudio.ReportLocalCaption(Hotdrop.Core.GameCue.CountdownGo, Hotdrop.UI.UiDraw.L("hud.countdown.go", "GO"));
+            }
 
             var zone = ScoringZone;
             if (lastAudioZone != zone)
@@ -522,8 +544,13 @@ namespace Hotdrop.Match
             bool isDraw = outcome == MatchOutcome.Draw;
 
             if (SpectatedTeammate != null) { SpectatedTeammate = null; mainCamera.SetTarget(localPlayer.transform); }
-            Hotdrop.Core.GameAudio.SetMusic(false);
-            Hotdrop.Core.GameAudio.Play2D(isDraw || !isWin ? Hotdrop.Core.GameCue.Defeat : Hotdrop.Core.GameCue.Victory);
+            Hotdrop.Core.GameAudio.ResolveMatchMusic(!isWin && !isDraw);
+            var resultCue = isDraw ? Hotdrop.Core.GameCue.ZoneMilestone
+                : isWin ? Hotdrop.Core.GameCue.Victory : Hotdrop.Core.GameCue.Defeat;
+            Hotdrop.Core.GameAudio.Play2D(resultCue);
+            string resultCaption = Hotdrop.UI.ResultsView.Localized(isDraw ? "outcome.draw"
+                : isWin ? "outcome.victory" : "outcome.defeat", isDraw ? "DRAW" : isWin ? "VICTORY" : "DEFEAT");
+            Hotdrop.Core.GameAudio.ReportLocalCaption(resultCue, resultCaption);
             Hotdrop.UI.PingSystem.Instance?.Clear();
             int padsPlaced = 0, padsUsed = 0;
             foreach (var p in allPlayers) padsUsed += p.PadLaunches;
@@ -538,14 +565,14 @@ namespace Hotdrop.Match
                 ("padsEnabled", Hotdrop.Core.StudySettings.PadsEnabled));
             string endCondition = scoringController.EndReason switch
             {
-                MatchEndReason.ScoreLimit => "SCORE LIMIT",
-                MatchEndReason.OvertimeHold => "OVERTIME HOLD",
-                MatchEndReason.OvertimeDraw => "OVERTIME DRAW",
-                _ => "TIME",
+                MatchEndReason.ScoreLimit => Hotdrop.UI.MatchHUD.Localized("end.scoreLimit", "SCORE LIMIT"),
+                MatchEndReason.OvertimeHold => Hotdrop.UI.MatchHUD.Localized("end.overtimeHold", "OVERTIME HOLD"),
+                MatchEndReason.OvertimeDraw => Hotdrop.UI.MatchHUD.Localized("end.overtimeDraw", "OVERTIME DRAW"),
+                _ => Hotdrop.UI.MatchHUD.Localized("end.time", "TIME"),
             };
 
             matchHUD?.ShowResults(isWin, isDraw, scoringController.ScoreA, scoringController.ScoreB, endCondition, allPlayers,
-                "PRACTICE MATCH — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY",
+                Hotdrop.UI.MatchHUD.Localized("result.practiceFooter", "PRACTICE MATCH — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY"),
                 // Amendment 1: tell the player the next reachable goal, not just the result.
                 Hotdrop.Core.NextGoal.Short(Hotdrop.Core.GameBootstrap.Instance != null ? Hotdrop.Core.GameBootstrap.Instance.gameObject : null));
 

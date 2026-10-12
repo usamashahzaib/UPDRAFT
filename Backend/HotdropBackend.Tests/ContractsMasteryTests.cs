@@ -11,6 +11,7 @@ public class ContractsMasteryTests : IClassFixture<HotdropWebApplicationFactory>
 {
     readonly HotdropWebApplicationFactory factory;
     public ContractsMasteryTests(HotdropWebApplicationFactory factory) => this.factory = factory;
+    int MaxOccupationPerMatch => factory.Services.GetRequiredService<ProgressionOptions>().MaxUncontestedOccupationSecondsPerMatch;
 
     [Fact]
     public async Task Contracts_AreLockedUntilTwoEligiblePublicReceipts()
@@ -46,7 +47,7 @@ public class ContractsMasteryTests : IClassFixture<HotdropWebApplicationFactory>
         await db.SaveChangesAsync();
         var invalid = new ParticipantResult(owner, false, false, false, ProgressFacts: new AuthoritativeProgressFacts(200,
             [new PadTeammateUse(owner, owner, true), new PadTeammateUse(owner, bot, false)], "NOT_A_WEAPON"));
-        await service.ApplyMatchAsync(Guid.NewGuid(), new SubmitResultRequest(false, [invalid]), [invalid], db, CancellationToken.None);
+        await service.ApplyMatchAsync(Guid.NewGuid(), new SubmitResultRequest(false, [invalid]), [invalid], db, MaxOccupationPerMatch, CancellationToken.None);
         await db.SaveChangesAsync();
         Assert.Equal(0, (await db.ContractGoalInstances.FindAsync(goal.Id))!.Progress);
         Assert.False(await db.MasteryProgresses.AnyAsync(m => m.PlayerId == owner && m.TrackId == "route_builder"));
@@ -55,7 +56,7 @@ public class ContractsMasteryTests : IClassFixture<HotdropWebApplicationFactory>
         await db.SaveChangesAsync();
         var valid = invalid with { Eligible = true, ProgressFacts = new AuthoritativeProgressFacts(10, [new PadTeammateUse(owner, human, true)], "ARC") };
         var teammate = new ParticipantResult(human, false, true, false, IsHuman: true);
-        await service.ApplyMatchAsync(Guid.NewGuid(), new SubmitResultRequest(false, [valid, teammate]), [valid, teammate], db, CancellationToken.None);
+        await service.ApplyMatchAsync(Guid.NewGuid(), new SubmitResultRequest(false, [valid, teammate]), [valid, teammate], db, MaxOccupationPerMatch, CancellationToken.None);
         await db.SaveChangesAsync();
         Assert.Equal(1, (await db.ContractGoalInstances.FindAsync(goal.Id))!.Progress);
         Assert.Equal(10, (await db.MasteryProgresses.FindAsync([owner, "relay_specialist", ""]))!.Progress);
@@ -81,7 +82,7 @@ public class ContractsMasteryTests : IClassFixture<HotdropWebApplicationFactory>
         Assert.Equal(first.Id, resumed.Id);
         Assert.Equal(1, resumed.Progress);
         var participant = new ParticipantResult(player, false, true, false, ProgressFacts: new AuthoritativeProgressFacts());
-        await service.ApplyMatchAsync(Guid.NewGuid(), new SubmitResultRequest(false, [participant]), [participant], db, CancellationToken.None);
+        await service.ApplyMatchAsync(Guid.NewGuid(), new SubmitResultRequest(false, [participant]), [participant], db, MaxOccupationPerMatch, CancellationToken.None);
         await db.SaveChangesAsync();
         Assert.Equal("completed", resumed.Status);
         Assert.Single(await db.FlightSealGrants.Where(s => s.GoalInstanceId == resumed.Id).ToListAsync());

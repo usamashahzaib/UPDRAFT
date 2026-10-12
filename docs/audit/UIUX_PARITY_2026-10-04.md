@@ -219,3 +219,49 @@ floored at the project's ~12 dp gate.
   copying those into player UI and Screen 18 must stay disconnected until Gate D. A literal copy of
   those screens is a product decision, not a styling one — it would display fabricated player data.
 - Final art: the comps use licensed/remote photography; the game renders its own rooftop and rigs.
+
+## Screen 17 - Support (layout fix 2026-10-06)
+
+**Issue reproduced and fixed.** Pre-fix captures (backed up as `17_support_*_prefixbackup.png`)
+confirmed overlapping columns at 1920x1080 and 2400x1080; columns were approximately 120 canvas
+units wide on a 427-unit wide page with the remaining width unused.
+
+**Root causes found:**
+
+1. `SupportHubView.Build` baked the canvas width at open time and never rebuilt on resize.
+   All geometry was expressed in canvas units but dp-sized text had no matching box sizing.
+
+2. `UiScreenEnterMotion.Enter/Exit` hardcoded `fromScale=1f, toScale=1f` in every translation
+   `UIMotion.Play` call. The dp-space layout root sets `localScale = (unitsPerDp, unitsPerDp, 1)`;
+   the motion overwrote this with `(1,1,1)` within the same or following frame, shrinking all
+   controls to approximately 0.53x at the A06 (300 dpi) reference device.
+
+**Fixes:**
+
+- `SupportHubView`: full dp-space layout (all boxes, icons, hit areas authored at dp values; root
+  scaled by `unitsPerDp`). Three columns >= 1100 dp, two columns below. `Resize` component
+  rebuilds on width or density change, preserving selection/deletion/toast/scroll state.
+  `RevealPurge` grows page on demand instead of reserving space. `Title` wraps pills.
+  `LabelAndValue` helper stacks on narrow widths. Incident-log 96 dp. `IconLabel` shrinks
+  captions through type roles. Clear deactivates+detaches before Destroy (same-frame ghost fix).
+
+- `UiDraw.TextUnitScale`: per-build scale factor so TMP `fontSize` is in dp-space units.
+
+- `UIMotion.cs`: Enter and Exit now capture `layer.localScale.x` and pass it as both
+  `fromScale` and `toScale`. Translation-only animations no longer modify scale.
+
+**Geometry test assertions added** to `PlayerJourneyVisualEvidenceTests`: page width x root
+scale = canvas width; columns do not overlap in 2D and stay inside the page; nav tabs do not
+collide with SystemChip or Credits chip in the top bar.
+
+**Verification status:**
+
+| Check | Result |
+|---|---|
+| 0 compile errors | PASS |
+| Geometry assertions at 1920x1080 | PASS |
+| Geometry assertions at 2400x1080 | PASS |
+| Touch-target raycast test | PASS |
+| UiPhysicalSizeTests.Menus_MeetPhysicalMinimums | IN PROGRESS (launched 2026-10-06) |
+| Human review of post-fix 16:9 and 20:9 captures | NOT YET DONE |
+| Human review of scroll-middle and scroll-end captures | NOT YET DONE |

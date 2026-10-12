@@ -1,4 +1,5 @@
 using System.Text;
+using System.Net.Mail;
 
 namespace HotdropBackend.Services;
 
@@ -34,6 +35,27 @@ public sealed class EmailOptions
     public string ResolvedOutboxDirectory => string.IsNullOrWhiteSpace(OutboxDirectory)
         ? Path.Combine(AppContext.BaseDirectory, "outbox")
         : OutboxDirectory;
+
+    public void Validate(Microsoft.Extensions.Hosting.IHostEnvironment environment)
+    {
+        if (!environment.IsProduction()) return;
+
+        Smtp.Host = Smtp.Host?.Trim();
+        From = From?.Trim() ?? string.Empty;
+        if (!SmtpConfigured)
+            throw new InvalidOperationException("Production requires Email:Smtp:Host; the local email outbox is not delivery.");
+        if (Smtp.Port is < 1 or > 65535)
+            throw new InvalidOperationException("Email:Smtp:Port must be between 1 and 65535.");
+        if (!Smtp.EnableSsl)
+            throw new InvalidOperationException("Production email delivery requires Email:Smtp:EnableSsl=true.");
+        if (!MailAddress.TryCreate(From, out var from) || from.Host.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Production requires a valid, publisher-controlled Email:From address.");
+
+        bool hasUsername = !string.IsNullOrWhiteSpace(Smtp.Username);
+        bool hasPassword = !string.IsNullOrWhiteSpace(Smtp.Password);
+        if (hasUsername != hasPassword)
+            throw new InvalidOperationException("Email:Smtp:Username and Email:Smtp:Password must be configured together.");
+    }
 }
 
 /// <summary>Default sender: one .eml-style text file per message in the outbox directory.</summary>

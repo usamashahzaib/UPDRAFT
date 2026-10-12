@@ -63,6 +63,7 @@ public class ProgressFactsContractTests : IClassFixture<ContractsProgressFactsFa
         }
         """;
         var server = factory.CreateGameServerClient();
+        await factory.SeedAllocatedMatchAsync(matchId, owner, teammate);
         async Task<HttpResponseMessage> Post() =>
             await server.PostAsync($"/api/matches/{matchId}/result", new StringContent(payload, Encoding.UTF8, "application/json"));
 
@@ -98,8 +99,10 @@ public class ProgressFactsContractTests : IClassFixture<ContractsProgressFactsFa
           "HasBots": false
         }
         """;
+        await factory.SeedAllocatedMatchAsync(matchId, owner);
         var response = await factory.CreateGameServerClient()
             .PostAsync($"/api/matches/{matchId}/result", new StringContent(payload, Encoding.UTF8, "application/json"));
+
         response.EnsureSuccessStatusCode();
 
         await using var verifyScope = factory.Services.CreateAsyncScope();

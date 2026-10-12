@@ -22,6 +22,7 @@ public sealed class MatchTicketService
     readonly SigningCredentials _credentials;
     readonly TokenValidationParameters _ticketValidation;
     readonly byte[]? _serverKeyHash;
+    readonly IReadOnlyDictionary<string, byte[]> _serverKeyHashes;
 
     public MatchTicketService(JwtOptions options, IConfiguration configuration)
     {
@@ -37,9 +38,12 @@ public sealed class MatchTicketService
         };
         var serverKey = configuration["GameServer:ApiKey"];
         _serverKeyHash = string.IsNullOrWhiteSpace(serverKey) ? null : SHA256.HashData(Encoding.UTF8.GetBytes(serverKey));
+        _serverKeyHashes = configuration.GetSection("GameServer:ServerKeys").GetChildren()
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Key) && !string.IsNullOrWhiteSpace(entry.Value))
+            .ToDictionary(entry => entry.Key, entry => SHA256.HashData(Encoding.UTF8.GetBytes(entry.Value!)), StringComparer.Ordinal);
     }
 
-    public bool ServerAuthConfigured => _serverKeyHash != null;
+    public bool ServerAuthConfigured => _serverKeyHashes.Count > 0 || _serverKeyHash != null;
 
     public (string Ticket, DateTimeOffset ExpiresAt) IssueJoinTicket(Guid playerId, Guid matchId, string team, bool hasBots)
     {
@@ -63,10 +67,15 @@ public sealed class MatchTicketService
     }
 
     /// <summary>Constant-time check of the dedicated server's configured secret.</summary>
-    public bool IsValidServerKey(string? presented)
+    public bool IsValidServerKey(string? serverId, string? presented)
     {
-        if (_serverKeyHash == null || string.IsNullOrEmpty(presented)) return false;
-        return CryptographicOperations.FixedTimeEquals(_serverKeyHash, SHA256.HashData(Encoding.UTF8.GetBytes(presented)));
+        if (string.IsNullOrWhiteSpace(serverId) || string.IsNullOrEmpty(presented)) return false;
+        var presentedHash = SHA256.HashData(Encoding.UTF8.GetBytes(presented));
+        if (_serverKeyHashes.Count > 0)
+            return _serverKeyHashes.TryGetValue(serverId, out var expectedHash) &&
+                CryptographicOperations.FixedTimeEquals(expectedHash, presentedHash);
+
+        return _serverKeyHash != null && CryptographicOperations.FixedTimeEquals(_serverKeyHash, presentedHash);
     }
 
     public string IssueServerToken(string serverId)
@@ -87,6 +96,15 @@ public sealed class AllocatorOptions
 {
     public string FusionRegion { get; set; } = "eu";
     public int MaxConcurrentMatches { get; set; } = 4;
+
+    public void Validate()
+    {
+        FusionRegion = FusionRegion?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(FusionRegion))
+            throw new InvalidOperationException("Allocator:FusionRegion must name the provisioned Photon region used by both match servers and clients.");
+        if (MaxConcurrentMatches < 1)
+            throw new InvalidOperationException("Allocator:MaxConcurrentMatches must be at least 1; disable matchmaking with Features:MatchmakingEnabled instead of setting capacity to zero.");
+    }
 }
 
 /// <summary>Spec section 31: independent matchmaking and purchase kill switches, reloadable from configuration.</summary>
@@ -105,5 +123,23 @@ public sealed class ServiceAvailabilityOptions
     public string MaintenanceMessage { get; set; } = "Online matchmaking is temporarily unavailable.";
     public string MaintenanceEtaUtc { get; set; } = string.Empty;
     public string MaintenanceCompensationNote { get; set; } = string.Empty;
+
+    /// <summary>Normalized UTC ETA for player responses; malformed or local-time values are omitted.</summary>
+    public string PlayerFacingEtaUtc
+    {
+        get
+        {
+            var value = MaintenanceEtaUtc?.Trim();
+            if (string.IsNullOrEmpty(value) ||
+                !(value.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || value.EndsWith("+00:00", StringComparison.Ordinal)))
+                return string.Empty;
+
+            return DateTimeOffset.TryParse(value, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                    out var eta)
+                ? eta.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+                : string.Empty;
+        }
+    }
 }
 

@@ -9,11 +9,32 @@ namespace Hotdrop.Core
     /// <summary>
     /// Pause (offline practice only; never timeScale-pause a network match) and the full settings
     /// screen, presented as UIUX screen 10's Match Menu console (CSS px). Every control is a real
-    /// setting saved on this device; where the reference shows a feature this game does not have
-    /// (control presets, focus aim) the slot carries the real equivalent (handedness, gyro).
+    /// setting saved on this device; focus aim is a hold-to-zoom camera control and never changes
+    /// authoritative weapon accuracy, damage, or hit geometry.
     /// </summary>
     public class OfflinePauseMenu : MonoBehaviour
     {
+        static string L(string key, string fallback) => UiDraw.L("settings." + key, fallback);
+        static string F(string key, string fallback, params object[] args) => UiDraw.LFormat("settings." + key, fallback, args);
+        static string Copy(string fallback) => UiDraw.L("settings.copy." + CopyKey(fallback), fallback);
+
+        static string CopyKey(string value)
+        {
+            var key = new System.Text.StringBuilder();
+            bool separator = false;
+            foreach (char c in value ?? string.Empty)
+            {
+                if (char.IsLetterOrDigit(c))
+                {
+                    if (separator && key.Length > 0) key.Append('.');
+                    key.Append(char.ToLowerInvariant(c));
+                    separator = false;
+                }
+                else separator = true;
+            }
+            return key.ToString();
+        }
+
         const float CaptionDp = UIDesignTokens.CaptionDp;
         const float UiDp = UIDesignTokens.BodyLargeDp;
         const float TitleDp = UIDesignTokens.TitleMediumDp;
@@ -32,13 +53,25 @@ namespace Hotdrop.Core
         readonly System.Collections.Generic.Dictionary<string, (Image plate, TextMeshProUGUI label, TextMeshProUGUI icon)> tabs =
             new System.Collections.Generic.Dictionary<string, (Image, TextMeshProUGUI, TextMeshProUGUI)>();
         RectTransform modal, scrollContent;
+        ModalView resetConfirmation;
+        System.Action<bool> pendingReset;
+        TextMeshProUGUI savedStatus;
+        RectTransform savedChip;
+        string savedStatusDefault;
+        float savedStatusUntil;
+        bool gyroCalibrationWasActive;
+        RectTransform settingsTabContent;
         ScrollRect scroll;
         float configuredWidth;
+        Vector3 configuredTabScreen;
+        float configuredTabTextScale;
         string selectedSection = "CONTROLS";
 
         public const string GraphicsQualityKey = "GraphicsQuality";   // 0 = Performance, 1 = Balanced, 2 = Cinematic
         public const string LargerTextKey = "LargerText";
         public const string CockpitModeKey = "hotdrop.cockpitMode";
+        public const string NorthUpRadarKey = "hotdrop.radarNorthUp";
+        public const string HighContrastObjectiveMarkerKey = "hotdrop.highContrastObjectiveMarker";
 
         static Color Primary => UIDesignTokens.PrimaryAction;
         static Color OnPrimary => UIDesignTokens.TextOn(Primary);
@@ -62,6 +95,17 @@ namespace Hotdrop.Core
         void LateUpdate()
         {
             if (IsOpen) RefreshForComposedFrame();
+            if (game != null && game.touchInput != null)
+            {
+                bool calibrating = game.touchInput.IsGyroCalibrating;
+                if (gyroCalibrationWasActive && !calibrating) ShowSavedConfirmation();
+                gyroCalibrationWasActive = calibrating;
+            }
+            if (savedStatus != null && savedStatusUntil > 0f && Time.unscaledTime >= savedStatusUntil)
+            {
+                SetSavedStatusText(savedStatusDefault);
+                savedStatusUntil = 0f;
+            }
             if (game.touchInput == null || !game.touchInput.enabled || game.touchInput.EditingLayout || !game.touchInput.PausePressed) return;
             var challenges = game.GetComponent<OfflineChallengeRuntime>();
             if (challenges != null && challenges.Controller.CurrentState == ChallengeFlowState.Gameplay && challenges.Controller.IsAttemptActive)
@@ -94,17 +138,17 @@ namespace Hotdrop.Core
             resumeButton.SetActive(inMatch);
             homeButton.SetActive(inMatch);
             backButton.SetActive(!inMatch);
-            footerNote.text = online ? "Match is active. Leaving returns you to Home."
-                : asPause ? "Practice is paused. Your run resumes where you left it."
-                : "Settings save on this device and apply offline and online.";
-            title.text = asPause ? "PRACTICE PAUSED" : online ? "MATCH MENU" : "SETTINGS";
+            footerNote.text = online ? L("status.matchActive", "Match is active. Leaving returns you to Home.")
+                : asPause ? L("status.practicePaused", "Practice is paused. Your run resumes where you left it.")
+                : L("status.settingsSaved", "Settings save on this device and apply offline and online.");
+            title.text = asPause ? L("title.practicePaused", "Practice Paused") : online ? L("title.matchMenu", "Match Menu") : L("title.settings", "Settings");
             // The chip follows the title; the note starts where Return Home ends (or at the edge).
             float chipX = 50f + UiDraw.Width(title) + 12f;
             overlayChip.anchoredPosition = new Vector2(chipX, overlayChip.anchoredPosition.y);
             overlayChipPlate.anchoredPosition = new Vector2(chipX, overlayChipPlate.anchoredPosition.y);
             footerNote.rectTransform.anchoredPosition = new Vector2(inMatch ? 20f + homeWidth + 12f : 20f, 0f);
-            subtitle.text = online ? "Online match continues in background. You remain vulnerable to fire."
-                : "Settings save on this device and apply offline and online.";
+            subtitle.text = online ? L("subtitle.onlineMatch", "Online match continues in background. You remain vulnerable to fire.")
+                : L("status.settingsSaved", "Settings save on this device and apply offline and online.");
             subtitle.color = online ? Warning : OnVariant;
             var warn = subtitle.transform.parent.Find("WarnIcon");
             if (warn != null) warn.gameObject.SetActive(online);
@@ -180,9 +224,9 @@ namespace Hotdrop.Core
             header.anchorMin = new Vector2(0f, 1f); header.anchorMax = Vector2.one; header.pivot = new Vector2(.5f, 1f);
             header.sizeDelta = new Vector2(0f, 76f); header.anchoredPosition = Vector2.zero;
             UiDraw.Place(UiDraw.Icon(header, "Tune", "tune", 22f, Primary).rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(20f, -29f), new Vector2(22f, 22f));
-            title = UiDraw.Text(header, "Nav_Title", "SETTINGS", UiFont.Heading, TitleDp, OnSurface, .025f);
+            title = UiDraw.Text(header, "Nav_Title", L("title.settings", "Settings"), UiFont.Heading, TitleDp, OnSurface, .025f);
             UiDraw.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(50f, -29f), new Vector2(320f, 34f));
-            var chip = UiDraw.Text(header, "OverlayChip", "SETTINGS  ·  THIS DEVICE", UiFont.MonoMedium, CaptionDp, Primary, .05f, TextAlignmentOptions.Midline);
+            var chip = UiDraw.Text(header, "OverlayChip", L("header.deviceChip", "SETTINGS  ·  THIS DEVICE"), UiFont.MonoMedium, CaptionDp, Primary, .05f, TextAlignmentOptions.Midline);
             float cw = UiDraw.Width(chip) + 16f;
             var chipPlate = UiDraw.Box(header, "OverlayChipPlate", Highest, 4f);
             chipPlate.transform.SetSiblingIndex(chip.transform.GetSiblingIndex());
@@ -193,7 +237,10 @@ namespace Hotdrop.Core
             subtitle = UiDraw.Text(header, "Subtitle", "", UiFont.Body, CaptionDp, OnVariant, .01f);
             UiDraw.Place(subtitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(38f, -56f), new Vector2(600f, 16f));
             var saved = UiDraw.Box(header, "SavedChip", Lowest, 8f);
-            var savedText = UiDraw.Text(saved.transform, "Text", "ALL SETTINGS SAVED LOCALLY", UiFont.MonoMedium, CaptionDp, Primary, .05f);
+            savedChip = saved.rectTransform;
+            savedStatusDefault = L("header.savedLocally", "All Settings Saved Locally");
+            savedStatus = UiDraw.Text(saved.transform, "Text", savedStatusDefault, UiFont.MonoMedium, CaptionDp, Primary, .05f);
+            var savedText = savedStatus;
             float sw = 12f + 16f + 4f + UiDraw.Width(savedText) + 12f;
             UiDraw.Place(saved.rectTransform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-20f, 0f), new Vector2(sw, 30f));
             UiDraw.Place(UiDraw.Icon(saved.transform, "Icon", "check_circle", 16f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(12f, 0f), new Vector2(16f, 16f));
@@ -202,28 +249,28 @@ namespace Hotdrop.Core
             // Tab bar.
             var tabBar = UiDraw.Box(modal, "SettingsTabs", UIDesignTokens.WithAlpha(UIDesignTokens.Background, .8f)).rectTransform;
             tabBar.anchorMin = new Vector2(0f, 1f); tabBar.anchorMax = Vector2.one; tabBar.pivot = new Vector2(.5f, 1f);
-            tabBar.sizeDelta = new Vector2(0f, 54f); tabBar.anchoredPosition = new Vector2(0f, -76f);
-            float tx = 20f;
-            var icons = new[] { "sports_esports", "visibility", "volume_up", "accessibility_new", "badge" };
-            for (int i = 0; i < TabIds.Length; i++)
-            {
-                string id = TabIds[i];
-                string caption = id == "ACCOUNT / SUPPORT" ? "ACCOUNT & SUPPORT" : id;
-                var label = UiDraw.Text(tabBar, "Caption", caption, UiFont.Heading, UiDp, OnVariant, .01f);
-                float w = 20f + 18f + 6f + UiDraw.Width(label) + 20f;
-                var tab = UiDraw.Tap(tabBar, "SettingsTab_" + id, new Color(0f, 0f, 0f, 0f), 8f, () => { Tap(); SelectSection(id); });
-                UiDraw.Place((RectTransform)tab.transform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(tx, 0f), new Vector2(w, 50f));
-                var glyph = UiDraw.Icon(tab.transform, "Icon", icons[i], 18f, OnVariant);
-                UiDraw.Place(glyph.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(20f, 0f), new Vector2(18f, 18f));
-                label.transform.SetParent(tab.transform, false);
-                UiDraw.Place(label.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(44f, 0f), new Vector2(UiDraw.Width(label) + 2f, 26f));
-                tabs[id] = (tab.GetComponent<Image>(), label, glyph);
-                tx += w + 4f;
-            }
+            // Tabs scroll horizontally when translated or enlarged labels need more room.
+            tabBar.sizeDelta = new Vector2(0f, TabBarHeight); tabBar.anchoredPosition = new Vector2(0f, -76f);
+            var tabViewport = UiDraw.Node(tabBar, "Viewport");
+            UiDraw.Fill(tabViewport, 20f, 0f, 20f, 0f);
+            tabViewport.gameObject.AddComponent<RectMask2D>();
+            tabViewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+            settingsTabContent = UiDraw.Node(tabViewport, "Content");
+            settingsTabContent.anchorMin = settingsTabContent.anchorMax = new Vector2(0f, .5f);
+            settingsTabContent.pivot = new Vector2(0f, .5f);
+            var tabScroll = tabViewport.gameObject.AddComponent<ScrollRect>();
+            tabScroll.content = settingsTabContent;
+            tabScroll.viewport = tabViewport;
+            tabScroll.horizontal = true;
+            tabScroll.vertical = false;
+            tabScroll.movementType = ScrollRect.MovementType.Clamped;
+            tabScroll.inertia = false;
+            tabScroll.horizontalNormalizedPosition = 0f;
+            RebuildSettingsTabs();
 
             // Scrolling content between the tab bar and the footer.
             var viewport = UiDraw.Node(modal, "Nav_Scroll");
-            UiDraw.Fill(viewport, 0f, 130f, 0f, 72f);
+            UiDraw.Fill(viewport, 0f, 76f + TabBarHeight, 0f, FooterHeight);
             viewport.gameObject.AddComponent<RectMask2D>();
             viewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
             scrollContent = UiDraw.Node(viewport, "Content");
@@ -237,6 +284,7 @@ namespace Hotdrop.Core
             BuildFooter(width);
             BuildSections(width);
             SelectSection("CONTROLS");
+            CreateResetConfirmation();
             panel.AddComponent<Hotdrop.UI.UiScreenEnterMotion>();
         }
 
@@ -245,6 +293,10 @@ namespace Hotdrop.Core
         public void RefreshForComposedFrame()
         {
             if (modal == null || scrollContent == null || game.matchHUD == null) return;
+            ApplyBarHeights();
+            var tabScreen = UiMetrics.CurrentScreen;
+            if (tabScreen != configuredTabScreen || !Mathf.Approximately(UiMetrics.TextScale, configuredTabTextScale))
+                RebuildSettingsTabs();
             float canvasW = game.matchHUD.GetComponent<RectTransform>().rect.width;
             if (canvasW <= 0f) return;
             float width = Mathf.Min(1152f, canvasW - 32f);
@@ -264,14 +316,85 @@ namespace Hotdrop.Core
             RefreshAll();
         }
 
+        // 72 px design bar around 48 px actions; grows with the 48 dp floor on dense phones.
+        static float FooterHeight => UiMetrics.BarHeight(72f, 48f);
+        static float TabBarHeight => UiMetrics.BarHeight(54f, 50f);
+
+        void RebuildSettingsTabs()
+        {
+            if (settingsTabContent == null) return;
+            foreach (Transform child in settingsTabContent)
+            {
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
+            tabs.Clear();
+            float x = 0f;
+            float height = Mathf.Max(50f, UiMetrics.MinTouchUnits);
+            var icons = new[] { "sports_esports", "visibility", "volume_up", "accessibility_new", "badge" };
+            for (int i = 0; i < TabIds.Length; i++)
+            {
+                string id = TabIds[i];
+                string caption = id switch
+                {
+                    "CONTROLS" => L("tab.controls", "Controls"),
+                    "GRAPHICS" => L("tab.graphics", "Graphics"),
+                    "AUDIO" => L("tab.audio", "Audio"),
+                    "ACCESSIBILITY" => L("tab.accessibility", "Accessibility"),
+                    "ACCOUNT / SUPPORT" => L("tab.accountSupport", "Account & Support"),
+                    _ => id
+                };
+                var tab = UiDraw.Tap(settingsTabContent, "SettingsTab_" + id, new Color(0f, 0f, 0f, 0f), 8f,
+                    () => { Tap(); SelectSection(id); });
+            var label = UiDraw.Text(tab.transform, "Caption", caption, UiFont.Heading, UiDp, OnVariant, .01f);
+                // Ellipsis overflow is for wrapped/multi-line text; this label never wraps (NoWrap),
+                // so there is nothing for it to truncate and it was left over from a copy-paste.
+                // The box below is already sized to the measured text plus a comfortable margin,
+                // so letting it overflow (the family default) is also the safer fallback if a
+                // translation ever runs long, rather than a mode that does nothing for this case.
+                float labelWidth = UiDraw.Width(label);
+                float labelBoxWidth = labelWidth + 12f;
+                float width = Mathf.Max(UiMetrics.MinTouchUnits, 38f + labelBoxWidth + 20f);
+                UiDraw.Place((RectTransform)tab.transform, new Vector2(0f, .5f), new Vector2(0f, .5f),
+                    new Vector2(x, 0f), new Vector2(width, height));
+                var glyph = UiDraw.Icon(tab.transform, "Icon", icons[i], 18f, OnVariant);
+                UiDraw.Place(glyph.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f),
+                    new Vector2(12f, 0f), new Vector2(18f, 18f));
+                UiDraw.Place(label.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f),
+                    new Vector2(38f, 0f), new Vector2(labelBoxWidth, 26f));
+                tabs[id] = (tab.GetComponent<Image>(), label, glyph);
+                x += width + 4f;
+            }
+            settingsTabContent.sizeDelta = new Vector2(Mathf.Max(0f, x - 4f), height);
+            var tabScroll = settingsTabContent.GetComponentInParent<ScrollRect>();
+            if (tabScroll != null) tabScroll.horizontalNormalizedPosition = 0f;
+            configuredTabScreen = UiMetrics.CurrentScreen;
+            configuredTabTextScale = UiMetrics.TextScale;
+            RefreshTabAppearance();
+        }
+
+        /// <summary>The console is built once; re-fit its bars when the display density changes.</summary>
+        void ApplyBarHeights()
+        {
+            if (modal.Find("PauseActions") is RectTransform footer && Mathf.Abs(footer.sizeDelta.y - FooterHeight) > .5f)
+                footer.sizeDelta = new Vector2(footer.sizeDelta.x, FooterHeight);
+            if (modal.Find("SettingsTabs") is RectTransform tabs && Mathf.Abs(tabs.sizeDelta.y - TabBarHeight) > .5f)
+                tabs.sizeDelta = new Vector2(tabs.sizeDelta.x, TabBarHeight);
+            if (modal.Find("Nav_Scroll") is RectTransform viewport)
+            {
+                viewport.offsetMin = new Vector2(viewport.offsetMin.x, FooterHeight);
+                viewport.offsetMax = new Vector2(viewport.offsetMax.x, -(76f + TabBarHeight));
+            }
+        }
+
         void BuildFooter(float width)
         {
             var footer = UiDraw.Box(modal, "PauseActions", UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, .8f), 12f).rectTransform;
             footer.anchorMin = Vector2.zero; footer.anchorMax = new Vector2(1f, 0f); footer.pivot = new Vector2(.5f, 0f);
-            footer.sizeDelta = new Vector2(0f, 72f); footer.anchoredPosition = Vector2.zero;
+            footer.sizeDelta = new Vector2(0f, FooterHeight); footer.anchoredPosition = Vector2.zero;
 
             var home = UiDraw.Tap(footer, "RETURN HOME", Lowest, 8f, () => { Tap(); Close(); game.ReturnToHome(); });
-            var homeText = UiDraw.Text(home.transform, "Label", "RETURN HOME", UiFont.Heading, UiDp, OnVariant, .01f);
+            var homeText = UiDraw.Text(home.transform, "Label", L("action.returnHome", "Return Home"), UiFont.Heading, UiDp, OnVariant, .01f);
             float hw = 16f + 18f + 8f + UiDraw.Width(homeText) + 16f;
             UiDraw.Place((RectTransform)home.transform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(20f, 0f), new Vector2(hw, 48f));
             UiDraw.Place(UiDraw.Icon(home.transform, "Icon", "logout", 18f, OnVariant).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(18f, 18f));
@@ -283,9 +406,9 @@ namespace Hotdrop.Core
             footerNote.textWrappingMode = TextWrappingModes.Normal;
             UiDraw.Place(footerNote.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(20f + hw + 12f, 0f), new Vector2(380f, 36f));
 
-            var resume = PrimaryButton(footer, "RESUME", "play_arrow", "RETURN TO MATCH", () => { Tap(); Close(); });
+            var resume = PrimaryButton(footer, "RESUME", "play_arrow", L("action.returnMatch", "Return to Match"), () => { Tap(); Close(); });
             resumeButton = resume.gameObject;
-            var back = PrimaryButton(footer, "Nav_Back", "check", "DONE", () => { Tap(); Close(); });
+            var back = PrimaryButton(footer, "Nav_Back", "check", L("action.done", "Done"), () => { Tap(); Close(); });
             backButton = back.gameObject;
         }
 
@@ -316,11 +439,20 @@ namespace Hotdrop.Core
             float ly = 20f, ry = 20f;
             ly = Segmented(s, colLeftX, ly, colLeftW, "CONTROL LAYOUT", "Thumb cluster side for landscape touch", "INPUT",
                 "RIGHT-HANDED", "LEFT-HANDED", "LeftHandedMode", input.SetLeftHanded) + 12f;
-            ly = SliderCard(s, colLeftX, ly, colLeftW, "LOOK SENSITIVITY", "Free rotation camera yaw & pitch rate", "AimSensitivity",
-                .5f, 2.5f, 1f, v => $"{v:0.00}", "x", "LOW ACCURACY", "STANDARD 1.00x", "RAPID SNAP", input.SetAimSensitivity) + 12f;
+            ly = Segmented(s, colLeftX, ly, colLeftW, "FOCUS AIM MODE", "Press and hold, or tap once to latch the zoom", "AIM",
+                "HOLD", "TOGGLE", "FocusAimToggleMode", input.SetFocusAimMode) + 12f;
+            ly = SliderCard(s, colLeftX, ly, colLeftW, "LOOK SENSITIVITY", "10 steps for free-rotation camera yaw and pitch", "AimSensitivity",
+                0.5f, 2.5f, 1f, v => $"{v:0.00}", "x", "LOW", "STANDARD 1.00x", "RAPID", input.SetAimSensitivity, true) + 12f;
+            ly = SliderCard(s, colLeftX, ly, colLeftW, "FOCUS AIM SENSITIVITY", "10 steps while holding Focus Aim", "FocusAimSensitivity",
+                0.5f, 2.5f, 1f, v => $"{v:0.00}", "x", "LOW", "STANDARD 1.00x", "RAPID", v =>
+                {
+                    input.SetFocusAimSensitivity(v);
+                    Hotdrop.Core.Telemetry.Track("focus_aim_sensitivity_changed", ("scale", v));
+                }, true) + 12f;
             if (TouchInputManager.GyroAvailable)
                 ly = SliderCard(s, colLeftX, ly, colLeftW, "GYRO SENSITIVITY", "Device-tilt aim rate when gyro aim is on", "GyroSensitivity",
-                    .5f, 2f, 1f, v => $"{v:0.00}", "x", "STABILITY", "STANDARD 1.00x", "DYNAMIC TRACK", _ => { }) + 12f;
+                    TouchInputManager.GyroSensitivityMinimum, TouchInputManager.GyroSensitivityMaximum, 1f,
+                    v => $"{v:0.00}", "x", "STABILITY", "STANDARD 1.00x", "DYNAMIC TRACK", input.SetGyroSensitivity) + 12f;
             ly = GyroCard(s, colLeftX, ly, colLeftW, input) + 12f;
             var toggles = Card(s, "Row_Toggles", colRightX, ry, colRightW, 10f);
             float ty = 12f;
@@ -333,9 +465,9 @@ namespace Hotdrop.Core
             assistModel.fontSizeMin = UiMetrics.MinTextUnits;
             assistModel.fontSizeMax = CaptionDp;
             void RefreshAssistModel(bool enabled) => assistModel.text = enabled
-                ? "ON · 0.70× sensitivity in a 3° / 25 m clear-LOS cone · no snap or tracking"
-                : "OFF · 1.00× sensitivity · assist changes neither aim nor fire automatically";
-            ty = ToggleRow(toggles, colRightW, ty, "AIM ASSIST", "Aim slowdown while on target", "AimAssistEnabled", true, value =>
+                ? L("aimAssist.onDetails", "ON · 0.70× sensitivity in a 3° / 25 m clear-LOS cone · no snap or tracking")
+                : L("aimAssist.offDetails", "OFF · 1.00× sensitivity · assist changes neither aim nor fire automatically");
+            ty = ToggleRow(toggles, colRightW, ty, "AIM ASSIST", "Subtle friction slowdown (no snap)", "AimAssistEnabled", true, value =>
             {
                 foreach (var player in Hotdrop.Player.PlayerController.All) player.SetAimAssistEnabled(value);
                 RefreshAssistModel(value);
@@ -356,8 +488,8 @@ namespace Hotdrop.Core
             s = Section("GRAPHICS");
             ly = QualityCard(s, colLeftX, 20f, colLeftW) + 12f;
             var gfx = Card(s, "Row_GraphicsReset", colRightX, 20f, colRightW, 10f);
-            float gy = Paragraph(gfx, colRightW, 12f, "RENDER PROFILE", "Presets change frame-rate target and render scale for real. Measure on device; there is no automatic fallback.");
-            gy = ActionButton(gfx, colRightW, gy + 8f, "RESET GRAPHICS", "restart_alt", ResetGraphics);
+            float gy = Paragraph(gfx, colRightW, 12f, "RENDER PROFILE", "Auto detect applies the existing memory-tier recommendation. Measure each preset on device; runtime quality does not auto-fallback.");
+            gy = ActionButton(gfx, colRightW, gy + 8f, "AUTO DETECT", "restart_alt", AutoDetectGraphics);
             gfx.sizeDelta = new Vector2(colRightW, gy + 12f);
             s.sizeDelta = new Vector2(width, Mathf.Max(ly, 20f + gy + 12f) + 8f);
 
@@ -368,13 +500,18 @@ namespace Hotdrop.Core
             ly = VolumeCard(s, colLeftX, ly, colLeftW, "SFX VOLUME", "Weapons, pads and impacts", GameAudio.SfxKey) + 12f;
             ry = 20f;
             ry = VolumeCard(s, colRightX, ry, colRightW, "MUSIC VOLUME", "Menus and match score", GameAudio.MusicKey) + 12f;
-            ry = VolumeCard(s, colRightX, ry, colRightW, "VOICE VOLUME", "Match direction, zone calls and results", GameAudio.VoiceKey) + 12f;
+            ry = VolumeCard(s, colRightX, ry, colRightW, "ANNOUNCER VOLUME", "Match direction, zone calls and results", GameAudio.VoiceKey) + 12f;
             var mono = Card(s, "Row_MonoOutput", colRightX, ry, colRightW, 84f);
             float monoY = ToggleRow(mono, colRightW, 12f, "MONO OUTPUT", "Center spatial cues for one speaker", GameAudio.MonoOutputKey, false, GameAudio.SetMonoOutput, false);
             mono.sizeDelta = new Vector2(colRightW, monoY + 12f);
             ry += monoY + 24f;
+            var mutePings = Card(s, "Row_MuteTeamPings", colRightX, ry, colRightW, 76f);
+            float mutePingsY = ToggleRow(mutePings, colRightW, 12f, "MUTE TEAM PINGS", "Silence teammate ping sounds", Hotdrop.UI.PingSystem.MuteKey, false, _ => { }, true);
+            mutePings.sizeDelta = new Vector2(colRightW, mutePingsY + 12f);
+            ry += mutePingsY + 24f;
             var audioReset = Card(s, "Row_AudioReset", colRightX, ry, colRightW, 10f);
-            float ay = ActionButton(audioReset, colRightW, 12f, "RESET AUDIO", "restart_alt", ResetAudio);
+            float ay = ActionButton(audioReset, colRightW, 12f, "RESET TO DEFAULT", "restart_alt",
+                () => ConfirmReset(AudioCustomized(), ResetAudio), "ResetAudioToDefault");
             audioReset.sizeDelta = new Vector2(colRightW, ay + 12f);
             ry += ay + 24f;
             s.sizeDelta = new Vector2(width, Mathf.Max(ly, ry) + 8f);
@@ -388,8 +525,13 @@ namespace Hotdrop.Core
             acy = ToggleRow(access, colLeftW, acy, "LARGER TEXT / HUD", "Enlarge HUD and menu text", LargerTextKey, false, ApplyLargerText, true);
             acy = ToggleRow(access, colLeftW, acy, "GAMEPLAY SOUND CAPTIONS", "Caption nearby and objective sounds", Hotdrop.Core.GameAudio.SoundCaptionsKey, true, _ => { }, true);
             acy = ToggleRow(access, colLeftW, acy, "STREAM-SAFE DISPLAY", "Hide names and progression in captures", Hotdrop.UI.StreamSafePresentation.PreferenceKey, false, Hotdrop.UI.StreamSafePresentation.SetEnabled, true);
-            acy = ToggleRow(access, colLeftW, acy, "MUTE TEAM PINGS", "Silence teammate ping sounds", Hotdrop.UI.PingSystem.MuteKey, false, _ => { }, true);
-            acy = ToggleRow(access, colLeftW, acy, "COCKPIT MODE", "Fade radar and roster near combat", CockpitModeKey, true, _ => { }, true);
+            if (Hotdrop.UI.QuickChatWheelView.AvailabilityGateOpen)
+                acy = ToggleRow(access, colLeftW, acy, "MUTE TEAM QUICK CHAT", "Hide teammate quick-chat messages", Hotdrop.UI.QuickChatWheelView.MuteKey, false, _ => { }, true);
+            acy = ToggleRow(access, colLeftW, acy, "COCKPIT MODE", "Fade radar and roster near combat and endgame", CockpitModeKey, true, _ => { }, true);
+            acy = ToggleRow(access, colLeftW, acy, "NORTH-UP MINIMAP", "Keep north at the top of the radar", NorthUpRadarKey, false, _ => { }, true);
+            acy = ToggleRow(access, colLeftW, acy, "HIGH-CONTRAST OBJECTIVE MARKER", "Dark backing behind the objective ring", HighContrastObjectiveMarkerKey, false, _ => { }, true);
+            acy = ActionButton(access, colLeftW, acy + 8f, "RESET TO DEFAULT", "restart_alt",
+                () => ConfirmReset(AccessibilityCustomized(), ResetAccessibility), "ResetAccessibilityToDefault") + 12f;
             access.sizeDelta = new Vector2(colLeftW, acy + 12f);
             BuildPresentationProfileCard(s, colRightX, 20f, colRightW);
             s.sizeDelta = new Vector2(width, 20f + acy + 12f + 8f);
@@ -401,7 +543,7 @@ namespace Hotdrop.Core
             foreach (string page in new[] { "Account", "Support" })
             {
                 string destination = page;
-                py = ActionButton(acct, colLeftW, py + 8f, destination.ToUpperInvariant(), destination == "Account" ? "badge" : "support_agent", () =>
+                py = ActionButton(acct, colLeftW, py + 8f, destination, destination == "Account" ? "badge" : "support_agent", () =>
                 {
                     Close();
                     PlayerProductScreens.Open(game, GameObject.Find("Home"), destination);
@@ -415,16 +557,16 @@ namespace Hotdrop.Core
         {
             const float height = 166f;
             var card = Card(parent, "Row_PresentationProfile", x, y, w, height);
-            TL(UiDraw.Text(card, "Title", "PRESENTATION STYLE", UiFont.BodySemiBold, UiDp, OnSurface).rectTransform,
+            TL(UiDraw.Text(card, "Title", L("presentation.title", "Presentation Style"), UiFont.BodySemiBold, UiDp, OnSurface).rectTransform,
                 16f, 12f, w - 32f, 24f);
-            TL(UiDraw.Text(card, "Description", "Choose the UI and Switchyard world presentation. Gameplay is unchanged.", UiFont.Body, CaptionDp, OnVariant).rectTransform,
+            TL(UiDraw.Text(card, "Description", L("presentation.description", "UI and Switchyard style only. Gameplay is unchanged."), UiFont.Body, CaptionDp, OnVariant).rectTransform,
                 16f, 38f, w - 32f, 18f);
 
             var options = new[]
             {
-                (UiPresentationProfileId.StylizedFlight, "A · STYLIZED"),
-                (UiPresentationProfileId.GroundedTacticalFlight, "B · GROUNDED"),
-                (UiPresentationProfileId.Hybrid, "C · HYBRID"),
+                (UiPresentationProfileId.StylizedFlight, L("presentation.profileA", "A · STYLIZED")),
+                (UiPresentationProfileId.GroundedTacticalFlight, L("presentation.profileB", "B · GROUNDED")),
+                (UiPresentationProfileId.Hybrid, L("presentation.profileC", "C · HYBRID")),
             };
             var buttons = new Button[options.Length];
             float gap = 8f;
@@ -439,7 +581,7 @@ namespace Hotdrop.Core
                 UiDraw.Text(button.transform, "Label", option.Item2, UiFont.Heading, CaptionDp,
                     OnSurface, .01f, TextAlignmentOptions.Midline);
             }
-            TL(UiDraw.Text(card, "SavedNote", "Saved on this device. The arena and team cues update now; new screens use this palette.",
+            TL(UiDraw.Text(card, "SavedNote", L("presentation.savedNote", "Saved locally. UI and world update immediately."),
                 UiFont.Body, CaptionDp, OnVariant).rectTransform, 16f, 124f, w - 32f, 28f);
             RefreshProfileButtons(buttons, options);
         }
@@ -459,10 +601,19 @@ namespace Hotdrop.Core
             (UiPresentationProfileId, string)[] options)
         {
             bool reopenAsPause = pausedGame;
+            bool changed = UiPresentationProfile.Current != profile;
+            if (!changed) return;
             UiPresentationProfile.Select(profile);
             RefreshProfileButtons(buttons, options);
             Close();
-            Show(reopenAsPause);
+            StartCoroutine(ReopenSettingsAfterExit(reopenAsPause));
+        }
+
+        System.Collections.IEnumerator ReopenSettingsAfterExit(bool asPause)
+        {
+            while (panel != null && panel.activeSelf) yield return null;
+            Show(asPause);
+            if (IsOpen) ShowSavedConfirmation();
         }
 
         RectTransform Section(string name)
@@ -486,8 +637,8 @@ namespace Hotdrop.Core
 
         static void Heading(RectTransform card, float w, float y, string title, string sub, UiFont font = UiFont.BodySemiBold, float size = UiDp)
         {
-            TL(UiDraw.Text(card, "Title", title, font, size, OnSurface, .01f).rectTransform, 16f, y, w - 140f, 24f);
-            TL(UiDraw.Text(card, "Sub", sub, UiFont.Body, CaptionDp, OnVariant, .01f).rectTransform, 16f, y + 26f, w - 140f, 16f);
+            TL(UiDraw.Text(card, "Title", Copy(title), font, size, OnSurface, .01f).rectTransform, 16f, y, w - 140f, 24f);
+            TL(UiDraw.Text(card, "Sub", Copy(sub), UiFont.Body, CaptionDp, OnVariant, .01f).rectTransform, 16f, y + 26f, w - 140f, 16f);
         }
 
         float Segmented(RectTransform parent, float x, float y, float w, string title, string sub, string tag,
@@ -495,7 +646,7 @@ namespace Hotdrop.Core
         {
             var card = Card(parent, "Row_" + key, x, y, w, 128f);
             Heading(card, w, 16f, title, sub);
-            var tagText = UiDraw.Text(card, "Tag", tag, UiFont.Heading, CaptionDp, Primary, .08f, TextAlignmentOptions.Midline);
+            var tagText = UiDraw.Text(card, "Tag", Copy(tag), UiFont.Heading, CaptionDp, Primary, .08f, TextAlignmentOptions.Midline);
             float tw = UiDraw.Width(tagText) + 16f;
             var tagPlate = UiDraw.Box(card, "TagPlate", Lowest, 4f);
             tagPlate.transform.SetSiblingIndex(tagText.transform.GetSiblingIndex());
@@ -508,10 +659,10 @@ namespace Hotdrop.Core
                 bool value = i == 1;
                 var b = UiDraw.Tap(card, "Setting_" + (i == 0 ? offCaption : onCaption), Lowest, 8f, () =>
                 {
-                    Tap(); PlayerPrefs.SetInt(key, value ? 1 : 0); PlayerPrefs.Save(); apply(value); RefreshAll();
+                    PlayerPrefs.SetInt(key, value ? 1 : 0); PlayerPrefs.Save(); apply(value); RefreshAll(); ShowSavedConfirmation();
                 });
                 TL((RectTransform)b.transform, 16f + i * (bw + 8f), 64f, bw, 48f);
-                var label = UiDraw.Text(b.transform, "Label", i == 0 ? offCaption : onCaption, UiFont.HeadingSemiBold, TitleDp, OnVariant, 0f);
+                var label = UiDraw.Text(b.transform, "Label", Copy(i == 0 ? offCaption : onCaption), UiFont.HeadingSemiBold, TitleDp, OnVariant, 0f);
                 float lw = UiDraw.Width(label);
                 var icon = UiDraw.Icon(b.transform, "Icon", "radio_button_unchecked", 20f, OnVariant);
                 UiDraw.Place(icon.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(lw + 8f) / 2f, 0f), new Vector2(20f, 20f));
@@ -535,7 +686,7 @@ namespace Hotdrop.Core
 
         float SliderCard(RectTransform parent, float x, float y, float w, string title, string sub, string key,
             float min, float max, float defaultValue, System.Func<float, string> format, string unit,
-            string left, string mid, string right, System.Action<float> apply)
+            string left, string mid, string right, System.Action<float> apply, bool tenStepSensitivity = false)
         {
             var card = Card(parent, "Row_" + key, x, y, w, 152f);
             Heading(card, w, 16f, title, sub, UiFont.BodySemiBold, UiDp);
@@ -548,24 +699,38 @@ namespace Hotdrop.Core
             TL(UiDraw.Text(card, "Min", min.ToString("0.0"), UiFont.MonoMedium, CaptionDp, Outline, .05f).rectTransform, 16f, 84f, 30f, 20f);
             var maxText = UiDraw.Text(card, "Max", max.ToString("0.0"), UiFont.MonoMedium, CaptionDp, Outline, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(maxText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-16f, -84f), new Vector2(30f, 20f));
-            var slider = BuildSlider(card, min, max, PlayerPrefs.GetFloat(key, defaultValue));
+            float savedValue = PlayerPrefs.GetFloat(key, defaultValue);
+            float sliderMin = tenStepSensitivity ? 0f : min;
+            float sliderMax = tenStepSensitivity ? TouchInputManager.AimSensitivityStepCount - 1 : max;
+            float sliderValue = tenStepSensitivity
+                ? TouchInputManager.AimSensitivityStepFor(savedValue)
+                : savedValue;
+            var slider = BuildSlider(card, sliderMin, sliderMax, sliderValue, tenStepSensitivity);
             TL((RectTransform)slider.transform, 58f, 80f, w - 116f, 28f);
-            TL(UiDraw.Text(card, "Left", left, UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 16f, 118f, 160f, 16f);
-            var midText = UiDraw.Text(card, "Mid", mid, UiFont.MonoMedium, CaptionDp, Tertiary, .05f, TextAlignmentOptions.Midline);
+            TL(UiDraw.Text(card, "Left", Copy(left), UiFont.MonoMedium, CaptionDp, OnVariant, .05f).rectTransform, 16f, 118f, 160f, 16f);
+            var midText = UiDraw.Text(card, "Mid", Copy(mid), UiFont.MonoMedium, CaptionDp, Tertiary, .05f, TextAlignmentOptions.Midline);
             UiDraw.Place(midText.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -118f), new Vector2(240f, 16f));
-            var rightText = UiDraw.Text(card, "Right", right, UiFont.MonoMedium, CaptionDp, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
+            var rightText = UiDraw.Text(card, "Right", Copy(right), UiFont.MonoMedium, CaptionDp, OnVariant, .05f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(rightText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-16f, -118f), new Vector2(160f, 16f));
             refreshers.Add(() =>
             {
                 float stored = PlayerPrefs.GetFloat(key, defaultValue);
-                slider.SetValueWithoutNotify(stored);
-                value.text = format(stored);
+                float shown = tenStepSensitivity ? TouchInputManager.NormalizeAimSensitivity(stored) : stored;
+                slider.SetValueWithoutNotify(tenStepSensitivity
+                    ? TouchInputManager.AimSensitivityStepFor(shown)
+                    : shown);
+                value.text = format(shown);
             });
             slider.onValueChanged.AddListener(v =>
             {
-                PlayerPrefs.SetFloat(key, v); PlayerPrefs.Save();
-                value.text = format(v);
-                apply(v);
+                float actual = tenStepSensitivity
+                    ? TouchInputManager.AimSensitivityAtStep(Mathf.RoundToInt(v))
+                    : v;
+                PlayerPrefs.SetFloat(key, actual); PlayerPrefs.Save();
+                value.text = format(actual);
+                apply(actual);
+                // onValueChanged fires on every drag step; keep sliders silent as before.
+                ShowSavedConfirmation(playCue: false);
             });
             return y + 152f;
         }
@@ -582,7 +747,7 @@ namespace Hotdrop.Core
             if (available)
             {
                 var cal = UiDraw.Tap(card, "CALIBRATE", Lowest, 8f, () => { Tap(); input.CalibrateGyroNeutral(); });
-                var calText = UiDraw.Text(cal.transform, "Label", "CALIBRATE", UiFont.Mono, UiDp, Primary, .03f);
+                var calText = UiDraw.Text(cal.transform, "Label", Copy("CALIBRATE"), UiFont.Mono, UiDp, Primary, .03f);
                 float cw = 16f + 16f + 6f + UiDraw.Width(calText) + 16f;
                 UiDraw.Place((RectTransform)cal.transform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-16f - 56f - 16f, 0f), new Vector2(cw, 48f));
                 UiDraw.Place(UiDraw.Icon(cal.transform, "Icon", "screen_rotation_alt", 16f, Primary).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(16f, 16f));
@@ -600,8 +765,8 @@ namespace Hotdrop.Core
             string plainTitle = title.ToLowerInvariant();
             plainTitle = char.ToUpperInvariant(plainTitle[0]) + plainTitle.Substring(1);
             plainTitle = plainTitle.Replace("y-axis", "Y-axis").Replace("hud", "HUD");
-            TL(UiDraw.Text(card, "Title_" + key, plainTitle, UiFont.BodySemiBold, UiDp, OnSurface, .01f).rectTransform, 16f, top + 8f, w - 100f, 22f);
-            var description = UiDraw.Text(card, "Sub_" + key, sub, UiFont.Body, CaptionDp, OnVariant, .01f);
+            TL(UiDraw.Text(card, "Title_" + key, Copy(plainTitle), UiFont.BodySemiBold, UiDp, OnSurface, .01f).rectTransform, 16f, top + 8f, w - 100f, 22f);
+            var description = UiDraw.Text(card, "Sub_" + key, Copy(sub), UiFont.Body, CaptionDp, OnVariant, .01f);
             description.overflowMode = TextOverflowModes.Ellipsis;
             TL(description.rectTransform, 16f, top + 30f, w - 100f, 16f);
             var sw = Switch(card, key, defaultValue, apply, true);
@@ -634,9 +799,8 @@ namespace Hotdrop.Core
             refresh();
             track.onClick.AddListener(() =>
             {
-                Tap();
                 bool value = PlayerPrefs.GetInt(key, defaultValue ? 1 : 0) != 1;
-                PlayerPrefs.SetInt(key, value ? 1 : 0); PlayerPrefs.Save(); apply(value); refresh();
+                PlayerPrefs.SetInt(key, value ? 1 : 0); PlayerPrefs.Save(); apply(value); refresh(); ShowSavedConfirmation();
             });
             return (RectTransform)track.transform;
         }
@@ -644,10 +808,10 @@ namespace Hotdrop.Core
         float WorkspaceCard(RectTransform parent, float x, float y, float w, TouchInputManager input)
         {
             var card = Card(parent, "Row_Workspace", x, y, w, 10f);
-            TL(UiDraw.Text(card, "Title", "HUD WORKSPACE", UiFont.HeadingSemiBold, TitleDp, OnSurface).rectTransform, 16f, 16f, w - 160f, 26f);
-            var tag = UiDraw.Text(card, "Tag", "20:9 SAFE CLUSTERS", UiFont.Heading, CaptionDp, Tertiary, .08f, TextAlignmentOptions.MidlineRight);
+            TL(UiDraw.Text(card, "Title", Copy("HUD WORKSPACE"), UiFont.HeadingSemiBold, TitleDp, OnSurface).rectTransform, 16f, 16f, w - 160f, 26f);
+            var tag = UiDraw.Text(card, "Tag", Copy("20:9 SAFE CLUSTERS"), UiFont.Heading, CaptionDp, Tertiary, .08f, TextAlignmentOptions.MidlineRight);
             UiDraw.Place(tag.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-16f, -29f), new Vector2(160f, 14f));
-            var body = UiDraw.Text(card, "Body", "Move and resize Fire, Launch, Pad and Ping, and set each control's opacity.", UiFont.Body, UiDp, OnVariant);
+            var body = UiDraw.Text(card, "Body", Copy("Move and resize Fire, Launch, Pad and Ping, and set each control's opacity."), UiFont.Body, UiDp, OnVariant);
             body.textWrappingMode = TextWrappingModes.Normal; body.alignment = TextAlignmentOptions.TopLeft;
             float bh = body.GetPreferredValues(body.text, w - 32f, 0f).y;
             TL(body.rectTransform, 16f, 50f, w - 32f, bh);
@@ -658,9 +822,9 @@ namespace Hotdrop.Core
             {
                 var disc = UiDraw.Dot(preview.transform, name, 80f, UIDesignTokens.WithAlpha(UIDesignTokens.PrimaryAction, .1f));
                 UiDraw.Place(disc.rectTransform, new Vector2(anchor, .5f), new Vector2(.5f, .5f), new Vector2(x2, 0f), new Vector2(80f, 80f));
-                UiDraw.Fill(UiDraw.Text(disc.transform, "Label", name == "L-ARC" ? "MOVE" : "FIRE", UiFont.MonoMedium, CaptionDp, Primary, .05f, TextAlignmentOptions.Midline).rectTransform);
+                UiDraw.Fill(UiDraw.Text(disc.transform, "Label", Copy(name == "L-ARC" ? "MOVE" : "FIRE"), UiFont.MonoMedium, CaptionDp, Primary, .05f, TextAlignmentOptions.Midline).rectTransform);
             }
-            UiDraw.Place(UiDraw.Text(preview.transform, "Centre", "CENTER PASSIVE HUD\nNO TOUCH ZONES", UiFont.MonoMedium, CaptionDp, UiDraw.Hex("#859396", .6f), .1f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(preview.transform, "Centre", Copy("CENTER PASSIVE HUD\nNO TOUCH ZONES"), UiFont.MonoMedium, CaptionDp, UiDraw.Hex("#bbc6d8", .6f), .1f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(220f, 40f));
             py += 120f + 20f;
             var customize = UiDraw.Tap(card, "CUSTOMIZE CONTROLS", Container, 8f, () =>
@@ -679,17 +843,24 @@ namespace Hotdrop.Core
                     Hotdrop.UI.UiScreenEnterMotion.Reopen(panel);
                     if (scrim != null) scrim.SetActive(true);
                     panel.transform.SetAsLastSibling();
+                    if (input.LayoutEditCommitted) ShowSavedConfirmation();
                 });
             });
-            TL((RectTransform)customize.transform, 16f, py, w - 32f - 48f - 12f, 60f);
-            var cText = UiDraw.Text(customize.transform, "Label", "CUSTOMIZE CONTROLS", UiFont.HeadingSemiBold, TitleDp, Primary, 0f);
+            float customizeW = w - 32f;
+            TL((RectTransform)customize.transform, 16f, py, customizeW, 60f);
+            var cText = UiDraw.Text(customize.transform, "Label", Copy("CUSTOMIZE CONTROLS"), UiFont.HeadingSemiBold, TitleDp, Primary, 0f);
+            // Clamp the translated label to this button's own width so its centered icon/text pair
+            // cannot overlap neighboring controls.
+            const float iconSize = 20f, iconGap = 8f, sidePad = 16f;
+            float maxTextWidth = Mathf.Max(0f, customizeW - iconSize - iconGap - sidePad * 2f);
+            cText.text = UiDraw.Truncate(cText, cText.text, maxTextWidth);
             float ctw = UiDraw.Width(cText);
-            UiDraw.Place(UiDraw.Icon(customize.transform, "Icon", "open_with", 20f, Primary).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(ctw + 8f) / 2f, 0f), new Vector2(20f, 20f));
-            UiDraw.Place(cText.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(14f, 0f), new Vector2(ctw + 2f, 26f));
-            var reset = UiDraw.Tap(card, "RESET CONTROLS", Lowest, 8f, () => { Tap(); ResetControls(); });
-            TL((RectTransform)reset.transform, w - 16f - 48f, py, 48f, 60f);
-            UiDraw.Fill(UiDraw.Icon(reset.transform, "Icon", "restart_alt", 20f, OnSurface).rectTransform);
-            float h = py + 60f + 16f;
+            UiDraw.Place(UiDraw.Icon(customize.transform, "Icon", "open_with", iconSize, Primary).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(ctw + iconGap) / 2f, 0f), new Vector2(iconSize, iconSize));
+            UiDraw.Place(cText.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2((iconSize + iconGap) / 2f, 0f), new Vector2(ctw + 2f, 26f));
+            float resetY = py + 60f + 8f;
+            float endY = ActionButton(card, w, resetY, "RESET TO DEFAULT", "restart_alt",
+                () => ConfirmReset(ControlsCustomized(), ResetControls), "ResetControlsToDefault");
+            float h = endY + 12f;
             card.sizeDelta = new Vector2(w, h);
             return y + h;
         }
@@ -700,15 +871,29 @@ namespace Hotdrop.Core
             Heading(card, w, 16f, "GRAPHICS PRESET", "Choose the frame-rate and render-scale target");
             float bw = (w - 32f - 16f) / 3f;
             var parts = new (Image plate, TextMeshProUGUI label, TextMeshProUGUI note)[3];
-            string[] labels = { "PERFORMANCE", "BALANCED", "CINEMATIC" };
-            string[] notes = { "60 FPS • 80% scale", "60 FPS • full scale", "30 FPS • full scale" };
+            // Player-facing Low/Medium/High names map to the existing
+            // Performance/Balanced/Cinematic presets in the same order.
+            string[] labels = { Copy("LOW"), Copy("MEDIUM"), Copy("HIGH") };
+            var graphicsConfig = game != null ? game.graphicsConfig : null;
+            int performanceFps = graphicsConfig != null ? graphicsConfig.performanceTargetFps : Hotdrop.Config.GraphicsConfig.DefaultPerformanceTargetFps;
+            int balancedFps = graphicsConfig != null ? graphicsConfig.balancedTargetFps : Hotdrop.Config.GraphicsConfig.DefaultBalancedTargetFps;
+            int cinematicFps = graphicsConfig != null ? graphicsConfig.cinematicPresetTargetFps : Hotdrop.Config.GraphicsConfig.DefaultCinematicTargetFps;
+            float performanceScale = graphicsConfig != null ? graphicsConfig.performanceRenderScale : Hotdrop.Config.GraphicsConfig.DefaultPerformanceRenderScale;
+            float balancedScale = graphicsConfig != null ? graphicsConfig.balancedRenderScale : Hotdrop.Config.GraphicsConfig.DefaultBalancedRenderScale;
+            float cinematicScale = graphicsConfig != null ? graphicsConfig.cinematicRenderScale : Hotdrop.Config.GraphicsConfig.DefaultCinematicRenderScale;
+            string[] notes =
+            {
+                F("graphics.targetTemplate", "{0} FPS • {1}% scale", performanceFps, Mathf.RoundToInt(performanceScale * 100f)),
+                F("graphics.targetTemplate", "{0} FPS • {1}% scale", balancedFps, Mathf.RoundToInt(balancedScale * 100f)),
+                F("graphics.targetTemplate", "{0} FPS • {1}% scale", cinematicFps, Mathf.RoundToInt(cinematicScale * 100f)),
+            };
             for (int i = 0; i < parts.Length; i++)
             {
                 int quality = i;
                 var b = UiDraw.Tap(card, "Quality_" + i, Lowest, 8f, () =>
                 {
-                    Tap(); PlayerPrefs.SetInt(GraphicsQualityKey, quality); PlayerPrefs.Save();
-                    GameBootstrap.ApplyGraphicsQuality(quality); RefreshAll();
+                    PlayerPrefs.SetInt(GraphicsQualityKey, quality); PlayerPrefs.Save();
+                    GameBootstrap.ApplyGraphicsQuality(quality); RefreshAll(); ShowSavedConfirmation();
                 });
                 TL((RectTransform)b.transform, 16f + i * (bw + 8f), 64f, bw, 72f);
                 var label = UiDraw.Text(b.transform, "Label", labels[i], UiFont.HeadingSemiBold, UiDp, OnVariant, 0f, TextAlignmentOptions.Midline);
@@ -739,18 +924,49 @@ namespace Hotdrop.Core
                     parts[i].label.color = on ? OnPrimary : OnVariant;
                     parts[i].note.color = on ? OnPrimary : Outline;
                 }
-                active.text = "ACTIVE: " + labels[q] + " — " + notes[q].ToUpperInvariant() + " TARGET";
+                active.text = F("graphics.activeTemplate", "ACTIVE: {0} — {1} TARGET", labels[q], notes[q]);
             });
-            card.sizeDelta = new Vector2(w, 176f);
-            return y + 176f;
+
+            var shadowPolicy = UiDraw.Text(card, "GraphicsShadowPolicy",
+                F("graphics.shadowPolicy", "SHADOWS: {0} OFF · {1} + {2} ON", labels[0], labels[1], labels[2]),
+                UiFont.Body, CaptionDp, OnVariant, .01f);
+            shadowPolicy.textWrappingMode = TextWrappingModes.Normal;
+            shadowPolicy.overflowMode = TextOverflowModes.Overflow;
+            shadowPolicy.enableAutoSizing = true;
+            shadowPolicy.fontSizeMin = UiMetrics.MinTextUnits;
+            shadowPolicy.fontSizeMax = CaptionDp;
+            shadowPolicy.alignment = TextAlignmentOptions.TopLeft;
+            TL(shadowPolicy.rectTransform, 16f, 170f, w - 32f, 32f);
+
+            // The settings brief calls for a truthful disabled state when a graphics feature is
+            // unavailable. Dynamic resolution has no runtime policy or consumer in this build.
+            var dynamicRow = UiDraw.Tap(card, "DynamicResolution", Lowest, 8f, null, OutlineVariant);
+            dynamicRow.interactable = false;
+            TL((RectTransform)dynamicRow.transform, 16f, 206f, w - 32f, 72f);
+            var dynamicTitle = UiDraw.Text(dynamicRow.transform, "Label",
+                L("graphics.dynamicResolution", "Dynamic Resolution"), UiFont.BodySemiBold,
+                CaptionDp, OnVariant, .01f);
+            TL(dynamicTitle.rectTransform, 12f, 7f, w - 56f, 20f);
+            var dynamicReason = UiDraw.Text(dynamicRow.transform, "UnavailableReason",
+                L("graphics.dynamicResolutionUnavailable", "Adaptive scaling is not configured in this build."),
+                UiFont.Body, CaptionDp, OnVariant, .01f);
+            dynamicReason.textWrappingMode = TextWrappingModes.Normal;
+            dynamicReason.overflowMode = TextOverflowModes.Overflow;
+            dynamicReason.enableAutoSizing = true;
+            dynamicReason.fontSizeMin = UiMetrics.MinTextUnits;
+            dynamicReason.fontSizeMax = CaptionDp;
+            TL(dynamicReason.rectTransform, 12f, 31f, w - 56f, 34f);
+
+            card.sizeDelta = new Vector2(w, 290f);
+            return y + 290f;
         }
 
         static float Paragraph(RectTransform card, float w, float y, string title, string body)
         {
-            TL(UiDraw.Text(card, "Title", title, UiFont.BodySemiBold, UiDp, OnSurface, .01f).rectTransform, 16f, y + 4f, w - 32f, 24f);
-            var t = UiDraw.Text(card, "Body", body, UiFont.Body, CaptionDp, OnVariant, .01f);
+            TL(UiDraw.Text(card, "Title", Copy(title), UiFont.BodySemiBold, UiDp, OnSurface, .01f).rectTransform, 16f, y + 4f, w - 32f, 24f);
+            var t = UiDraw.Text(card, "Body", Copy(body), UiFont.Body, CaptionDp, OnVariant, .01f);
             t.textWrappingMode = TextWrappingModes.Normal; t.alignment = TextAlignmentOptions.TopLeft;
-            float h = t.GetPreferredValues(body, w - 32f, 0f).y;
+            float h = t.GetPreferredValues(t.text, w - 32f, 0f).y;
             TL(t.rectTransform, 16f, y + 32f, w - 32f, h);
             return y + 32f + h;
         }
@@ -759,7 +975,7 @@ namespace Hotdrop.Core
         {
             var b = UiDraw.Tap(card, name ?? caption, Container, 8f, () => { Tap(); action(); });
             TL((RectTransform)b.transform, 16f, y, w - 32f, 48f);
-            var label = UiDraw.Text(b.transform, "Label", caption, UiFont.HeadingSemiBold, UiDp, Primary, .02f);
+            var label = UiDraw.Text(b.transform, "Label", Copy(caption), UiFont.HeadingSemiBold, UiDp, Primary, .02f);
             float lw = UiDraw.Width(label);
             UiDraw.Place(UiDraw.Icon(b.transform, "Icon", icon, 18f, Primary).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-(lw + 8f) / 2f, 0f), new Vector2(18f, 18f));
             UiDraw.Place(label.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(13f, 0f), new Vector2(lw + 2f, 22f));
@@ -770,13 +986,7 @@ namespace Hotdrop.Core
         {
             selectedSection = name;
             foreach (var section in sections) section.Value.gameObject.SetActive(section.Key == name);
-            foreach (var tab in tabs)
-            {
-                bool on = tab.Key == name;
-                tab.Value.plate.color = on ? Container : new Color(0f, 0f, 0f, 0f);
-                tab.Value.label.color = on ? Primary : OnVariant;
-                tab.Value.icon.color = on ? Primary : OnVariant;
-            }
+            RefreshTabAppearance();
             if (sections.TryGetValue(name, out var active))
                 scrollContent.sizeDelta = new Vector2(scrollContent.sizeDelta.x, active.sizeDelta.y);
             if (scroll != null) { scroll.StopMovement(); scroll.verticalNormalizedPosition = 1; }
@@ -784,9 +994,20 @@ namespace Hotdrop.Core
                 foreach (var button in links.GetComponentsInChildren<Button>(true)) button.interactable = Hotdrop.Player.PlayerController.All.Count == 0;
         }
 
+        void RefreshTabAppearance()
+        {
+            foreach (var tab in tabs)
+            {
+                bool on = tab.Key == selectedSection;
+                tab.Value.plate.color = on ? Container : new Color(0f, 0f, 0f, 0f);
+                tab.Value.label.color = on ? Primary : OnVariant;
+                tab.Value.icon.color = on ? Primary : OnVariant;
+            }
+        }
+
         static void Tap() => GameAudio.Play2D(GameCue.UiTap);
 
-        static Slider BuildSlider(Transform parent, float min, float max, float value)
+        static Slider BuildSlider(Transform parent, float min, float max, float value, bool wholeNumbers = false)
         {
             var obj = new GameObject("Slider", typeof(RectTransform), typeof(Slider));
             obj.transform.SetParent(parent, false);
@@ -804,7 +1025,7 @@ namespace Hotdrop.Core
             handle.rectTransform.sizeDelta = new Vector2(20f, 0f);
             var slider = obj.GetComponent<Slider>();
             slider.direction = Slider.Direction.LeftToRight;
-            slider.minValue = min; slider.maxValue = max; slider.wholeNumbers = false;
+            slider.minValue = min; slider.maxValue = max; slider.wholeNumbers = wholeNumbers;
             slider.fillRect = fill.rectTransform; slider.handleRect = handle.rectTransform;
             slider.targetGraphic = handle;
             slider.value = value;
@@ -813,37 +1034,167 @@ namespace Hotdrop.Core
             return slider;
         }
 
-        void ResetControls()
+        void ResetControls(bool playCue)
         {
             PlayerPrefs.DeleteKey("LeftHandedMode"); PlayerPrefs.DeleteKey("InvertY");
-            PlayerPrefs.DeleteKey("AimSensitivity"); PlayerPrefs.DeleteKey("AimAssistEnabled");
-            PlayerPrefs.DeleteKey("GyroAim"); PlayerPrefs.DeleteKey("GyroSensitivity");
+            PlayerPrefs.DeleteKey("AimSensitivity"); PlayerPrefs.DeleteKey("FocusAimSensitivity"); PlayerPrefs.DeleteKey("AimAssistEnabled");
+            PlayerPrefs.DeleteKey("FocusAimToggleMode");
+            PlayerPrefs.DeleteKey("GyroAim"); PlayerPrefs.DeleteKey("GyroSensitivity"); PlayerPrefs.DeleteKey("VibrationEnabled");
+            game.touchInput.ResetGyroCalibration();
             HapticFeedback.SetIntensity(0.7f);
             PlayerPrefs.Save();
             game.touchInput.SetLeftHanded(false); game.touchInput.SetInvertY(false);
             game.touchInput.SetAimSensitivity(1f);
+            game.touchInput.SetFocusAimSensitivity(1f);
+            game.touchInput.SetFocusAimMode(false);
+            game.touchInput.SetGyroAim(false);
+            game.touchInput.SetGyroSensitivity(1f);
+            game.touchInput.SetVibration(true);
             game.touchInput.ResetButtonLayout();
             foreach (var player in Hotdrop.Player.PlayerController.All) player.SetAimAssistEnabled(true);
             RefreshAll();
+            ShowSavedConfirmation(playCue);
         }
 
-        void ResetGraphics()
+        void AutoDetectGraphics()
         {
-            PlayerPrefs.DeleteKey(GraphicsQualityKey); PlayerPrefs.DeleteKey(LargerTextKey);
-            PlayerPrefs.Save();
-            GameBootstrap.ApplyGraphicsQuality(0);
-            ApplyLargerText(false);
-            RefreshAll();
+            int recommendedQuality = GameBootstrap.GetRecommendedGraphicsQuality();
+            ConfirmReset(GraphicsCustomized(recommendedQuality), playCue =>
+            {
+                PlayerPrefs.SetInt(GraphicsQualityKey, recommendedQuality);
+                PlayerPrefs.Save();
+                GameBootstrap.ApplyGraphicsQuality(recommendedQuality);
+                RefreshAll();
+                ShowSavedConfirmation(playCue);
+            });
         }
 
-        void ResetAudio()
+        void ResetAccessibility(bool playCue)
+        {
+            if (game.mainCamera != null) game.mainCamera.SetShakeEnabled(true);
+            Hotdrop.UI.UIMotionSettings.ReduceMotion = false;
+            ApplyLargerText(false);
+            PlayerPrefs.SetInt(Hotdrop.Core.GameAudio.SoundCaptionsKey, 1);
+            Hotdrop.UI.StreamSafePresentation.SetEnabled(false);
+            Hotdrop.UI.QuickChatWheelView.Muted = false;
+            PlayerPrefs.SetInt(CockpitModeKey, 1);
+            PlayerPrefs.SetInt(NorthUpRadarKey, 0);
+            PlayerPrefs.SetInt(HighContrastObjectiveMarkerKey, 0);
+            Hotdrop.UI.UiPresentationProfile.Select(Hotdrop.UI.UiPresentationProfileId.Hybrid);
+            PlayerPrefs.Save();
+            RefreshAll();
+            ShowSavedConfirmation(playCue);
+        }
+
+        void ResetAudio(bool playCue)
         {
             GameAudio.SetVolume(GameAudio.MasterKey, 1f);
             GameAudio.SetVolume(GameAudio.SfxKey, 1f);
             GameAudio.SetVolume(GameAudio.MusicKey, 0.6f);
             GameAudio.SetVolume(GameAudio.VoiceKey, 0.8f);
             GameAudio.SetMonoOutput(false);
+            PlayerPrefs.SetInt(Hotdrop.UI.PingSystem.MuteKey, 0);
+            PlayerPrefs.Save();
             RefreshAll();
+            ShowSavedConfirmation(playCue);
+        }
+
+        static bool IntPreferenceDiffers(string key, int defaultValue) =>
+            PlayerPrefs.HasKey(key) && PlayerPrefs.GetInt(key, defaultValue) != defaultValue;
+
+        static bool FloatPreferenceDiffers(string key, float defaultValue) =>
+            PlayerPrefs.HasKey(key) && !Mathf.Approximately(PlayerPrefs.GetFloat(key, defaultValue), defaultValue);
+
+        static bool GraphicsCustomized(int recommendedQuality) => PlayerPrefs.HasKey(GraphicsQualityKey) &&
+            PlayerPrefs.GetInt(GraphicsQualityKey) != recommendedQuality;
+
+        bool ControlsCustomized()
+        {
+            if (IntPreferenceDiffers("LeftHandedMode", 0) || IntPreferenceDiffers("InvertY", 0) ||
+                IntPreferenceDiffers("FocusAimToggleMode", 0) || IntPreferenceDiffers("GyroAim", 0) ||
+                IntPreferenceDiffers("VibrationEnabled", 1) || IntPreferenceDiffers("AimAssistEnabled", 1) ||
+                FloatPreferenceDiffers("AimSensitivity", 1f) || FloatPreferenceDiffers("FocusAimSensitivity", 1f) ||
+                FloatPreferenceDiffers("GyroSensitivity", 1f) || FloatPreferenceDiffers(HapticFeedback.IntensityKey, 0.7f) ||
+                FloatPreferenceDiffers("GyroBiasX", 0f) || FloatPreferenceDiffers("GyroBiasY", 0f) ||
+                FloatPreferenceDiffers("GyroBiasZ", 0f)) return true;
+
+            int buttonCount = System.Enum.GetValues(typeof(TouchInputManager.ControlButton)).Length;
+            for (int i = 0; i < buttonCount; i++)
+            {
+                if (FloatPreferenceDiffers($"Control.{i}.Scale", 1f) ||
+                    FloatPreferenceDiffers($"Control.{i}.Opacity", 0.65f) ||
+                    FloatPreferenceDiffers($"Control.{i}.OffsetX", 0f) ||
+                    FloatPreferenceDiffers($"Control.{i}.OffsetY", 0f)) return true;
+            }
+            return false;
+        }
+
+        static bool AudioCustomized() =>
+            FloatPreferenceDiffers(GameAudio.MasterKey, 1f) || FloatPreferenceDiffers(GameAudio.SfxKey, 1f) ||
+            FloatPreferenceDiffers(GameAudio.MusicKey, 0.6f) || FloatPreferenceDiffers(GameAudio.VoiceKey, 0.8f) ||
+            IntPreferenceDiffers(GameAudio.MonoOutputKey, 0) || IntPreferenceDiffers(Hotdrop.UI.PingSystem.MuteKey, 0);
+
+        static bool AccessibilityCustomized() =>
+            IntPreferenceDiffers("CameraShakeEnabled", 1) ||
+            IntPreferenceDiffers(Hotdrop.UI.UIMotionSettings.ReduceMotionKey, 0) ||
+            IntPreferenceDiffers(LargerTextKey, 0) || IntPreferenceDiffers(GameAudio.SoundCaptionsKey, 1) ||
+            IntPreferenceDiffers(Hotdrop.UI.StreamSafePresentation.PreferenceKey, 0) ||
+            IntPreferenceDiffers(Hotdrop.UI.QuickChatWheelView.MuteKey, 0) || IntPreferenceDiffers(CockpitModeKey, 1) ||
+            IntPreferenceDiffers(NorthUpRadarKey, 0) || IntPreferenceDiffers(HighContrastObjectiveMarkerKey, 0) ||
+            Hotdrop.UI.UiPresentationProfile.Current != Hotdrop.UI.UiPresentationProfileId.Hybrid;
+
+        // The reset callback receives whether to play the positive result cue. A
+        // no-op reset already plays the button tap, so it only shows SAVED.
+        void ConfirmReset(bool wouldDiscardCustomization, System.Action<bool> reset)
+        {
+            if (!wouldDiscardCustomization || resetConfirmation == null)
+            {
+                reset?.Invoke(wouldDiscardCustomization);
+                return;
+            }
+            pendingReset = reset;
+            resetConfirmation.Open();
+        }
+
+        void CreateResetConfirmation()
+        {
+            resetConfirmation = ModalView.Create(modal,
+                L("resetConfirmation.title", "Reset to default?"),
+                L("resetConfirmation.body", "Reset this tab's saved settings to their defaults?"),
+                "SettingsResetConfirmation");
+            resetConfirmation.AddAction(L("resetConfirmation.cancel", "Cancel"), ButtonVariant.Secondary, () =>
+            {
+                pendingReset = null;
+                resetConfirmation.Close();
+            });
+            resetConfirmation.AddAction(L("resetConfirmation.confirm", "Reset"), ButtonVariant.Destructive, () =>
+            {
+                var reset = pendingReset;
+                pendingReset = null;
+                resetConfirmation.Close();
+                reset?.Invoke(true);
+            });
+            resetConfirmation.gameObject.SetActive(false);
+        }
+
+        void ShowSavedConfirmation(bool playCue = true)
+        {
+            if (savedStatus == null) return;
+            if (playCue) GameAudio.Play2D(GameCue.UiPositive);
+            SetSavedStatusText(L("status.saved", "Saved"));
+            savedStatusUntil = Time.unscaledTime + 1.5f;
+        }
+
+        void SetSavedStatusText(string text)
+        {
+            if (savedStatus == null || savedChip == null) return;
+            savedStatus.text = text;
+            float textWidth = UiDraw.Width(savedStatus);
+            float chipWidth = 12f + 16f + 4f + textWidth + 12f;
+            UiDraw.Place(savedChip, new Vector2(1f, .5f), new Vector2(1f, .5f),
+                new Vector2(-20f, 0f), new Vector2(chipWidth, 30f));
+            UiDraw.Place(savedStatus.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f),
+                new Vector2(32f, 0f), new Vector2(textWidth + 2f, 14f));
         }
 
         void RefreshAll()

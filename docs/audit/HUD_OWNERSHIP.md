@@ -1,5 +1,15 @@
 # In-match HUD — structure and ownership (3 Oct 2026)
 
+## Follow-up — 2026-10-07
+
+The saved 6 October PlayMode report (26/34) failed both preparation
+objective-marker captures because the marker overlapped a measured panel. The
+current source hides a marker when panel and ping exclusions leave no legal
+slot; the preparation header still identifies the opening objective. The
+behind-camera capture was moved to active gameplay. These changes compile, but
+the PlayMode captures have not been rerun. The older `07b`/`07c` measurements
+below are historical evidence, not current acceptance results.
+
 Written after the pass that found the split-ownership defect. Later passes should build on this
 rather than rediscover it.
 

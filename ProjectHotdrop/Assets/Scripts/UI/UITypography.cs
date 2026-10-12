@@ -26,7 +26,7 @@ namespace Hotdrop.UI
     {
         public float designDp;      // the role's size at the 1x comfort scale
         public bool tabular;        // monospaced advance, for values that change every frame
-        public bool uppercase;      // DESIGN.md wants short competitive labels in caps
+        public bool uppercase;      // display roles only: hero words such as VICTORY; labels use Title/sentence case
         public float trackingEm;    // letter spacing in em
 
         public float SizeUnits => UiMetrics.TextSize(designDp);
@@ -44,12 +44,12 @@ namespace Hotdrop.UI
         {
             UiTextRole.DisplayXLarge => new TextStyle { designDp = UIDesignTokens.DisplayXLargeDp, uppercase = true, trackingEm = UIDesignTokens.LabelTrackingEm },
             UiTextRole.DisplayLarge => new TextStyle { designDp = UIDesignTokens.DisplayLargeDp, uppercase = true, trackingEm = UIDesignTokens.LabelTrackingEm },
-            UiTextRole.TitleLarge => new TextStyle { designDp = UIDesignTokens.TitleLargeDp, uppercase = true, trackingEm = UIDesignTokens.LabelTrackingEm },
-            UiTextRole.TitleMedium => new TextStyle { designDp = UIDesignTokens.TitleMediumDp, uppercase = true },
+            UiTextRole.TitleLarge => new TextStyle { designDp = UIDesignTokens.TitleLargeDp, trackingEm = UIDesignTokens.LabelTrackingEm },
+            UiTextRole.TitleMedium => new TextStyle { designDp = UIDesignTokens.TitleMediumDp },
             UiTextRole.BodyLarge => new TextStyle { designDp = UIDesignTokens.BodyLargeDp },
             UiTextRole.Body => new TextStyle { designDp = UIDesignTokens.BodyDp },
             UiTextRole.BodySmall => new TextStyle { designDp = UIDesignTokens.BodySmallDp },
-            UiTextRole.Caption => new TextStyle { designDp = UIDesignTokens.CaptionDp, uppercase = true, trackingEm = UIDesignTokens.LabelTrackingEm },
+            UiTextRole.Caption => new TextStyle { designDp = UIDesignTokens.CaptionDp, trackingEm = UIDesignTokens.LabelTrackingEm },
             UiTextRole.DataLarge => new TextStyle { designDp = UIDesignTokens.DataLargeDp, tabular = true },
             UiTextRole.DataMedium => new TextStyle { designDp = UIDesignTokens.DataMediumDp, tabular = true },
             _ => new TextStyle { designDp = UIDesignTokens.DataSmallDp, tabular = true },

@@ -9,9 +9,24 @@ namespace HotdropBackend.Services;
 /// <summary>"Support" configuration for the public web deletion path.</summary>
 public sealed class SupportOptions
 {
-    /// <summary>Public origin used in emailed links, e.g. https://api.example.com. Falls back to the request origin.</summary>
+    /// <summary>Publisher-owned public origin used in emailed links. Production requires HTTPS.</summary>
     public string? PublicBaseUrl { get; set; }
     public int DeletionLinkLifetimeHours { get; set; } = 24;
+    public int EffectiveDeletionLinkLifetimeHours => Math.Clamp(DeletionLinkLifetimeHours, 1, 168);
+
+    public void Validate(Microsoft.Extensions.Hosting.IHostEnvironment environment)
+    {
+        if (!environment.IsProduction()) return;
+
+        if (!Uri.TryCreate(PublicBaseUrl?.Trim(), UriKind.Absolute, out var publicUri) ||
+            publicUri.Scheme != Uri.UriSchemeHttps || string.IsNullOrWhiteSpace(publicUri.Host) ||
+            !string.IsNullOrEmpty(publicUri.UserInfo) || !string.IsNullOrEmpty(publicUri.Query) ||
+            !string.IsNullOrEmpty(publicUri.Fragment) || publicUri.AbsolutePath != "/")
+        {
+            throw new InvalidOperationException(
+                "Production requires Support:PublicBaseUrl to be a publisher-controlled HTTPS origin without a path, credentials, query, or fragment.");
+        }
+    }
 }
 
 /// <summary>
@@ -24,6 +39,14 @@ public sealed class AccountDeletionService
 
     /// <summary>Deletes the account and its player data; purchase records are retained. False when no such account.</summary>
     public async Task<bool> DeleteAccountAsync(Guid playerId, HotdropDbContext db, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (!await DeleteAccountCoreAsync(playerId, db, cancellationToken)) return false;
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    async Task<bool> DeleteAccountCoreAsync(Guid playerId, HotdropDbContext db, CancellationToken cancellationToken)
     {
         var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
         if (account is null) return false;
@@ -42,7 +65,11 @@ public sealed class AccountDeletionService
         db.PlayerSessions.RemoveRange(db.PlayerSessions.Where(s => s.PlayerId == playerId));
         db.InventoryItems.RemoveRange(db.InventoryItems.Where(i => i.PlayerId == playerId));
         db.CreditLedgerEntries.RemoveRange(db.CreditLedgerEntries.Where(e => e.PlayerId == playerId));
+        db.MatchmakingTickets.RemoveRange(db.MatchmakingTickets.Where(t => t.PlayerId == playerId));
         db.MatchParticipations.RemoveRange(db.MatchParticipations.Where(m => m.PlayerId == playerId));
+        db.ContractGoalInstances.RemoveRange(db.ContractGoalInstances.Where(g => g.PlayerId == playerId));
+        db.FlightSealGrants.RemoveRange(db.FlightSealGrants.Where(g => g.PlayerId == playerId));
+        db.MasteryProgresses.RemoveRange(db.MasteryProgresses.Where(m => m.PlayerId == playerId));
         db.PlayerReports.RemoveRange(db.PlayerReports.Where(r => r.ReportingPlayerId == playerId || r.ReportedPlayerId == playerId));
         db.AnalyticsEvents.RemoveRange(db.AnalyticsEvents.Where(e => e.PlayerId == playerId));
         db.PlayerAccounts.Remove(account);
@@ -83,16 +110,35 @@ public sealed class AccountDeletionService
         if (string.IsNullOrWhiteSpace(token) || token.Length > 256) return false;
         string hash = Hash(token);
         var now = DateTimeOffset.UtcNow;
-        var request = await db.AccountDeletionRequests.SingleOrDefaultAsync(r =>
-            r.VerificationTokenHash == hash && r.Status == PendingVerification, cancellationToken);
-        if (request is null || request.VerificationExpiresAt is null || request.VerificationExpiresAt <= now) return false;
+        var candidate = await db.AccountDeletionRequests.AsNoTracking()
+            .Where(r => r.VerificationTokenHash == hash && r.Status == PendingVerification &&
+                        r.VerificationExpiresAt != null && r.VerificationExpiresAt > now)
+            .Select(r => new { r.Id, r.ContactEmail })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (candidate is null) return false;
 
-        // Single use: burn the token before doing anything else.
-        request.VerificationTokenHash = null;
-        request.VerificationExpiresAt = null;
-        string emailHash = HashEmail(request.ContactEmail ?? string.Empty);
-        var accountIds = await db.PlayerAccounts.Where(a => a.ContactEmailHash == emailHash).Select(a => a.Id).ToListAsync(cancellationToken);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        // The conditional update is the single-use claim. Concurrent confirmations
+        // race on one row; only the request that still matches the unconsumed token
+        // and expiry can proceed. Keep it in the same transaction as the deletion so
+        // a database failure does not consume the player's only valid link.
+        int claimed = await db.AccountDeletionRequests
+            .Where(r => r.Id == candidate.Id && r.VerificationTokenHash == hash &&
+                        r.Status == PendingVerification && r.VerificationExpiresAt != null &&
+                        r.VerificationExpiresAt > now)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(r => r.VerificationTokenHash, (string?)null)
+                .SetProperty(r => r.VerificationExpiresAt, (DateTimeOffset?)null)
+                .SetProperty(r => r.Status, "processing"), cancellationToken);
+        if (claimed != 1) return false;
+
+        var request = await db.AccountDeletionRequests.SingleAsync(r => r.Id == candidate.Id, cancellationToken);
+        string emailHash = HashEmail(candidate.ContactEmail ?? string.Empty);
+        var accountIds = await db.PlayerAccounts.Where(a => a.ContactEmailHash == emailHash)
+            .Select(a => a.Id).ToListAsync(cancellationToken);
         if (accountIds.Count > 0) request.PlayerId = accountIds[0];
+
         // The request is kept only as an anonymous audit record: once acted on, the
         // plaintext name/email it was matched by must not outlive the account itself.
         request.ContactEmail = null;
@@ -101,7 +147,8 @@ public sealed class AccountDeletionService
         request.CompletedAt = now;
         await db.SaveChangesAsync(cancellationToken);
 
-        foreach (var id in accountIds) await DeleteAccountAsync(id, db, cancellationToken);
+        foreach (var id in accountIds) await DeleteAccountCoreAsync(id, db, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 

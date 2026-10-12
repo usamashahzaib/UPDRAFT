@@ -14,18 +14,24 @@ namespace Hotdrop.Network
     ///   HOTDROP_SERVER_KEY (environment only; never on the command line or in the build)
     ///   -serverId ID      (defaults to machine name + process id)
     ///   -region CODE      (Photon region; defaults to the claim's region)
+    ///   -studyCohort default|study_pads_on|study_pads_off (trusted per-server study condition)
     /// Local development without a backend: <c>-devSession NAME -devHumans N --insecure-dev</c>
     /// admits clients presenting "dev:A|B:alias" tickets. Never use that flag in production.
     /// </summary>
     public static class DedicatedServer
     {
         public static bool IsServerProcess { get; private set; }
+        public static string StudyCohort { get; private set; } = Hotdrop.Core.StudySettings.DefaultCohort;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
             if (!HasFlag("-updraftServer")) return;
             IsServerProcess = true;
+            string configuredCohort = Arg("-studyCohort");
+            StudyCohort = Hotdrop.Core.StudySettings.NormalizeCohort(configuredCohort);
+            if (!string.IsNullOrEmpty(configuredCohort) && configuredCohort != StudyCohort)
+                Debug.LogWarning($"[Server] Ignoring unknown study cohort '{configuredCohort}'; using '{StudyCohort}'.");
             Application.runInBackground = true;
             Application.targetFrameRate = 60;
             AudioListener.volume = 0f;
@@ -100,7 +106,7 @@ namespace Hotdrop.Network
 
             if (backend != null)
             {
-                var result = match.Cancelled ? FailedResult(players) : BuildResult(match);
+                var result = match.Cancelled ? FailedResult(players) : BuildResult(match, region);
                 bool ok = await backend.SubmitResultAsync(matchId, result);
                 Debug.Log($"[Server] match {matchId} result submitted: {ok}");
             }
@@ -113,11 +119,20 @@ namespace Hotdrop.Network
             await Task.Delay(1000);
         }
 
-        static ResultDto BuildResult(NetMatch match)
+        static ResultDto BuildResult(NetMatch match, string region)
         {
             var outcome = match.Outcome;
             bool draw = outcome == MatchOutcome.Draw;
-            var result = new ResultDto { Draw = draw, HasBots = match.HasBots, Participants = new List<ResultParticipantDto>() };
+            var result = new ResultDto { Draw = draw, HasBots = match.HasBots, Region = region ?? "unknown", StudyCohort = match.StudyCohort, Participants = new List<ResultParticipantDto>() };
+            string mapId = NetConfigs.Map != null ? NetConfigs.Map.mapName : "unknown";
+            var padTelemetry = new List<PadTelemetryFactDto>();
+            foreach (var e in match.ServerPadEvents)
+            {
+                if (e.name != "pad_placed" && e.name != "pad_used" && e.name != "pad_destroyed") continue;
+                padTelemetry.Add(new PadTelemetryFactDto { EventName = e.name, PadId = e.padId, MapId = mapId, X = e.position.x, Y = e.position.y, Z = e.position.z,
+                    MatchTime = e.matchTime, Team = e.team, PadTeam = e.padTeam });
+            }
+            result.PadTelemetry = padTelemetry.ToArray();
             foreach (var p in NetPlayer.All)
             {
                 if (p.Runner != match.Runner || string.IsNullOrEmpty(p.AccountId.ToString())) continue;

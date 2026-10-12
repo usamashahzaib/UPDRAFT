@@ -232,12 +232,13 @@ namespace Hotdrop.UI
         /// <summary>Settles every active motion before a screen begins its outgoing transition.</summary>
         public void FinishAll()
         {
-            for (int i = 0; i < running.Count; i++)
-            {
-                var motion = running[i];
-                motion.Finish();
-            }
+            if (running.Count == 0) return;
+            var list = running.ToArray();
             running.Clear();
+            for (int i = 0; i < list.Length; i++)
+            {
+                list[i].Finish();
+            }
         }
 
         /// <summary>Stops active motions without settling or invoking completion callbacks.</summary>
@@ -319,11 +320,14 @@ namespace Hotdrop.UI
             {
                 var layer = pair.Key;
                 if (layer == null) continue;
+                // Preserve any non-unity localScale already set on this layer (e.g. a dp-space
+                // layout root that encodes unitsPerDp as its scale).
+                float layerScale = layer.localScale.x;
                 Vector2 restingPosition = pair.Value;
                 Vector2 enteringPosition = restingPosition + Vector2.down * (travel * ParallaxDepth(layer.name));
                 layer.anchoredPosition = enteringPosition;
                 driver.Play(UIMotion.Play(layer, null, 0f, 1f, MotionRole.Standard,
-                    MotionChannel.Translation, enteringPosition, restingPosition, 1f, 1f));
+                    MotionChannel.Translation, enteringPosition, restingPosition, layerScale, layerScale));
             }
         }
 
@@ -348,6 +352,9 @@ namespace Hotdrop.UI
             var group = GetComponent<CanvasGroup>();
             if (group == null) group = gameObject.AddComponent<CanvasGroup>();
             group.interactable = false;
+            // A leaving screen must not swallow touches meant for what replaces it (e.g. the match
+            // HUD's fire zone right after PLAY); Reopen/Enter restore raycasts.
+            group.blocksRaycasts = false;
 
             var driver = GetComponent<UiMotionDriver>();
             if (driver == null) driver = gameObject.AddComponent<UiMotionDriver>();
@@ -371,11 +378,13 @@ namespace Hotdrop.UI
             {
                 var layer = pair.Key;
                 if (layer == null) { remaining--; continue; }
+                // Preserve any non-unity localScale already set on this layer.
+                float layerScale = layer.localScale.x;
                 Vector2 leavingPosition = layer.anchoredPosition;
                 Vector2 exitPosition = leavingPosition + Vector2.up * (travel * ParallaxDepth(layer.name));
                 Action layerDone = --remaining == 0 ? () => CompleteExit(onComplete) : null;
                 var motion = UIMotion.Play(layer, null, 0f, 1f, MotionRole.Standard,
-                    MotionChannel.Translation, leavingPosition, exitPosition, 1f, 1f);
+                    MotionChannel.Translation, leavingPosition, exitPosition, layerScale, layerScale);
                 motion.onComplete = layerDone;
                 driver.Play(motion);
             }
@@ -398,6 +407,9 @@ namespace Hotdrop.UI
             Enter();
         }
 
+        // Callers settle (FinishAll) or restore (Reopen) every layer first, so the current layout is
+        // the resting one. Re-reading it each time follows layouts that legitimately move a layer,
+        // e.g. the Home tagline after the header re-fits to a new display density.
         void CaptureRestingPositions()
         {
             restingPositions.Clear();

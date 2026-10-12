@@ -20,6 +20,7 @@ namespace Hotdrop.Network
         [Networked] public TickTimer ArmTimer { get; set; }
         [Networked] public TickTimer LifeTimer { get; set; }
         [Networked] public NetworkBool Removed { get; set; }
+        public string TelemetryId { get; private set; }
 
         PadConfig P => NetConfigs.Pad;
 
@@ -30,11 +31,12 @@ namespace Hotdrop.Network
         bool Hotdrop.UI.IPingablePad.Usable => IsArmed;
         Vector3 Hotdrop.UI.IPingablePad.PadPosition => transform.position;
 
-        public void Init(int ownerSlot, int team, Vector3 forward)
+        public void Init(int ownerSlot, int team, Vector3 forward, string telemetryId = null)
         {
             if (!HasStateAuthority) return;
             OwnerSlot = ownerSlot;
             Team = team;
+            TelemetryId = telemetryId ?? System.Guid.NewGuid().ToString("N");
             Forward = forward;
             HitPoints = P.health;
             ArmTimer = TickTimer.CreateFromSeconds(Runner, P.armingSeconds);
@@ -45,7 +47,13 @@ namespace Hotdrop.Network
         {
             All.Add(this);
             NetPadVisual.Attach(this);
-            if (!Headless) Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.PadDeploy, transform.position, 0.8f);
+            if (!Headless)
+            {
+                Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.PadDeploy, transform.position, 0.8f);
+                // Match offline placement: nearby opponents hear the initial charge
+                // as well as deployment and arming, so pad timing remains readable.
+                Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.PadCharging, transform.position, 0.7f);
+            }
         }
 
         public override void Despawned(NetworkRunner runner, bool hasState)
@@ -79,7 +87,7 @@ namespace Hotdrop.Network
         {
             if (!HasStateAuthority || amount <= 0f || float.IsNaN(amount) || float.IsInfinity(amount)) return;
             bool live = NetMatch.For(Runner)?.IsLive == true;
-            if (!live || Removed || attackerTeam == Team) return;
+            if (!live || !IsActive || attackerTeam == Team) return;
             HitPoints -= amount;
             if (HitPoints <= 0f) { Removed = true; NetMatch.For(Runner)?.RecordPadDestroyed(this); }
         }

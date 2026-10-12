@@ -34,7 +34,7 @@ namespace Hotdrop.Tests.PlayMode
         public IEnumerator LoadHome()
         {
             Time.timeScale = 1f;
-            if (GameBootstrap.Instance != null) Object.Destroy(GameBootstrap.Instance.gameObject);
+            if (GameBootstrap.Instance != null) Object.DestroyImmediate(GameBootstrap.Instance.gameObject);
             yield return null;
             PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
             yield return SceneManager.LoadSceneAsync("Main", LoadSceneMode.Single);
@@ -65,15 +65,24 @@ namespace Hotdrop.Tests.PlayMode
             scale = UiMetrics.ScaleFor(Width, Height, Dpi);
             canvas.renderMode = RenderMode.WorldSpace;
             canvasRect = canvas.GetComponent<RectTransform>();
+            canvasRect.position = Vector3.zero;
+            canvasRect.anchoredPosition = Vector2.zero;
+            canvasRect.rotation = Quaternion.identity;
+            canvasRect.pivot = new Vector2(0.5f, 0.5f);
             canvasRect.localScale = Vector3.one;
             canvasRect.sizeDelta = new Vector2(Width / scale, Height / scale);
             // The touch controls size themselves from the composed frame's density; give them
             // the same phone the canvas is pinned to.
             SafeAreaRoot.SimulatedScreen = new Vector4(Width, Height, Dpi, 0f);
+            SafeAreaRoot.SimulatedInsets = ScreenInsets.None;
+            foreach (var safe in canvas.GetComponentsInChildren<SafeAreaRoot>(true)) safe.Apply();
         }
 
         static IEnumerator Settle()
         {
+            foreach (var driver in Object.FindObjectsByType<UiMotionDriver>(FindObjectsSortMode.None))
+                driver.Tick(1f);
+
             for (int i = 0; i < 3; i++)
             {
                 Canvas.ForceUpdateCanvases();

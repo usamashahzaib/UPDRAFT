@@ -18,8 +18,11 @@ namespace Hotdrop.Match
         int Eliminations { get; }
         int Deaths { get; }
         int PadLaunches { get; }
+        bool HasPadCharge { get; }
+        float PadRechargeRemaining { get; }
         float ObjectiveSeconds { get; }
         Vector3 Position { get; }
+        Vector3 FacingForward { get; }
     }
 
     /// <summary>
@@ -33,6 +36,9 @@ namespace Hotdrop.Match
         MapConfig MapConfig { get; }
         MatchPhase CurrentPhase { get; }
         float MatchTime { get; }
+        bool IsEndgame { get; }
+        string StudyCohort { get; }
+        bool PadsEnabled { get; }
         ZoneId ScoringZone { get; }
         Vector3 ActiveObjectivePosition { get; }
         bool IsLiveMatch { get; }

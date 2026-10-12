@@ -10,6 +10,8 @@ using HotdropBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+ValidateProductionGameServerKeys(builder.Configuration, builder.Environment);
+
 // Spec section 21: one modular backend, not a microservice per feature.
 var connectionString = builder.Configuration.GetConnectionString("Postgres")
     ?? "Host=localhost;Database=updraft;Username=updraft;Password=updraft";
@@ -38,6 +40,7 @@ builder.Services.AddHttpClient<IGooglePlayGamesIdentityVerifier, GooglePlayGames
 
 var matchmakingOptions = new MatchmakingOptions();
 builder.Configuration.GetSection("Matchmaking").Bind(matchmakingOptions);
+matchmakingOptions.Validate();
 builder.Services.AddSingleton(matchmakingOptions);
 builder.Services.AddSingleton<MatchmakingComposer>();
 
@@ -50,6 +53,7 @@ builder.Services.AddSingleton<ContractsMasteryService>();
 
 var allocatorOptions = new AllocatorOptions();
 builder.Configuration.GetSection("Allocator").Bind(allocatorOptions);
+allocatorOptions.Validate();
 builder.Services.AddSingleton(allocatorOptions);
 builder.Services.AddSingleton<MatchTicketService>();
 builder.Services.Configure<FeatureFlags>(builder.Configuration.GetSection("Features"));
@@ -60,11 +64,13 @@ builder.Services.Configure<CompatibilityOptions>(builder.Configuration.GetSectio
 // Email:Smtp:Host switches to real SMTP delivery without code changes.
 var emailOptions = new EmailOptions();
 builder.Configuration.GetSection("Email").Bind(emailOptions);
+emailOptions.Validate(builder.Environment);
 builder.Services.AddSingleton(emailOptions);
 if (emailOptions.SmtpConfigured) builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 else builder.Services.AddSingleton<IEmailSender, OutboxEmailSender>();
 var supportOptions = new SupportOptions();
 builder.Configuration.GetSection("Support").Bind(supportOptions);
+supportOptions.Validate(builder.Environment);
 builder.Services.AddSingleton(supportOptions);
 builder.Services.AddSingleton<AccountDeletionService>();
 
@@ -114,10 +120,32 @@ var app = builder.Build();
 
 // Spec section 17 "update required" / section 31 client-server compatibility check.
 int minClientProtocol = builder.Configuration.GetValue("Compatibility:MinClientProtocol", 1);
+if (minClientProtocol < 1)
+    throw new InvalidOperationException("Compatibility:MinClientProtocol must be a positive protocol version.");
 app.Use(async (context, next) =>
 {
-    if (context.Request.Headers.TryGetValue("X-Client-Protocol", out var value) &&
-        int.TryParse(value, out int protocol) && protocol < minClientProtocol)
+    // Client requests must identify the protocol they speak. Only the
+    // dedicated-server service contract and the public browser deletion pages
+    // are exempt; otherwise an omitted header would bypass the update gate.
+    if (context.Request.Path.StartsWithSegments("/api") && !IsProtocolExempt(context.Request))
+    {
+        if (!context.Request.Headers.TryGetValue("X-Client-Protocol", out var clientProtocolHeader))
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = "client_protocol_required" });
+            return;
+        }
+    }
+
+    bool hasClientProtocol = context.Request.Headers.TryGetValue("X-Client-Protocol", out var value);
+    int protocol = 0;
+    if (hasClientProtocol && !int.TryParse(value, out protocol))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsJsonAsync(new { error = "invalid_client_protocol" });
+        return;
+    }
+    if (hasClientProtocol && protocol < minClientProtocol)
     {
         context.Response.StatusCode = StatusCodes.Status426UpgradeRequired;
         var compatibility = context.RequestServices.GetRequiredService<IOptionsMonitor<CompatibilityOptions>>().CurrentValue;
@@ -141,7 +169,8 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }));
 app.MapGet("/health/ready", async (HotdropDbContext db, CancellationToken cancellationToken) =>
     await db.Database.CanConnectAsync(cancellationToken)
         ? Results.Ok(new { status = "ready" })
-        : Results.Problem("Database is unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable));
+        : Results.Problem("Database is unavailable.", statusCode: StatusCodes.Status503ServiceUnavailable,
+            extensions: new Dictionary<string, object?> { ["code"] = "database_unavailable" }));
 app.MapGet("/api/client/status", (IOptionsMonitor<ServiceAvailabilityOptions> availability,
     IOptionsMonitor<FeatureFlags> features) =>
 {
@@ -153,7 +182,7 @@ app.MapGet("/api/client/status", (IOptionsMonitor<ServiceAvailabilityOptions> av
         state = maintenance ? "maintenance" : queuePaused ? "queue_paused" : "available",
         minClientProtocol,
         message = maintenance ? service.MaintenanceMessage : queuePaused ? "Matchmaking is paused right now." : string.Empty,
-        etaUtc = maintenance ? service.MaintenanceEtaUtc : string.Empty,
+        etaUtc = maintenance ? service.PlayerFacingEtaUtc : string.Empty,
         compensationNote = maintenance ? service.MaintenanceCompensationNote : string.Empty,
         maintenance,
     });
@@ -172,6 +201,59 @@ app.MapSupportEndpoints();
 app.MapAnalyticsEndpoints();
 
 app.Run();
+
+static bool IsProtocolExempt(HttpRequest request)
+{
+    string path = request.Path.Value ?? string.Empty;
+    if (HttpMethods.IsPost(request.Method) && (
+            path.Equals("/api/auth/server-token", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/matches/claim", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/matches/validate-ticket", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/analytics/server-events", StringComparison.OrdinalIgnoreCase) ||
+            IsMatchResultPath(path)))
+        return true;
+
+    // These routes are used outside the installed client as part of the
+    // account-deletion policy flow. The JSON POST on account-deletion is the
+    // in-app path and still requires a protocol header.
+    if (HttpMethods.IsGet(request.Method) && (
+            path.Equals("/api/support/account-deletion", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/support/deletion/verify", StringComparison.OrdinalIgnoreCase)))
+        return true;
+
+    return HttpMethods.IsPost(request.Method) && request.HasFormContentType &&
+           (path.Equals("/api/support/account-deletion", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/api/support/deletion/verify", StringComparison.OrdinalIgnoreCase));
+}
+
+static bool IsMatchResultPath(string path)
+{
+    const string prefix = "/api/matches/";
+    const string suffix = "/result";
+    if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+        !path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        return false;
+
+    string matchId = path[prefix.Length..^suffix.Length];
+    return Guid.TryParse(matchId, out _);
+}
+
+static void ValidateProductionGameServerKeys(IConfiguration configuration, IHostEnvironment environment)
+{
+    if (!environment.IsProduction()) return;
+
+    var entries = configuration.GetSection("GameServer:ServerKeys").GetChildren().ToArray();
+    if (entries.Length == 0 || entries.Any(entry => string.IsNullOrWhiteSpace(entry.Key) || string.IsNullOrWhiteSpace(entry.Value)))
+        throw new InvalidOperationException(
+            "Production requires a non-empty GameServer:ServerKeys entry for every dedicated server; the shared GameServer:ApiKey fallback is disabled.");
+
+    var secrets = new HashSet<string>(StringComparer.Ordinal);
+    foreach (var entry in entries)
+    {
+        if (!secrets.Add(entry.Value!))
+            throw new InvalidOperationException("Production GameServer:ServerKeys values must be unique per server.");
+    }
+}
 
 public partial class Program;
 

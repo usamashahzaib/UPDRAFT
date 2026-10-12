@@ -13,7 +13,8 @@ public static class AnalyticsEndpoints
     [
         "first_open", "startup_budget", "client_error",
         "tutorial_started", "tutorial_step", "tutorial_show_me", "tutorial_completed",
-        "queue_started", "queue_cancelled", "weapon_selected", "results_play_again_clicked",
+        "queue_started", "queue_cancelled", "queue_abandoned", "weapon_selected", "results_play_again_clicked",
+        "focus_aim_used", "focus_aim_sensitivity_changed",
         "purchase_started",
         "matchmaking_started", "match_joining", "online_match_joined", "online_match_completed",
         "online_failed", "match_disconnect", "match_reconnected", "afk_removed",

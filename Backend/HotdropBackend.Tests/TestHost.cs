@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authentication;
 using HotdropBackend.Data;
+using HotdropBackend.Domain;
 
 namespace HotdropBackend.Tests;
 
@@ -41,7 +42,7 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
             serviceHeader.FirstOrDefault() == "game-server")
         {
             claims.Add(new Claim("service", "game-server"));
-            claims.Add(new Claim("server_id", "test-server"));
+            claims.Add(new Claim("server_id", HotdropWebApplicationFactory.TestServerId));
         }
 
         if (claims.Count == 0)
@@ -56,6 +57,7 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
 public class HotdropWebApplicationFactory : WebApplicationFactory<Program>
 {
     public const string TestServerKey = "test-only-game-server-key";
+    public const string TestServerId = "test-server";
     readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     public HotdropWebApplicationFactory()
@@ -99,6 +101,7 @@ public class HotdropWebApplicationFactory : WebApplicationFactory<Program>
     public HttpClient CreateClientWithPlayerId(Guid playerId)
     {
         var client = CreateClient();
+        client.DefaultRequestHeaders.Add("X-Client-Protocol", "1");
         client.DefaultRequestHeaders.Add("X-Test-PlayerId", playerId.ToString());
         return client;
     }
@@ -110,7 +113,31 @@ public class HotdropWebApplicationFactory : WebApplicationFactory<Program>
         return client;
     }
 
-    public HttpClient CreateUnauthenticatedClient() => CreateClient();
+    public async Task SeedAllocatedMatchAsync(Guid matchId, params Guid[] playerIds)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+        if (await db.MatchAllocations.AnyAsync(allocation => allocation.MatchId == matchId)) return;
+
+        db.MatchAllocations.Add(new MatchAllocation { MatchId = matchId, ServerId = TestServerId });
+        int index = 0;
+        foreach (var playerId in playerIds.Distinct())
+        {
+            db.MatchmakingTickets.Add(new MatchmakingTicket
+            {
+                Id = Guid.NewGuid(), PlayerId = playerId, MatchId = matchId, Status = "matched",
+                Team = index++ % 2 == 0 ? "A" : "B",
+            });
+        }
+        await db.SaveChangesAsync();
+    }
+
+    public HttpClient CreateUnauthenticatedClient()
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Add("X-Client-Protocol", "1");
+        return client;
+    }
 
     protected override void Dispose(bool disposing)
     {

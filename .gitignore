@@ -55,5 +55,6 @@ __pycache__/
 # Secrets - never commit
 Oracle keys/
 deploy/.env
+deploy/server-keys.env
 *.pem
 *.key

@@ -29,6 +29,7 @@ namespace Hotdrop.Core
 
         public static string BalanceVersion = "v1.0-spec";
         public static string CurrentMatchId = "";
+        public static string CurrentMapId = "";
         public static bool CurrentMatchHasBots;
         public static bool CurrentMatchIsBotSubstituted;
         public static int CurrentMatchBotCount;

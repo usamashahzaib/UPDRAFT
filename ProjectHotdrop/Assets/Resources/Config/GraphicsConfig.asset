@@ -18,7 +18,7 @@ MonoBehaviour:
   performanceRenderScale: 0.8
   balancedRenderScale: 1
   cinematicRenderScale: 1
-  lowPresetMaxDrawCalls: 150
+  lowPresetMaxDrawCalls: 120
   lowPresetMaxVisibleTriangles: 250000
   performanceTextureMipmapLimit: 1
   performanceLodBias: 0.7
@@ -33,7 +33,7 @@ MonoBehaviour:
   targetReturningStartupSeconds: 8
   targetArenaLoadSeconds: 10
   targetKbPerSecondPerClient: 100
-  dynamicResolution: 1
+  dynamicResolution: 0
   bakedLightingOnLow: 1
   realtimeShadowsOnLow: 0
   bloomOnLow: 0

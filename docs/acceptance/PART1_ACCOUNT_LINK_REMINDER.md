@@ -22,4 +22,7 @@ If the profile cannot be loaded, More now reports that the account level could n
 
 - Verify the level-5 prompt on an Android build with Google Play linking configured; no device or network verification was performed.
 - The first-purchase reminder remains unavailable while purchases are disabled.
-- Localization remains an A7 prerequisite because Unity Localization is not configured.
+- Home and account UI localization has since been migrated under A7; language,
+  locale-switch, and device acceptance remain open in
+  `docs/acceptance/A7_LOCALIZATION_HOME.md` and
+  `docs/acceptance/A7_LOCALIZATION_PRODUCT_SCREENS.md`.

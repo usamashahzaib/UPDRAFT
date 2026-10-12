@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Weapon_ARC
   m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.WeaponDefinition
   id: 0
-  displayName: ARC Rifle
+  displayName: Arc Rifle
   roleDescription: Mid-range precision. Steady damage, low spread, moderate fire
     rate.
   bodyDamage: 18

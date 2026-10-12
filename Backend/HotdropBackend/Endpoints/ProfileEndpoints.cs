@@ -16,7 +16,7 @@ public static class ProfileEndpoints
         {
             var playerId = RequireOwnerId(ctx);
             var account = await db.PlayerAccounts.FindAsync(playerId);
-            if (account is null) return Results.NotFound();
+            if (account is null) return Results.NotFound(new { error = "profile_not_found" });
             BackfillLegacySlot(account);
             return Results.Ok(new ProfileResponse(
                 account.Id, account.Alias, account.ProfileXp, account.Level,
@@ -30,7 +30,7 @@ public static class ProfileEndpoints
         group.MapGet("/wallet", async (HttpContext ctx, HotdropDbContext db) =>
         {
             var playerId = RequireOwnerId(ctx);
-            var credits = await db.CreditLedgerEntries.Where(e => e.PlayerId == playerId).SumAsync(e => (int?)e.ChangeAmount) ?? 0;
+            var credits = await db.CreditLedgerEntries.Where(e => e.PlayerId == playerId).SumAsync(e => (long?)e.ChangeAmount) ?? 0L;
             return Results.Ok(new { credits });
         });
 
@@ -70,14 +70,18 @@ public static class ProfileEndpoints
             var slot = SlotOf(cosmeticId);
             if (slot is null) return Results.BadRequest(new { error = "unknown_cosmetic_category" });
 
+            var account = await db.PlayerAccounts.FindAsync(playerId);
+            if (account is null) return Results.NotFound(new { error = "profile_not_found" });
+
             if (slot != CosmeticSlot.BodyRig)
             {
-                var owns = await db.InventoryItems.AnyAsync(i => i.PlayerId == playerId && i.CosmeticId == cosmeticId);
-                if (!owns) return Results.Forbid();
+                int currentRigMask = string.Equals(account.BodyRigId, "rig_female", StringComparison.Ordinal) ?
+                    (int)BodyRigVariantMask.Female : (int)BodyRigVariantMask.Male;
+                var owns = await db.InventoryItems.AnyAsync(i => i.PlayerId == playerId && i.CosmeticId == cosmeticId &&
+                    (slot != CosmeticSlot.BodyStyle || (i.SupportedBodyRigMask & currentRigMask) != 0));
+                if (!owns)
+                    return Results.Json(new { error = "cosmetic_not_owned" }, statusCode: StatusCodes.Status403Forbidden);
             }
-
-            var account = await db.PlayerAccounts.FindAsync(playerId);
-            if (account is null) return Results.NotFound();
             switch (slot)
             {
                 case CosmeticSlot.BodyStyle:
@@ -104,7 +108,7 @@ public static class ProfileEndpoints
         if (id.StartsWith("body_") || id.EndsWith("_body")) return CosmeticSlot.BodyStyle;
         if (id.StartsWith("wrap_") || id.EndsWith("_wrap")) return CosmeticSlot.WeaponWrap;
         if (id.StartsWith("badge_") || id.EndsWith("_badge")) return CosmeticSlot.Badge;
-        if (id.StartsWith("rig_")) return CosmeticSlot.BodyRig;
+        if (id == "rig_male" || id == "rig_female") return CosmeticSlot.BodyRig;
         return null;
     }
 

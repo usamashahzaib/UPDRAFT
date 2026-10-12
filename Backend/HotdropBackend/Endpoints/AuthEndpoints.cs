@@ -38,8 +38,8 @@ public static class AuthEndpoints
         {
             if (!tickets.ServerAuthConfigured)
                 return Results.Json(new { error = "server_auth_not_configured" }, statusCode: StatusCodes.Status503ServiceUnavailable);
-            if (!tickets.IsValidServerKey(ctx.Request.Headers["X-Server-Key"].ToString())) return Results.Unauthorized();
             if (string.IsNullOrWhiteSpace(request.ServerId) || request.ServerId.Length > 64) return Results.BadRequest();
+            if (!tickets.IsValidServerKey(request.ServerId, ctx.Request.Headers["X-Server-Key"].ToString())) return Results.Unauthorized();
             return Results.Ok(new { token = tickets.IssueServerToken(request.ServerId), expiresInSeconds = (int)MatchTicketService.ServerTokenLifetime.TotalSeconds });
         }).RequireRateLimiting("auth");
 
@@ -92,7 +92,7 @@ public static class AuthEndpoints
 
             var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
             var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
-            if (account is null) return Results.NotFound();
+            if (account is null) return Results.NotFound(new { error = "profile_not_found" });
             if (account.LinkedPlatformIdentity is not null && account.LinkedPlatformIdentity != platformId)
                 return Results.Conflict(new { error = "account_already_linked" });
             bool ownedByOther = await db.PlayerAccounts.AnyAsync(a => a.Id != playerId && a.LinkedPlatformIdentity == platformId, cancellationToken);
@@ -108,7 +108,7 @@ public static class AuthEndpoints
         {
             var playerId = Guid.Parse(ctx.User.FindFirst("player_id")!.Value);
             var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
-            if (account is null) return Results.NotFound();
+            if (account is null) return Results.NotFound(new { error = "profile_not_found" });
             account.LinkedPlatformIdentity = null;
             account.IsGuest = true;
             await db.SaveChangesAsync(cancellationToken);

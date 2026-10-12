@@ -37,6 +37,8 @@ public class ReportByMatchIdentityTests : IClassFixture<HotdropWebApplicationFac
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HotdropDbContext>();
+        if (!await db.MatchAllocations.AnyAsync(allocation => allocation.MatchId == matchId))
+            db.MatchAllocations.Add(new MatchAllocation { MatchId = matchId, ServerId = HotdropWebApplicationFactory.TestServerId });
         foreach (var (player, team) in players)
             db.MatchmakingTickets.Add(new MatchmakingTicket { Id = Guid.NewGuid(), PlayerId = player, MatchId = matchId, Status = "matched", Team = team });
         await db.SaveChangesAsync();
@@ -54,6 +56,7 @@ public class ReportByMatchIdentityTests : IClassFixture<HotdropWebApplicationFac
     {
         var (reporter, target, targetAlias, _) = await SeedAccountsAsync();
         var matchId = Guid.NewGuid();
+        await SeedMatchedTicketsAsync(matchId, (reporter, "A"), (target, "B"));
         var server = _factory.CreateGameServerClient();
         var result = await server.PostAsJsonAsync($"/api/matches/{matchId}/result", new
         {
@@ -145,6 +148,7 @@ public class ReportByMatchIdentityTests : IClassFixture<HotdropWebApplicationFac
     {
         var (reporter, target, _, _) = await SeedAccountsAsync();
         var matchId = Guid.NewGuid();
+        await SeedMatchedTicketsAsync(matchId, (reporter, "A"), (target, "B"));
         var server = _factory.CreateGameServerClient();
         (await server.PostAsJsonAsync($"/api/matches/{matchId}/result", new
         {
@@ -169,6 +173,7 @@ public class ReportByMatchIdentityTests : IClassFixture<HotdropWebApplicationFac
         // player's slot was taken over by a labeled bot must still resolve to that human.
         var (reporter, target, targetAlias, _) = await SeedAccountsAsync();
         var matchId = Guid.NewGuid();
+        await SeedMatchedTicketsAsync(matchId, (reporter, "A"), (target, "B"));
         var server = _factory.CreateGameServerClient();
         (await server.PostAsJsonAsync($"/api/matches/{matchId}/result", new
         {

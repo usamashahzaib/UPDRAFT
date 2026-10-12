@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Hotdrop.Pads;
 using Hotdrop.Config;
@@ -11,6 +12,83 @@ namespace Hotdrop.Pads
     /// </summary>
     public class LaunchPadBehaviour : MonoBehaviour, Hotdrop.UI.IPingablePad
     {
+        static Mesh sharedVisualMesh;
+
+        /// <summary>Project-original beveled landing surface shared by offline and network pad visuals.</summary>
+        public static Mesh SharedVisualMesh
+        {
+            get
+            {
+                if (sharedVisualMesh == null) sharedVisualMesh = CreateVisualMesh();
+                return sharedVisualMesh;
+            }
+        }
+
+        static Mesh CreateVisualMesh()
+        {
+            const int segments = 16;
+            // Normalized radius/height profile. The outer shell, raised shoulder, and inset landing
+            // plate fit inside the existing 1 m primitive-cylinder bounds; object scaling stays unchanged.
+            Vector2[] profile =
+            {
+                new Vector2(0.50f, -0.50f),
+                new Vector2(0.50f, 0.10f),
+                new Vector2(0.46f, 0.50f),
+                new Vector2(0.39f, 0.50f),
+                new Vector2(0.35f, 0.16f),
+                new Vector2(0.31f, 0.16f),
+            };
+            var vertices = new List<Vector3>((profile.Length + 1) * (segments + 1) + 2);
+            var uvs = new List<Vector2>(vertices.Capacity);
+            var triangles = new List<int>(profile.Length * segments * 6 + segments * 6);
+
+            for (int ring = 0; ring < profile.Length; ring++)
+            {
+                for (int i = 0; i <= segments; i++)
+                {
+                    float angle = i * Mathf.PI * 2f / segments;
+                    float x = Mathf.Cos(angle) * profile[ring].x;
+                    float z = Mathf.Sin(angle) * profile[ring].x;
+                    vertices.Add(new Vector3(x, profile[ring].y, z));
+                    uvs.Add(new Vector2(x + 0.5f, z + 0.5f));
+                }
+            }
+
+            for (int ring = 0; ring < profile.Length - 1; ring++)
+            {
+                int lower = ring * (segments + 1);
+                int upper = (ring + 1) * (segments + 1);
+                for (int i = 0; i < segments; i++)
+                {
+                    int a = lower + i, b = a + 1, c = upper + i, d = c + 1;
+                    triangles.AddRange(new[] { a, c, b, b, c, d });
+                }
+            }
+
+            int bottomCenter = vertices.Count;
+            vertices.Add(new Vector3(0f, profile[0].y, 0f));
+            uvs.Add(new Vector2(0.5f, 0.5f));
+            int bottomRing = 0;
+            int topCenter = vertices.Count;
+            vertices.Add(new Vector3(0f, profile[profile.Length - 1].y, 0f));
+            uvs.Add(new Vector2(0.5f, 0.5f));
+            int topRing = (profile.Length - 1) * (segments + 1);
+            for (int i = 0; i < segments; i++)
+            {
+                triangles.AddRange(new[] { bottomCenter, bottomRing + i, bottomRing + i + 1 });
+                triangles.AddRange(new[] { topCenter, topRing + i + 1, topRing + i });
+            }
+
+            var mesh = new Mesh { name = "Project-original beveled launch pad", hideFlags = HideFlags.HideAndDontSave };
+            mesh.SetVertices(vertices);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateTangents();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
         [Header("Visuals")]
         [SerializeField] GameObject armingEffect;
         [SerializeField] GameObject armedEffect;
@@ -98,12 +176,16 @@ namespace Hotdrop.Pads
             arrow.SetPosition(3, origin + direction * 0.35f);
             arrow.SetPosition(4, origin + direction * 0.1f - right * 0.2f);
             if (padRenderer == null) padRenderer = GetComponent<Renderer>();
+            var existingMesh = GetComponent<MeshFilter>();
+            if (existingMesh != null && existingMesh.sharedMesh != null && existingMesh.sharedMesh.name == "Cylinder")
+                existingMesh.sharedMesh = SharedVisualMesh;
             if (padRenderer == null)
             {
                 var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 disc.name = "Pad disc"; disc.layer = LayerMask.NameToLayer("Pad");
                 disc.transform.SetParent(transform, false);
                 disc.transform.localScale = new Vector3(1.4f, 0.1f, 1.4f);
+                disc.GetComponent<MeshFilter>().sharedMesh = SharedVisualMesh;
                 padRenderer = disc.GetComponent<Renderer>();
             }
             if (friendlyMaterial == null) friendlyMaterial = Resources.Load<Material>("Materials/Friendly");
@@ -138,7 +220,9 @@ namespace Hotdrop.Pads
             if (armedEffect != null)
                 armedEffect.SetActive(false);
 
+            Hotdrop.Core.GameAudio.ReportSpatialCue(Hotdrop.Core.GameCue.PadDeploy, transform.position);
             if (deploySound != null) audioSource.PlayOneShot(deploySound, Hotdrop.Core.GameAudio.SfxVolume); // QA-022
+            Hotdrop.Core.GameAudio.ReportSpatialCue(Hotdrop.Core.GameCue.PadCharging, transform.position);
             audioSource.PlayOneShot(Hotdrop.Core.OriginalGameAudio.Get(Hotdrop.Core.GameCue.PadCharging), 0.7f * Hotdrop.Core.GameAudio.SfxVolume);
         }
 
@@ -253,7 +337,8 @@ namespace Hotdrop.Pads
             {
                 reportedDestroyed = true;
                 Hotdrop.Core.Telemetry.TrackOfflineMatchFact("pad_destroyed", ("padTeam", padData.TeamId),
-                    ("ageSeconds", Time.time - spawnTime));
+                    ("mapId", Hotdrop.Core.Telemetry.CurrentMapId ?? "unknown"), ("padId", padData.TelemetryId), ("ageSeconds", Time.time - spawnTime),
+                    ("x", transform.position.x), ("y", transform.position.y), ("z", transform.position.z));
                 Hotdrop.Core.GameAudio.ReportSpatialCue(Hotdrop.Core.GameCue.PadDestroy, transform.position);
                 if (destroySound != null)
                     audioSource.PlayOneShot(destroySound, Hotdrop.Core.GameAudio.SfxVolume);

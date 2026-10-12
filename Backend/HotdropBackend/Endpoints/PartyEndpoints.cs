@@ -31,7 +31,7 @@ public static class PartyEndpoints
         group.MapPost("/{code}/join", async (string code, HttpContext ctx, HotdropDbContext db, CancellationToken cancellationToken) =>
         {
             var party = await FindParty(code, db, cancellationToken);
-            if (party is null) return Results.NotFound();
+            if (party is null) return Results.NotFound(new { error = "party_not_found" });
 
             var playerId = PlayerId(ctx);
             var existingMembership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
@@ -52,11 +52,12 @@ public static class PartyEndpoints
         group.MapPost("/{code}/leave", async (string code, HttpContext ctx, HotdropDbContext db, CancellationToken cancellationToken) =>
         {
             var party = await FindParty(code, db, cancellationToken);
-            if (party is null) return Results.NotFound();
+            if (party is null) return Results.NotFound(new { error = "party_not_found" });
 
             var playerId = PlayerId(ctx);
             var member = await db.PartyMembers.SingleOrDefaultAsync(m => m.PartyId == party.Id && m.PlayerId == playerId, cancellationToken);
-            if (member is null) return Results.Forbid();
+            if (member is null)
+                return Results.Json(new { error = "party_membership_required" }, statusCode: StatusCodes.Status403Forbidden);
 
             db.PartyMembers.Remove(member);
             await db.SaveChangesAsync(cancellationToken);
@@ -81,10 +82,11 @@ public static class PartyEndpoints
             HttpContext ctx, HotdropDbContext db, CancellationToken cancellationToken) =>
         {
             var party = await FindParty(code, db, cancellationToken);
-            if (party is null) return Results.NotFound();
+            if (party is null) return Results.NotFound(new { error = "party_not_found" });
             var playerId = PlayerId(ctx);
             var member = await db.PartyMembers.SingleOrDefaultAsync(m => m.PartyId == party.Id && m.PlayerId == playerId, cancellationToken);
-            if (member is null) return Results.Forbid();
+            if (member is null)
+                return Results.Json(new { error = "party_membership_required" }, statusCode: StatusCodes.Status403Forbidden);
             member.IsReady = ready;
             await db.SaveChangesAsync(cancellationToken);
             return Results.Ok(await ToResponse(party, db, cancellationToken));
@@ -94,7 +96,7 @@ public static class PartyEndpoints
         {
             var playerId = PlayerId(ctx);
             var membership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
-            if (membership is null) return Results.NotFound();
+            if (membership is null) return Results.NotFound(new { error = "party_membership_not_found" });
             var party = await db.Parties.SingleAsync(p => p.Id == membership.PartyId, cancellationToken);
             return Results.Ok(await ToResponse(party, db, cancellationToken));
         });

@@ -1,21 +1,206 @@
 {
   "schemaVersion": 1,
-  "status": "ui_and_switchyard_profiles_available_production_world_art_pending",
+  "status": "ui_and_switchyard_profiles_available_world_art_gate_g_in_progress",
   "source": "HOTDROP_DESIGN_BIBLE.md v1.0 plus amendments v1.1",
-  "identityDecision": "Support A, B, and C as selectable UI and procedural Switchyard world-presentation profiles. Production art and gore remain separately gated.",
-  "note": "A uses the amended v1.0 base palette. B's exact colors are not specified in the bible and use an initial grounded industrial palette. C uses the existing UI base surfaces with the corrected separate action and ally colors. Legacy UI hex literals for shared palette roles resolve to the current profile at use time; the generated Switchyard updates role-based material colors and lighting without changing geometry or collision.",
+  "identityDecision": "Support A, B, and C as selectable UI and procedural Switchyard world-presentation profiles. Authored world art and tiered post-processing are authorized by the owner-approved docs/design/07_WORLD_ART.md; Gate G implementation and acceptance remain in progress. Blood/gore and a maximum gore setting remain gated by a reviewed rating decision.",
+  "note": "A uses the amended v1.0 base palette. B's exact colors are not specified in the bible and use an initial grounded industrial palette. C uses the existing UI base surfaces with the corrected separate action and ally colors. Legacy UI hex literals for shared palette roles resolve to the current profile at use time; the generated Switchyard updates role-based material colors and lighting without changing geometry or collision. World-art work may proceed under 07_WORLD_ART; blood/gore remains separately gated.",
   "colors": {
-    "stylized_flight": {"background":"#0C1220","surface":"#17202E","text_primary":"#EDF2F7","text_secondary":"#8A94A6","primary_action":"#3DE0C0","ally":"#4DA3FF","enemy":"#FF5A66","objective":"#FFB84D"},
-    "grounded_tactical_flight": {"background":"#121619","surface":"#20272B","text_primary":"#F0F0EA","text_secondary":"#A6AEAD","primary_action":"#54D2B3","ally":"#66A7D9","enemy":"#D85D61","objective":"#E2B85F"},
-    "hybrid": {"background":"#101827","surface":"#1B2940","text_primary":"#F4F7FB","text_secondary":"#BBC6D8","primary_action":"#3DE0C0","ally":"#4DA3FF","enemy":"#FF5A66","objective":"#FFB84D"}
+    "stylized_flight": {
+      "background": "#0C1220",
+      "surface": "#17202E",
+      "text_primary": "#EDF2F7",
+      "text_secondary": "#8A94A6",
+      "primary_action": "#3DE0C0",
+      "ally": "#4DA3FF",
+      "enemy": "#FF5A66",
+      "objective": "#FFB84D"
+    },
+    "grounded_tactical_flight": {
+      "background": "#121619",
+      "surface": "#20272B",
+      "text_primary": "#F0F0EA",
+      "text_secondary": "#A6AEAD",
+      "primary_action": "#54D2B3",
+      "ally": "#66A7D9",
+      "enemy": "#D85D61",
+      "objective": "#E2B85F"
+    },
+    "hybrid": {
+      "background": "#101827",
+      "surface": "#1B2940",
+      "text_primary": "#F4F7FB",
+      "text_secondary": "#BBC6D8",
+      "primary_action": "#3DE0C0",
+      "ally": "#4DA3FF",
+      "enemy": "#FF5A66",
+      "objective": "#FFB84D"
+    }
   },
   "world_profiles": {
-    "stylized_flight": {"concrete":"#C3B59E","structure":"#49627B","cover":"#7A8D9D","equipment":"#26384A","safety":"#E0A936","facade":"#68797A","window":"#D6A96B","sky":"#9CC5DC","ambient":"#74899A","sun":"#FFD4A1","zone_west":"#B6A06B","zone_center":"#84998F","zone_east":"#9F8D7D","sun_intensity":1.1},
-    "grounded_tactical_flight": {"concrete":"#969993","structure":"#434B4B","cover":"#737B78","equipment":"#303637","safety":"#D2A94F","facade":"#4C5554","window":"#788B90","sky":"#8F9CA0","ambient":"#717877","sun":"#D9D1BE","zone_west":"#9E9270","zone_center":"#788A84","zone_east":"#8B8B7E","sun_intensity":0.9},
-    "hybrid": {"concrete":"#B1B1A8","structure":"#46545E","cover":"#7F8D92","equipment":"#2E3D48","safety":"#E0AD52","facade":"#5F7076","window":"#92AFC1","sky":"#A3BED0","ambient":"#81939E","sun":"#E6D4B8","zone_west":"#BCA36F","zone_center":"#82968E","zone_east":"#A28B80","sun_intensity":1.0}
+    "stylized_flight": {
+      "concrete": "#C3B59E",
+      "structure": "#49627B",
+      "cover": "#7A8D9D",
+      "equipment": "#26384A",
+      "safety": "#E0A936",
+      "facade": "#68797A",
+      "window": "#D6A96B",
+      "sky": "#9CC5DC",
+      "ambient": "#74899A",
+      "sun": "#FFD4A1",
+      "zone_west": "#B6A06B",
+      "zone_center": "#84998F",
+      "zone_east": "#9F8D7D",
+      "sun_intensity": 1.1
+    },
+    "grounded_tactical_flight": {
+      "concrete": "#969993",
+      "structure": "#434B4B",
+      "cover": "#737B78",
+      "equipment": "#303637",
+      "safety": "#D2A94F",
+      "facade": "#4C5554",
+      "window": "#788B90",
+      "sky": "#8F9CA0",
+      "ambient": "#717877",
+      "sun": "#D9D1BE",
+      "zone_west": "#9E9270",
+      "zone_center": "#788A84",
+      "zone_east": "#8B8B7E",
+      "sun_intensity": 0.9
+    },
+    "hybrid": {
+      "concrete": "#B1B1A8",
+      "structure": "#46545E",
+      "cover": "#7F8D92",
+      "equipment": "#2E3D48",
+      "safety": "#E0AD52",
+      "facade": "#5F7076",
+      "window": "#92AFC1",
+      "sky": "#A3BED0",
+      "ambient": "#81939E",
+      "sun": "#E6D4B8",
+      "zone_west": "#BCA36F",
+      "zone_center": "#82968E",
+      "zone_east": "#A28B80",
+      "sun_intensity": 1.0
+    }
   },
-  "typography": {"display":"44","title":"30","section":"22","ui":"17","body":"14","caption":"12","max_sizes_per_screen":3,"status":"UI-script font audit and token migration complete; Unity visual, device-size, A/B/C contrast, and localization verification pending"},
-  "spacing": {"unit":"dp","scale":[4,8,12,16,24],"touch_target_min":48},
-  "radius": {"system_dp":12},
-  "motion": {"transition_ms":[180,250],"button_press_scale":0.96,"status":"MenuLayout, settings, Preparation, Results, and Match Search use 200 ms ease-out parallax entry/exit or a Reduce Motion fade; queue and countdown refreshes update in place"}
+  "world_atmosphere": {
+    "owner": "ProjectHotdrop/Assets/Scripts/Map/SwitchyardAtmosphere.cs (values mirrored here; code is authoritative)",
+    "spec": "docs/design/07_WORLD_ART.md",
+    "stylized_flight": {
+      "sky": "Poly Haven sunset_jhbcentral",
+      "tonemap": "ACES",
+      "exposure": 0.35,
+      "contrast": 12,
+      "saturation": 14,
+      "color_filter": "#FFF1E0",
+      "bloom": 0.55,
+      "bloom_threshold": 1.05,
+      "vignette": 0.22,
+      "sky_tint": "#8AA6C8",
+      "sky_ground": "#5B5650",
+      "sky_exposure": 1.0,
+      "sky_atmosphere": 1.05,
+      "fog": "#9E9AA2",
+      "fog_m": [
+        35,
+        260
+      ],
+      "sun_elevation_deg": 20,
+      "sun_u": 0.636,
+      "ambient_sky": "#8E9AB2",
+      "ambient_ground": "#585C69",
+      "sun_shadow_strength": 0.78
+    },
+    "grounded_tactical_flight": {
+      "sky": "Poly Haven portland_landing_pad",
+      "tonemap": "Neutral",
+      "exposure": 0.15,
+      "contrast": 18,
+      "saturation": -20,
+      "color_filter": "#F2F7FA",
+      "bloom": 0.2,
+      "bloom_threshold": 1.2,
+      "vignette": 0.28,
+      "sky_tint": "#7D8A94",
+      "sky_ground": "#4A4C4B",
+      "sky_exposure": 1.0,
+      "sky_atmosphere": 1.35,
+      "fog": "#A9AEB5",
+      "fog_m": [
+        22,
+        200
+      ],
+      "sun_elevation_deg": 45,
+      "sun_u": 0.599,
+      "ambient_sky": "#A8AEB8",
+      "ambient_ground": "#474642",
+      "sun_shadow_strength": 0.85
+    },
+    "hybrid": {
+      "sky": "Poly Haven homecoming_center_rooftop",
+      "tonemap": "ACES",
+      "exposure": 0.3,
+      "contrast": 10,
+      "saturation": 6,
+      "color_filter": "#FFFAF2",
+      "bloom": 0.4,
+      "bloom_threshold": 1.1,
+      "vignette": 0.2,
+      "sky_tint": "#86A2BE",
+      "sky_ground": "#55575A",
+      "sky_exposure": 1.0,
+      "sky_atmosphere": 0.95,
+      "fog": "#9FB1C4",
+      "fog_m": [
+        30,
+        240
+      ],
+      "sun_elevation_deg": 55,
+      "sun_u": 0.6,
+      "ambient_sky": "#7E95B5",
+      "ambient_ground": "#4C4D3A",
+      "sun_shadow_strength": 0.82
+    },
+    "ambient_boost": 1.35,
+    "tiers": {
+      "performance": "own pipeline asset (no HDR, no shadows, no post); sky, fog, trilight ambient",
+      "balanced": "soft sun shadows 45 m/2 cascades/1024, HDR, tonemap+grade+bloom+vignette, FXAA",
+      "cinematic": "balanced + SSAO + high-quality bloom"
+    }
+  },
+  "typography": {
+    "display": "44",
+    "title": "30",
+    "section": "22",
+    "ui": "17",
+    "body": "14",
+    "caption": "12",
+    "max_sizes_per_screen": 3,
+    "status": "UI-script font audit and token migration complete; Unity visual, device-size, A/B/C contrast, and localization verification pending"
+  },
+  "spacing": {
+    "unit": "dp",
+    "scale": [
+      4,
+      8,
+      12,
+      16,
+      24
+    ],
+    "touch_target_min": 48
+  },
+  "radius": {
+    "system_dp": 12
+  },
+  "motion": {
+    "transition_ms": [
+      180,
+      250
+    ],
+    "button_press_scale": 0.96,
+    "status": "MenuLayout, settings, Preparation, Results, and Match Search use 200 ms ease-out parallax entry/exit or a Reduce Motion fade; queue and countdown refreshes update in place"
+  }
 }

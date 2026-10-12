@@ -1,5 +1,6 @@
 using UnityEngine;
 using Hotdrop.Config;
+using System;
 
 namespace Hotdrop.Pads
 {
@@ -15,6 +16,7 @@ namespace Hotdrop.Pads
 
         public int OwnerId { get; }
         public int TeamId { get; }
+        public string TelemetryId { get; } = Guid.NewGuid().ToString("N");
         public Vector3 Position { get; }
         public Vector3 ForwardDirection { get; }
         public float Health { get; private set; }

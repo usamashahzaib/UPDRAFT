@@ -185,9 +185,25 @@ namespace Hotdrop.Editor
             config.countdownSeconds = 3f;
             config.loadTimeoutSeconds = 30f;
             config.respawnDelaySeconds = 4f;
+            config.musicPreUnlockSilenceSeconds = 1.5f;
+            config.musicRhythmStartSeconds = 20f;
+            config.musicLeadStartSeconds = 60f;
+            config.musicBaseTempoBpm = 120f;
+            config.musicEndgameTempoBonusBpm = 4f;
+            config.endgameHudTrimSeconds = 60f;
             config.botSubstitutionDelaySeconds = 5f;
             config.pingLifetimeSeconds = 8f;
             config.pingCooldownSeconds = 2f;
+            config.spatialAudioMinDistanceMeters = 3f;
+            config.weaponFullMixDistanceMeters = 15f;
+            config.weaponDistantReportDistanceMeters = 40f;
+            config.spatialAudioMaxDistanceMeters = 50f;
+            config.weaponMidDistanceLowPassHz = 1800f;
+            config.nearbyWeaponCaptionMeters = 10f;
+            config.cockpitCombatRangeMeters = 30f;
+            config.cockpitFadedOpacity = 0.15f;
+            config.cockpitFadeDurationSeconds = 0.2f;
+            config.rosterIdleFadeSeconds = 5f;
             config.minimumAimPointDistanceMeters = 0.5f;
             config.cameraAimRayDistanceMeters = 100f;
 
@@ -228,7 +244,17 @@ namespace Hotdrop.Editor
                 new Vector3(-20f, 3f, 14f),
                 new Vector3(20f, 3f, -14f),
                 new Vector3(-20f, 3f, -14f),
+                new Vector3(34f, 3f, 26f),
+                new Vector3(-34f, 3f, 26f),
+                new Vector3(36f, 3f, 12f),
+                new Vector3(-36f, 3f, 12f),
+                new Vector3(34f, 3f, -26f),
+                new Vector3(-34f, 3f, -26f),
+                new Vector3(36f, 3f, -12f),
+                new Vector3(-36f, 3f, -12f),
             };
+            config.rampRunMeters = 7f;
+            config.rampWidthMeters = 4f;
             config.minimumMainRouteWidth = 4f;
             config.sightlineBlockerZ = 20f;
 
@@ -294,13 +320,13 @@ namespace Hotdrop.Editor
         static void CreateGraphicsConfig()
         {
             var config = ScriptableObject.CreateInstance<GraphicsConfig>();
-            config.performanceTargetFps = 60;
-            config.balancedTargetFps = 60;
-            config.cinematicPresetTargetFps = 30;
-            config.performanceRenderScale = 0.8f;
-            config.balancedRenderScale = 1f;
-            config.cinematicRenderScale = 1f;
-            config.lowPresetMaxDrawCalls = 150;
+            config.performanceTargetFps = GraphicsConfig.DefaultPerformanceTargetFps;
+            config.balancedTargetFps = GraphicsConfig.DefaultBalancedTargetFps;
+            config.cinematicPresetTargetFps = GraphicsConfig.DefaultCinematicTargetFps;
+            config.performanceRenderScale = GraphicsConfig.DefaultPerformanceRenderScale;
+            config.balancedRenderScale = GraphicsConfig.DefaultBalancedRenderScale;
+            config.cinematicRenderScale = GraphicsConfig.DefaultCinematicRenderScale;
+            config.lowPresetMaxDrawCalls = GraphicsConfig.DefaultPerformanceTargetDrawCalls;
             config.lowPresetMaxVisibleTriangles = 250000;
             config.performanceTextureMipmapLimit = 1;
             config.performanceLodBias = 0.7f;
@@ -315,7 +341,7 @@ namespace Hotdrop.Editor
             config.targetReturningStartupSeconds = 8f;
             config.targetArenaLoadSeconds = 10f;
             config.targetKbPerSecondPerClient = 100f;
-            config.dynamicResolution = true;
+            config.dynamicResolution = false;
             config.bakedLightingOnLow = true;
             config.realtimeShadowsOnLow = false;
             config.bloomOnLow = false;
@@ -337,6 +363,7 @@ namespace Hotdrop.Editor
                     id = "signal",
                     displayName = "Signal",
                     referenceUsdPrice = 1.99f,
+                    supportedBodyRigMask = 3,
                     contents = new[] { "Body style: Signal", "Weapon wrap: Signal (ARC/ZIP/BRICK)" }
                 },
                 new CosmeticBundle
@@ -344,6 +371,7 @@ namespace Hotdrop.Editor
                     id = "foundry",
                     displayName = "Foundry",
                     referenceUsdPrice = 3.99f,
+                    supportedBodyRigMask = 3,
                     contents = new[] { "Body style: Foundry", "Profile badge: Foundry" }
                 },
                 new CosmeticBundle
@@ -351,6 +379,7 @@ namespace Hotdrop.Editor
                     id = "skyline",
                     displayName = "Skyline",
                     referenceUsdPrice = 5.99f,
+                    supportedBodyRigMask = 3,
                     contents = new[] { "Body style: Skyline", "Profile badge: Skyline" }
                 },
             };
@@ -395,7 +424,4 @@ namespace Hotdrop.Editor
         }
     }
 }
-
-
-
 

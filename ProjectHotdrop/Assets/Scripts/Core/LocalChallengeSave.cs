@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 using Hotdrop.Config;
+using Hotdrop.UI;
 
 namespace Hotdrop.Core
 {
@@ -82,17 +83,17 @@ namespace Hotdrop.Core
                     if (data != null)
                     {
                         cacheData = data;
-                        RecoveryMessage = "Recovered the previous local save. The latest attempt may need restarting.";
+                        RecoveryMessage = UiDraw.L("offlineSave.recovery.previousLocal", "Recovered the previous local save. The latest attempt may need restarting.");
                         return true;
                     }
                 }
-                RecoveryMessage = newerVersion ? "This save needs a newer game version. Existing data has not been overwritten."
-                    : "Local save could not be recovered. Start a new attempt; no medals were added.";
+                RecoveryMessage = newerVersion ? UiDraw.L("offlineSave.recovery.newerVersion", "This save needs a newer game version. Existing data has not been overwritten.")
+                    : UiDraw.L("offlineSave.recovery.unrecoverable", "Local save could not be recovered. Start a new attempt; no medals were added.");
                 Debug.LogWarning("[LocalChallengeSave] " + RecoveryMessage);
             }
             catch (Exception ex)
             {
-                RecoveryMessage = "Local save is unavailable. No medals were added.";
+                RecoveryMessage = UiDraw.L("offlineSave.recovery.unavailable", "Local save is unavailable. No medals were added.");
                 Debug.LogWarning("[LocalChallengeSave] " + ex.Message);
             }
             return false;
@@ -127,7 +128,7 @@ namespace Hotdrop.Core
                     // Legacy checksum did not protect world/elapsed state. Keep validated
                     // records; never pretend its interrupted attempt can safely resume.
                     data.activeSnapshot = null;
-                    RecoveryMessage = "Local records migrated. Restart any interrupted drill.";
+                    RecoveryMessage = UiDraw.L("offlineSave.recovery.migrated", "Local records migrated. Restart any interrupted drill.");
                 }
                 data.version = CurrentSaveVersion;
                 return data;

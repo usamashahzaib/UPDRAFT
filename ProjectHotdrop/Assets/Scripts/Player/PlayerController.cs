@@ -23,6 +23,7 @@ namespace Hotdrop.Player
         [SerializeField] WeaponDefinition[] weaponDefinitions; // ARC, ZIP, BRICK
         [SerializeField] PadConfig padConfig;
         [SerializeField] MapConfig mapConfig;
+        MatchRulesConfig matchRules;
 
         [Header("References")]
         // Public so MatchController/TutorialController can wire these at spawn time.
@@ -104,7 +105,11 @@ namespace Hotdrop.Player
         // Every live player, maintained without per-frame scene searches.
         public static readonly System.Collections.Generic.List<PlayerController> All = new System.Collections.Generic.List<PlayerController>();
         void OnEnable() { if (!All.Contains(this)) All.Add(this); }
-        void OnDisable() { All.Remove(this); Hotdrop.Core.GameAudio.ClearFlightMix(); }
+        void OnDisable()
+        {
+            All.Remove(this);
+            if (!IsBot) Hotdrop.Core.GameAudio.ClearFlightMix();
+        }
 
         public static PlayerController Find(int id)
         {
@@ -122,6 +127,7 @@ namespace Hotdrop.Player
         }
         public bool IsBot { get; set; }
         public bool IsConnected => true;
+        public Vector3 FacingForward => GetFacingForward();
 
         // Per-match stats for the results screen and personal bests.
         public int Eliminations { get; private set; }
@@ -135,6 +141,7 @@ namespace Hotdrop.Player
         public Vector3 LastShotPosition { get; private set; }
         float respawnAt;
         float nextLowHealthCue;
+        bool tookDamageThisLife;
 
         public void ResetStats()
         {
@@ -154,6 +161,10 @@ namespace Hotdrop.Player
         public System.Action<PlayerController> OnDeath;
         public System.Action<PlayerController> OnRespawn;
         public System.Action<float> OnHealthChanged; // 0-1
+        /// <summary>Local presentation signal: planar speed in m/s and current airborne state.</summary>
+        public System.Action<float, bool> OnFlightMotion;
+        /// <summary>World-space direction from this player toward the attacker, raised once per damaging hit.</summary>
+        public System.Action<Vector3> OnDamagedFrom;
         public System.Action<int, int> OnAmmoChanged; // current, max
         public System.Action<LaunchPad> OnPadPlaced;
         public System.Action<LaunchPad> OnPadActivated;
@@ -185,6 +196,7 @@ namespace Hotdrop.Player
 
         void Awake()
         {
+            matchRules = Resources.Load<MatchRulesConfig>("Config/MatchRulesConfig");
             charController = GetComponent<CharacterController>();
             audioSource = GetComponent<AudioSource>();
             audioSource.priority = 20; // threats (shots, footsteps, damage) outrank everything else
@@ -225,6 +237,11 @@ namespace Hotdrop.Player
             BindTouchInput();
         }
 
+        public void SetMatchRulesConfig(MatchRulesConfig rules)
+        {
+            if (rules != null) matchRules = rules;
+        }
+
         void Start()
         {
             // Load aim assist setting
@@ -244,13 +261,21 @@ namespace Hotdrop.Player
             bool friendly = LaunchPadBehaviour.IsFriendlyToViewer(teamId);
             var parts = AvatarRigVisual.Rebuild(bodyMesh, IsBot ? BodyRigs.Default : BodyRigStore.Current,
                 friendly ? friendlyMaterial : enemyMaterial,
-                Resources.Load<Material>("Materials/Equipment"), includeGun: false);
+                Resources.Load<Material>("Materials/Equipment"), includeGun: AvatarRigVisual.UsesOperator);
+            // The skinned operator holds its weapon in hand; the legacy floating weapon meshes
+            // stay for weapon logic and wraps but no longer draw beside the body.
+            if (AvatarRigVisual.UsesOperator && weaponMeshes != null)
+                foreach (var weapon in weaponMeshes)
+                    if (weapon != null)
+                        foreach (var r in weapon.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
             avatarMotion = bodyMesh.GetComponentInChildren<SportAvatarAnimation>(true);
             if (avatarMotion == null) avatarMotion = bodyMesh.AddComponent<SportAvatarAnimation>();
             AvatarRigVisual.Wire(avatarMotion, parts);
+            AvatarRigVisual.SetPersistentDamage(bodyMesh, tookDamageThisLife);
             var renderer = parts.Torso.GetComponent<Renderer>();
             if (renderer != null) bodyRenderer = renderer;
             SetTeamMaterial(teamId); // re-colours the new torso and re-applies team cue + cosmetic
+            UpdateWeaponVisual();    // the rebuilt operator starts with the default weapon in hand
         }
 
         public void Initialize(int playerId, int teamId, WeaponDefinition startingWeapon = null)
@@ -348,9 +373,11 @@ namespace Hotdrop.Player
 
             float healthBeforeTick = healthController.CurrentHealth;
             healthController.Tick(dt);
-            if (touchInput != null && healthController.CurrentHealth <= movementConfig.maxHealth * 0.3f && Time.time >= nextLowHealthCue)
+            if (touchInput != null && matchRules != null &&
+                healthController.CurrentHealth <= movementConfig.maxHealth * matchRules.lowHealthThresholdFraction &&
+                Time.time >= nextLowHealthCue)
             {
-                nextLowHealthCue = Time.time + 1.2f;
+                nextLowHealthCue = Time.time + matchRules.lowHealthAudioRepeatIntervalSeconds;
                 Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.LowHealth, 0.7f);
             }
             if (!Mathf.Approximately(healthBeforeTick, healthController.CurrentHealth))
@@ -392,9 +419,13 @@ namespace Hotdrop.Player
                 timeSinceLastFootstep = 0f;
             }
             wasGrounded = movementSim.IsGrounded;
-            Hotdrop.Core.GameAudio.SetFlightMix(
-                new Vector2(movementSim.Velocity.x, movementSim.Velocity.z).magnitude,
-                movementSim.Velocity.y, !movementSim.IsGrounded);
+            if (!IsBot)
+            {
+                float planarSpeed = new Vector2(movementSim.Velocity.x, movementSim.Velocity.z).magnitude;
+                bool airborne = !movementSim.IsGrounded && healthController.IsAlive;
+                Hotdrop.Core.GameAudio.SetFlightMix(planarSpeed, movementSim.Velocity.y, airborne);
+                OnFlightMotion?.Invoke(planarSpeed, airborne);
+            }
 
             // Footsteps
             HandleFootsteps(dt);
@@ -424,9 +455,21 @@ namespace Hotdrop.Player
 
         void UpdateCameraInput()
         {
-            if (touchInput == null || playerCamera == null) return;
+            if (playerCamera == null) return;
+            if (touchInput != null && touchInput.EditingLayout)
+            {
+                // Layout editing owns every touch until SAVE/CANCEL. Guard at the camera sink as
+                // well as in TouchInputManager so a stale aim delta or focus state cannot turn
+                // the gameplay camera during a UI gesture, regardless of component update order.
+                playerCamera.SetFocusAimHeld(false);
+                return;
+            }
+            bool focusAim = touchInput != null && touchInput.FocusAimHeld;
+            playerCamera.SetFocusAimHeld(focusAim);
+            if (touchInput == null) return;
 
-            touchInput.AimSensitivityScale = AimAssistRules.SensitivityScale(IsAimAssistRegionActive());
+            float focusScale = focusAim ? touchInput.FocusAimSensitivityScale : 1f;
+            touchInput.AimSensitivityScale = AimAssistRules.SensitivityScale(IsAimAssistRegionActive()) * focusScale;
 
             Vector2 aim = touchInput.AimDelta;
             if (aim.sqrMagnitude > 0f)
@@ -532,7 +575,11 @@ namespace Hotdrop.Player
                         pad.NotifyActivated();
                         padManager.NotifyActivated();
                         PadLaunches++;
-                        if (touchInput != null) Hotdrop.Core.HapticFeedback.Pulse();
+                        if (!IsBot)
+                        {
+                            Hotdrop.Core.HapticFeedback.Pulse();
+                            playerCamera?.TriggerPadLaunchFeedback();
+                        }
                         OnPadActivated?.Invoke(pad.PadData);
                         PlaySound(jumpClip, 1f); // launch sound
                         return;
@@ -716,6 +763,7 @@ namespace Hotdrop.Player
                     // Damage pad (enemies can destroy, friendly fire can't per spec)
                     if (padBehaviour.PadData.TeamId != this.teamId)
                     {
+                        Hotdrop.Core.ShotImpactVfx.TryShow(hit.collider, hit.point, hit.normal);
                         padBehaviour.ApplyDamage(ShotResolver.GetDamage(currentWeapon, hit.distance, false));
                     }
                 }
@@ -723,6 +771,10 @@ namespace Hotdrop.Player
                 {
                     trainingTarget.TakeDamage(ShotResolver.GetDamage(currentWeapon, hit.distance, false));
                     OnHitConfirmed?.Invoke(false);
+                }
+                else
+                {
+                    Hotdrop.Core.ShotImpactVfx.TryShow(hit.collider, hit.point, hit.normal);
                 }
             }
         }
@@ -751,10 +803,22 @@ namespace Hotdrop.Player
         {
             if (!healthController.IsAlive || !combatAllowed || isSpawnProtected) return;
 
+            float healthBeforeDamage = healthController.CurrentHealth;
             healthController.ApplyDamage(amount);
             OnHealthChanged?.Invoke(healthController.CurrentHealth / movementConfig.maxHealth);
+            if (healthController.CurrentHealth < healthBeforeDamage)
+            {
+                tookDamageThisLife = true;
+                AvatarRigVisual.SetPersistentDamage(bodyMesh, true);
+            }
+
+            var damageSource = Find(attackerId);
+            if (damageSource != null && damageSource != this)
+                OnDamagedFrom?.Invoke(damageSource.transform.position - transform.position);
 
             PlaySound(damageClip);
+            if (touchInput != null)
+                Hotdrop.Core.GameAudio.ReportLocalCue(Hotdrop.Core.GameCue.Hurt);
 
             if (!healthController.IsAlive)
             {
@@ -764,8 +828,10 @@ namespace Hotdrop.Player
 
         void Die(int killerId, WeaponId weaponId)
         {
-            Hotdrop.Core.GameAudio.ClearFlightMix();
-            PlaySound(deathClip);
+            if (!IsBot) Hotdrop.Core.GameAudio.ClearFlightMix();
+            // The local human hears only the gentle own-death drone; bots keep the spatial death clip.
+            if (IsBot) PlaySound(deathClip);
+            else Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.OwnDeath);
             Deaths++;
             LastKillerId = killerId;
             var killer = Find(killerId);
@@ -797,12 +863,14 @@ namespace Hotdrop.Player
             charController.enabled = true;
 
             healthController.ResetForRespawn();
+            tookDamageThisLife = false;
             movementSim.Reset();
             weaponState.Equip(currentWeapon); // full magazine; the weapon may have changed while down
             OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
             OnHealthChanged?.Invoke(1f);
 
             if (bodyMesh != null) bodyMesh.SetActive(true);
+            AvatarRigVisual.SetPersistentDamage(bodyMesh, false);
             isSpawnProtected = true;
             spawnProtectionRemaining = movementConfig.respawnProtectionSeconds;
 
@@ -859,7 +927,7 @@ namespace Hotdrop.Player
 
         void SpawnPadVisual(LaunchPad pad)
         {
-            // Graybox disc until the single pad mesh (spec 15 asset budget) exists.
+            // Primitive supplies the existing gameplay collider; Initialize replaces only its render mesh.
             GameObject padObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             padObj.transform.position = pad.Position;
             padObj.transform.rotation = Quaternion.LookRotation(pad.ForwardDirection);
@@ -875,7 +943,7 @@ namespace Hotdrop.Player
             if (playerCamera == null || Hotdrop.UI.PingSystem.Instance == null) return;
             Ray ray = playerCamera.GetComponent<UnityEngine.Camera>().ScreenPointToRay(screenPos);
             if (!Hotdrop.UI.PingSystem.Instance.RequestPing(this, ray))
-                Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.UiTap, 0.4f); // rate-limited
+                Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.UiNegative, 0.4f); // rate-limited
         }
 
         void UpdateWeaponVisual()
@@ -887,6 +955,12 @@ namespace Hotdrop.Player
                     weaponMeshes[i].SetActive(i == currentWeaponIndex);
                 }
             }
+            // The skinned operator carries the equipped weapon's model in hand.
+            if (currentWeapon != null && bodyMesh != null)
+            {
+                var held = bodyMesh.GetComponentInChildren<OperatorWeaponFollow>(true);
+                if (held != null) held.SetWeapon(currentWeapon.id.ToString().ToUpperInvariant());
+            }
         }
 
         void SetTeamMaterial(int team)
@@ -895,7 +969,7 @@ namespace Hotdrop.Player
             if (bodyRenderer != null)
             {
                 var material = friendly ? friendlyMaterial : enemyMaterial;
-                if (material != null) bodyRenderer.sharedMaterial = material;
+                if (material != null) bodyRenderer.sharedMaterial = AvatarRigVisual.WithRim(material);
                 else bodyRenderer.material.color = friendly
                     ? new Color(0.188f, 0.835f, 0.91f) : new Color(1f, 0.388f, 0.463f);
             }
@@ -944,7 +1018,10 @@ namespace Hotdrop.Player
 
         void PlayWeaponFireSound()
         {
-            PlaySound(Hotdrop.Core.OriginalGameAudio.Get((Hotdrop.Core.GameCue)currentWeaponIndex), 0.85f);
+            var cue = (Hotdrop.Core.GameCue)currentWeaponIndex;
+            // Keep offline weapon reports on the same spatial, layered mixer as
+            // networked shots so both paths include mechanism and environment tail.
+            Hotdrop.Core.GameAudio.Play(cue, muzzleTransform.position, 0.85f);
         }
 
         public void SetAimAssistEnabled(bool enabled)
@@ -965,6 +1042,7 @@ namespace Hotdrop.Player
         {
             CancelInvoke(nameof(Respawn)); // a death in an earlier phase must not warp this player later
             healthController.ResetForRespawn();
+            tookDamageThisLife = false;
             movementSim.Reset();
             padManager.ResetForMatchStart();
             hadPadCharge = true;
@@ -972,6 +1050,7 @@ namespace Hotdrop.Player
             isSpawnProtected = false;
             if (!charController.enabled) charController.enabled = true;
             if (bodyMesh != null) bodyMesh.SetActive(true);
+            AvatarRigVisual.SetPersistentDamage(bodyMesh, false);
             OnHealthChanged?.Invoke(1f);
             OnAmmoChanged?.Invoke(weaponState.Ammo, currentWeapon.magazineSize);
         }

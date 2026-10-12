@@ -18,4 +18,6 @@ When inventory loads but the profile request fails, the locker stays usable with
 ## Unmet
 
 - Confirm the fallback disclosure and layout in Unity across 16:9 and 20:9 and A/B/C profiles.
-- Localization remains an A7 prerequisite because Unity Localization is not configured.
+- Appearance load-state copy is now routed through the configured A7 lookup;
+  translated locale and device review remain open in
+  `docs/acceptance/A7_LOCALIZATION_PRODUCT_SCREENS.md`.

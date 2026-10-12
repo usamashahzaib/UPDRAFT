@@ -125,12 +125,15 @@ namespace Hotdrop.Tests
             Assert.AreEqual(3, m.exitsPerSpawn);
             Assert.AreEqual(3f, m.platformHeight);
             Assert.AreEqual(new Vector2(10, 8), m.platformSize);
-            Assert.AreEqual(4, m.platformCenters.Length);
-            foreach (var c in m.platformCenters)
+            CollectionAssert.AreEqual(new[]
             {
-                Assert.AreEqual(20f, Mathf.Abs(c.x));
-                Assert.AreEqual(14f, Mathf.Abs(c.z));
-            }
+                new Vector3(20f, 3f, 14f), new Vector3(-20f, 3f, 14f),
+                new Vector3(20f, 3f, -14f), new Vector3(-20f, 3f, -14f),
+                new Vector3(34f, 3f, 26f), new Vector3(-34f, 3f, 26f),
+                new Vector3(36f, 3f, 12f), new Vector3(-36f, 3f, 12f),
+                new Vector3(34f, 3f, -26f), new Vector3(-34f, 3f, -26f),
+                new Vector3(36f, 3f, -12f), new Vector3(-36f, 3f, -12f),
+            }, m.platformCenters);
             Assert.AreEqual(20f, m.sightlineBlockerZ);
         }
 

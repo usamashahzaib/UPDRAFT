@@ -29,8 +29,10 @@ The v1.1 amendment defines three incompatible visual identities:
 **Owner direction: support A, B, and C.** They are selectable UI and Switchyard
 world-presentation profiles. The procedural arena changes material tints,
 ambient light, sun color/intensity, and sky color without changing gameplay
-geometry. Production meshes, textures, post-processing, and a maximum gore
-setting still need a world-art and rating plan.
+geometry. The owner-approved `07_WORLD_ART.md` authorizes authored world assets
+and tiered post-processing; Gate G art implementation and acceptance remain in
+progress. Blood/gore and any maximum gore setting remain separately gated by a
+reviewed rating decision.
 
 ## Decisions still needed for mechanics
 

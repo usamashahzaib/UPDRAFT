@@ -320,8 +320,9 @@ public class AnalyticsEndpointsTests : IClassFixture<HotdropWebApplicationFactor
     public async Task OutdatedClientProtocol_GetsUpdateRequired()
     {
         var client = _factory.CreateUnauthenticatedClient();
+        client.DefaultRequestHeaders.Remove("X-Client-Protocol");
         client.DefaultRequestHeaders.Add("X-Client-Protocol", "0");
-        var response = await client.GetAsync("/health/live");
+        var response = await client.GetAsync("/api/client/status");
         Assert.Equal((HttpStatusCode)426, response.StatusCode);
     }
 

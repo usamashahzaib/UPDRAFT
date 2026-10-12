@@ -15,6 +15,10 @@ namespace Hotdrop.Core
     /// </summary>
     public class OfflineHomeScreen : MonoBehaviour
     {
+        static string L(string key, string fallback) => UiDraw.L("home." + key, fallback);
+        static string F(string key, string fallback, params object[] args) => UiDraw.LFormat("home." + key, fallback, args);
+        static string RigName(BodyRig rig) => L(rig == BodyRig.Female ? "rig.femaleName" : "rig.maleName", rig == BodyRig.Female ? "FEMALE" : "MALE");
+
         const float CaptionDp = UIDesignTokens.CaptionDp;
         const float UiDp = UIDesignTokens.BodyLargeDp;
         const float TitleDp = UIDesignTokens.TitleMediumDp;
@@ -25,6 +29,7 @@ namespace Hotdrop.Core
         RawImage previewImage;
         RawImage rooftopBackdrop;
         RectTransform homeStrip;
+        RectTransform homeHeader, homeTagline;
         RectTransform goalBar;
         TextMeshProUGUI goalProgressLabel;
         HomeCharacterPreview preview;
@@ -32,17 +37,19 @@ namespace Hotdrop.Core
         GameObject rigChoicePanel;
         HomeCharacterPreview femaleChoicePreview, maleChoicePreview;
         BodyRig selectedRig;
+        bool rigChoiceInteracted;
         Button femaleChoice, maleChoice;
         RectTransform femaleCard, maleCard;
         Coroutine homeStatusPolling;
         RectTransform moreContent;
         TextMeshProUGUI moreStatus;
+        GameObject moreLinkReminder;
         bool moreLinkReminderAdded;
         int morePanelRevision;
         int identityRefreshRevision;
-        string displayedAlias = "GUEST", displayedLevel = "", displayedSeals = "", connectionState = "CHECKING";
+        string displayedAlias = L("guest", "Guest"), displayedLevel = "", displayedSeals = "", connectionState = L("status.checking", "Checking");
         string connectionDetail = "";
-        string defaultHomeNote = "All 3 weapons unlocked • Cosmetics never change power";
+        string defaultHomeNote = L("fairPlayNote", "All 3 weapons unlocked • Cosmetics never change power");
         const string AccountLinkReminderShownKey = "hotdrop.accountLinkReminderShown";
 
         public void Hide()
@@ -72,6 +79,7 @@ namespace Hotdrop.Core
         public void Show(GameBootstrap game)
         {
             this.game = game;
+            Hotdrop.Core.GameAudio.SetHubMusic(true);
             HideScreen(rigChoicePanel);
             DisposeChoicePreviews();
             if (panel != null)
@@ -89,6 +97,12 @@ namespace Hotdrop.Core
             StartHomeStatusPolling();
         }
 
+        public void OpenSupportReport(int participantSlot)
+        {
+            if (game == null || panel == null || participantSlot < 0) return;
+            PlayerProductScreens.OpenSupportReport(game, panel, participantSlot);
+        }
+
         void OnEnable() => StreamSafePresentation.Changed += RefreshStreamSafeStrip;
 
         void OnDisable()
@@ -97,7 +111,28 @@ namespace Hotdrop.Core
             StreamSafePresentation.Changed -= RefreshStreamSafeStrip;
         }
 
-        void RefreshStreamSafeStrip() => SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
+        void RefreshStreamSafeStrip()
+        {
+            SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
+            RefreshMoreAccountPrivacy();
+        }
+
+        void RefreshMoreAccountPrivacy()
+        {
+            if (moreLinkReminder != null)
+            {
+                bool showReminder = !StreamSafePresentation.Enabled;
+                moreLinkReminder.SetActive(showReminder);
+                if (moreStatus != null)
+                    moreStatus.text = showReminder
+                        ? L("more.linkReminder", "Link your guest account to recover progress after reinstall or on another phone.")
+                        : L("more.status", "Account, support and deletion stay reachable here.");
+            }
+            else if (!StreamSafePresentation.Enabled && morePanel != null && morePanel.activeInHierarchy && !moreLinkReminderAdded)
+            {
+                RefreshAccountLinkReminder(++morePanelRevision);
+            }
+        }
 
         void StartHomeStatusPolling()
         {
@@ -147,7 +182,7 @@ namespace Hotdrop.Core
             UiDraw.Fill(layer);
             layer.SetAsFirstSibling();
             UiDraw.Fill(UiDraw.Box(layer, "Base", UiDraw.Hex("#0b1322")).rectTransform);
-            var rooftop = Resources.Load<Texture2D>("HomeRooftop");
+            var rooftop = UiPresentationProfile.LoadRooftopArtwork();
             if (rooftop != null)
             {
                 rooftopBackdrop = UiDraw.Node(layer, "HomeRooftopBackdrop").gameObject.AddComponent<RawImage>();
@@ -174,12 +209,14 @@ namespace Hotdrop.Core
 
             // Tagline plate under the header.
             var tagline = UiDraw.Box(root, "Home_Tagline", Ink(.75f), 16f, UiDraw.Hex("#49627b", .4f));
-            var tag1 = UiDraw.Text(tagline.transform, "Tagline", "THREE PLAYERS. ONE TEAM. THREE MINUTES.", UiFont.HeadingMedium, CaptionDp,
+            var tag1 = UiDraw.Text(tagline.transform, "Tagline", L("tagline", "Three players. One team. Three minutes."), UiFont.HeadingMedium, CaptionDp,
                 UiDraw.Hex("#bbc6d8"), .05f, TextAlignmentOptions.Midline);
-            var tag2 = UiDraw.Text(tagline.transform, "TaglineSub", "Build shortcuts your enemies can steal.", UiFont.Body, CaptionDp,
-                UiDraw.Hex("#859396"), .025f, TextAlignmentOptions.Midline);
+            var tag2 = UiDraw.Text(tagline.transform, "TaglineSub", L("taglineSub", "Build shortcuts your enemies can steal."), UiFont.Body, CaptionDp,
+                UiDraw.Hex("#bbc6d8"), .025f, TextAlignmentOptions.Midline);
             float tagWidth = Mathf.Max(UiDraw.Width(tag1), UiDraw.Width(tag2)) + 40f + 2f;
-            UiDraw.Place(tagline.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -73f), new Vector2(tagWidth, 47f));
+            // Sits 8 px under the header, which grows on dense phones (see HeaderHeight).
+            UiDraw.Place(tagline.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -(HeaderHeight + 8f)), new Vector2(tagWidth, 47f));
+            homeTagline = tagline.rectTransform;
             UiDraw.Place(tag1.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -15f), new Vector2(tagWidth, 16f));
             UiDraw.Place(tag2.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -32.5f), new Vector2(tagWidth, 16f));
 
@@ -189,22 +226,32 @@ namespace Hotdrop.Core
             onlineStatus = fairPlayNote;
         }
 
+        // 65 px design header around 44 px chips/settings. On dense phones the 48 dp floor raises
+        // SETTINGS (and the dev-build logo tap) past that, so the header grows instead of pushing
+        // them over the top edge.
+        static float HeaderHeight => UiMetrics.BarHeight(65f, 44f);
+
         void BuildHomeHeader(RectTransform root)
         {
             var bar = UiDraw.Box(root, "Home_Header", UiDraw.Hex("#101827", .8f));
             var rect = bar.rectTransform;
             rect.anchorMin = new Vector2(0f, 1f); rect.anchorMax = Vector2.one; rect.pivot = new Vector2(.5f, 1f);
-            rect.sizeDelta = new Vector2(0f, 65f); rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(0f, HeaderHeight); rect.anchoredPosition = Vector2.zero;
+            homeHeader = rect;
             var rule = UiDraw.Box(rect, "Rule", UiDraw.Hex("#49627b", .3f)).rectTransform;
             rule.anchorMin = Vector2.zero; rule.anchorMax = new Vector2(1f, 0f); rule.pivot = new Vector2(.5f, 0f);
             rule.sizeDelta = new Vector2(0f, 1f); rule.anchoredPosition = Vector2.zero;
 
             var logo = UiDraw.Art(rect, "HomeLogo", "home_logo", Vector2.zero);
-            UiDraw.Place(logo.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(32f, -34f), new Vector2(160f, 32f));
+            // Header contents are centred (1.5 px low, as designed) so they follow the header when it grows.
+            UiDraw.Place(logo.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, -1.5f), new Vector2(160f, 32f));
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             // Facilitator-only study controls: five taps on the logo. Never a player-facing route.
-            logo.raycastTarget = true;
-            var titleTap = logo.gameObject.AddComponent<Button>();
+            // The tap target is an invisible child, so the 48 dp floor enlarges it, not the logo art.
+            var tapArea = UiDraw.Place(UiDraw.Node(logo.rectTransform, "StudyTap"), new Vector2(.5f, .5f), new Vector2(.5f, .5f),
+                Vector2.zero, new Vector2(160f, 32f));
+            tapArea.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+            var titleTap = tapArea.gameObject.AddComponent<Button>();
             titleTap.transition = Selectable.Transition.None;
             titleTap.onClick.AddListener(() =>
             {
@@ -214,19 +261,19 @@ namespace Hotdrop.Core
             });
 #endif
             chipRow = UiDraw.Node(rect, "Home_Strip");
-            UiDraw.Place(chipRow, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-32f, -34f), new Vector2(900f, 44f));
+            UiDraw.Place(chipRow, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, -1.5f), new Vector2(900f, 44f));
             homeStrip = chipRow;
 
             var chipFill = UiDraw.Hex("#1b2940", .9f);
             aliasChip = UiDraw.Box(chipRow, "IdentityChip", chipFill, 12f, UiDraw.Hex("#49627b", .4f)).rectTransform;
-            aliasText = UiDraw.Text(aliasChip, "Identity", "GUEST", UiFont.Heading, UiDp, Color.white, .025f);
+            aliasText = UiDraw.Text(aliasChip, "Identity", L("guest", "Guest"), UiFont.Heading, UiDp, Color.white, .025f);
             levelDot = UiDraw.Text(aliasChip, "Dot", "•", UiFont.Body, UiDp, UiDraw.Hex("#49627b"));
             levelText = UiDraw.Text(aliasChip, "Level", "", UiFont.MonoMedium, CaptionDp, UiDraw.Hex("#30d5e8"), .05f);
 
             sealsChip = UiDraw.Box(chipRow, "SealsChip", chipFill, 12f, UiDraw.Hex("#ffd166", .4f)).rectTransform;
             UiDraw.Icon(sealsChip, "SealIcon", "military_tech", 20f, UiDraw.Hex("#ffd166"));
             sealsCount = UiDraw.Text(sealsChip, "Seals", "", UiFont.Mono, UiDp, UiDraw.Hex("#ffd166"));
-            UiDraw.Text(sealsChip, "SealsCaption", "Flight Seals", UiFont.BodySemiBold, CaptionDp, UiDraw.Hex("#bbc6d8"));
+            UiDraw.Text(sealsChip, "SealsCaption", L("flightSeals", "Flight Seals"), UiFont.BodySemiBold, CaptionDp, UiDraw.Hex("#bbc6d8"));
 
             netChip = UiDraw.Box(chipRow, "NetworkChip", chipFill, 12f, UiDraw.Hex("#49627b", .4f)).rectTransform;
             netDot = UiDraw.Box(netChip, "NetDot", UiDraw.Hex("#30d5e8"), 4f);
@@ -292,7 +339,7 @@ namespace Hotdrop.Core
             UiDraw.Place(play.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(400f, 176f));
             HomeButton(play.rectTransform, PlayRelay);
             var p = play.rectTransform;
-            var chipLabel = UiDraw.Text(p, "Mode", "RELAY", UiFont.Mono, CaptionDp, UiDraw.Hex("#30d5e8"), .1f);
+            var chipLabel = UiDraw.Text(p, "Mode", L("relay", "Relay"), UiFont.Mono, CaptionDp, UiDraw.Hex("#30d5e8"), .1f);
             float chipW = 10f + 6f + 8f + UiDraw.Width(chipLabel) + 10f + 2f;
             var chip = UiDraw.Box(p, "ModeChip", UiDraw.Hex("#30d5e8", .2f), 4f, UiDraw.Hex("#30d5e8", .4f));
             UiDraw.Place(chip.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(22f, -32f), new Vector2(chipW, 22f));
@@ -300,21 +347,21 @@ namespace Hotdrop.Core
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(11f, 0f), new Vector2(6f, 6f));
             chipLabel.transform.SetParent(chip.transform, false);
             UiDraw.Place(chipLabel.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(25f, 0f), new Vector2(UiDraw.Width(chipLabel) + 2f, 16f));
-            var ready = UiDraw.Text(p, "Ready", "SOLO • READY", UiFont.Heading, CaptionDp, Color.white, .05f, TextAlignmentOptions.Midline);
+            var ready = UiDraw.Text(p, "Ready", L("soloReady", "SOLO • READY"), UiFont.Heading, CaptionDp, Color.white, .05f, TextAlignmentOptions.Midline);
             float readyW = UiDraw.Width(ready) + 20f + 2f;
             var pill = UiDraw.Box(p, "ReadyPill", UiDraw.Hex("#101827", .8f), 11f, UiDraw.Hex("#49627b", .5f));
             UiDraw.Place(pill.rectTransform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-22f, -32f), new Vector2(readyW, 22f));
             ready.transform.SetParent(pill.transform, false);
             UiDraw.Fill(ready.rectTransform);
-            UiDraw.Place(UiDraw.Text(p, "PlayTitle", "PLAY 3-MINUTE RELAY", UiFont.Heading, TitleDp, Color.white, -.025f).rectTransform,
+            UiDraw.Place(UiDraw.Text(p, "PlayTitle", L("playTitle", "Play 3-Minute Relay"), UiFont.Heading, TitleDp, Color.white, -.025f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(22f, -64.7f), new Vector2(356f, 32f));
-            UiDraw.Place(UiDraw.Text(p, "PlayDetail", "3v3 • One active objective • Zone rotates every 30 sec", UiFont.Body, CaptionDp, UiDraw.Hex("#bbc6d8")).rectTransform,
+            UiDraw.Place(UiDraw.Text(p, "PlayDetail", L("playDetail", "3v3 • One active objective • Zone rotates every 30 sec"), UiFont.Body, CaptionDp, UiDraw.Hex("#bbc6d8")).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(22f, -94f), new Vector2(356f, 20f));
             UiDraw.Place(UiDraw.Box(p, "CueRule", UiDraw.Hex("#49627b", .4f)).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(22f, -116.5f), new Vector2(356f, 1f));
             UiDraw.Place(UiDraw.Box(p, "CueDot", UiDraw.Hex("#30d5e8"), 4f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(22f, -140.7f), new Vector2(8f, 8f));
-            UiDraw.Place(UiDraw.Text(p, "PlayCue", "TOUCH TO START MATCH", UiFont.HeadingSemiBold, CaptionDp, UiDraw.Hex("#bbc6d8"), .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(p, "PlayCue", L("playCue", "Touch to Start Match"), UiFont.HeadingSemiBold, CaptionDp, UiDraw.Hex("#bbc6d8"), .05f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(38f, -140.7f), new Vector2(300f, 16f));
             UiDraw.Place(UiDraw.Icon(p, "PlayArrow", "arrow_forward", 18f, UiDraw.Hex("#30d5e8")).rectTransform,
                 new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-22f, -140.7f), new Vector2(18f, 18f));
@@ -324,9 +371,9 @@ namespace Hotdrop.Core
             UiDraw.Place(offline.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -190f), new Vector2(400f, 70f));
             HomeButton(offline.rectTransform, PlayOffline);
             var o = offline.rectTransform;
-            var offTitle = UiDraw.Text(o, "OfflineTitle", "PLAY OFFLINE", UiFont.Heading, UiDp, Color.white);
+            var offTitle = UiDraw.Text(o, "OfflineTitle", L("offlineTitle", "Play Offline"), UiFont.Heading, UiDp, Color.white);
             UiDraw.Place(offTitle.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(21f, -27f), new Vector2(UiDraw.Width(offTitle) + 2f, 24f));
-            var solo = UiDraw.Text(o, "SoloLabel", "SOLO", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8"), 0f, TextAlignmentOptions.Midline);
+            var solo = UiDraw.Text(o, "SoloLabel", L("solo", "Solo"), UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8"), 0f, TextAlignmentOptions.Midline);
             var soloBox = UiDraw.Box(o, "SoloChip", UiDraw.Hex("#101827"), 4f, UiDraw.Hex("#49627b", .3f));
             UiDraw.Place(soloBox.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(21f + UiDraw.Width(offTitle) + 8f, -27f),
                 new Vector2(UiDraw.Width(solo) + 14f, 19f));
@@ -336,7 +383,7 @@ namespace Hotdrop.Core
             var runtime = game != null ? game.GetComponent<OfflineChallengeRuntime>() : null;
             if (runtime?.Controller?.config?.entries != null && runtime.Controller.config.entries.Count > 0)
                 count = runtime.Controller.config.entries.Count;
-            UiDraw.Place(UiDraw.Text(o, "OfflineDetail", count + " Launch Challenges • Works without internet", UiFont.Body, CaptionDp, UiDraw.Hex("#bbc6d8")).rectTransform,
+            UiDraw.Place(UiDraw.Text(o, "OfflineDetail", F("offlineDetail", "{0} Launch Challenges • Works without internet", count), UiFont.Body, CaptionDp, UiDraw.Hex("#bbc6d8")).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(21f, -48.5f), new Vector2(320f, 16f));
             UiDraw.Place(UiDraw.Icon(o, "OfflineIcon", "sports_esports", 24f, UiDraw.Hex("#bbc6d8")).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-21f, 0f), new Vector2(24f, 24f));
@@ -350,7 +397,7 @@ namespace Hotdrop.Core
             const float pad = 21f;
             UiDraw.Place(UiDraw.Icon(g, "GoalFlag", "flag", 16f, UiDraw.Hex("#30d5e8")).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad, -32.7f), new Vector2(16f, 16f));
-            UiDraw.Place(UiDraw.Text(g, "GoalEyebrow", "NEXT GOAL", UiFont.Heading, CaptionDp, UiDraw.Hex("#30d5e8"), .1f).rectTransform,
+            UiDraw.Place(UiDraw.Text(g, "GoalEyebrow", L("nextGoal", "Next Goal"), UiFont.Heading, CaptionDp, UiDraw.Hex("#30d5e8"), .1f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad + 24f, -32.7f), new Vector2(220f, 16f));
             goalEyebrowChip = UiDraw.Text(g, "GoalContext", "", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8"), 0f, TextAlignmentOptions.Midline);
             var contextPlate = UiDraw.Box(g, "GoalContextPlate", UiDraw.Hex("#141c2b"), 4f, UiDraw.Hex("#49627b", .4f));
@@ -385,7 +432,7 @@ namespace Hotdrop.Core
             serviceStatusIcon = UiDraw.Icon(g, "ShieldIcon", "shield", 12f, UiDraw.Hex("#bbc6d8"));
             UiDraw.Place(serviceStatusIcon.rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad, -259f), new Vector2(12f, 12f));
-            fairPlayNote = UiDraw.Text(g, "FairPlayNote", "All 3 weapons unlocked • Cosmetics never change power", UiFont.Body, CaptionDp,
+            fairPlayNote = UiDraw.Text(g, "FairPlayNote", L("fairPlayNote", "All 3 weapons unlocked • Cosmetics never change power"), UiFont.Body, CaptionDp,
                 UiDraw.Hex("#bbc6d8", .9f));
             fairPlayNote.richText = false;
             fairPlayNote.enableAutoSizing = true;
@@ -416,9 +463,9 @@ namespace Hotdrop.Core
             var nav = UiDraw.Place(UiDraw.Node(f, "Home_Nav"), new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -9f), new Vector2(600f, 48f));
             var items = new (string name, string caption, string icon, float minWidth, Color iconColor, UnityEngine.Events.UnityAction action)[]
             {
-                ("PARTY", "Party", "group", 130f, UiDraw.Hex("#30d5e8"), () => PlayerProductScreens.Open(game, panel, "Party")),
-                ("APPEARANCE", "Appearance", "checkroom", 140f, UiDraw.Hex("#bbc6d8"), () => PlayerProductScreens.Open(game, panel, "Appearance")),
-                ("MORE", "More", "more_horiz", 120f, UiDraw.Hex("#bbc6d8"), ToggleMore),
+                ("PARTY", L("nav.party", "Party"), "group", 130f, UiDraw.Hex("#30d5e8"), () => PlayerProductScreens.Open(game, panel, "Party")),
+                ("APPEARANCE", L("nav.appearance", "Appearance"), "checkroom", 140f, UiDraw.Hex("#bbc6d8"), () => PlayerProductScreens.Open(game, panel, "Appearance")),
+                ("MORE", L("nav.more", "More"), "more_horiz", 120f, UiDraw.Hex("#bbc6d8"), ToggleMore),
             };
             var widths = new float[items.Length];
             var labels = new TextMeshProUGUI[items.Length];
@@ -458,6 +505,17 @@ namespace Hotdrop.Core
         void LateUpdate()
         {
             if (rooftopBackdrop != null && rooftopBackdrop.gameObject.activeInHierarchy) FitBackdrop();
+            FitHeader();
+        }
+
+        /// <summary>Home is built once and reused; re-fit the header when the display density changes.</summary>
+        void FitHeader()
+        {
+            if (homeHeader == null || !homeHeader.gameObject.activeInHierarchy) return;
+            float height = HeaderHeight;
+            if (Mathf.Abs(homeHeader.sizeDelta.y - height) < .5f) return;
+            homeHeader.sizeDelta = new Vector2(homeHeader.sizeDelta.x, height);
+            if (homeTagline != null) homeTagline.anchoredPosition = new Vector2(homeTagline.anchoredPosition.x, -(height + 8f));
         }
 
         void FitBackdrop()
@@ -507,7 +565,7 @@ namespace Hotdrop.Core
         void Refresh()
         {
             if (characterLabel != null)
-                characterLabel.text = BodyRigs.DisplayName(BodyRigStore.Current).ToUpperInvariant() + " RUNNER";
+                characterLabel.text = F("runner.nameTemplate", "{0} Runner", RigName(BodyRigStore.Current));
             if (goalText != null)
             {
                 string line = GoalLine();
@@ -517,7 +575,7 @@ namespace Hotdrop.Core
             }
             if (onlineStatus != null)
             {
-                defaultHomeNote = OnlineHooks.UnavailableReason?.Invoke() ?? "All 3 weapons unlocked • Cosmetics never change power";
+                defaultHomeNote = OnlineHooks.UnavailableReason?.Invoke() ?? L("fairPlayNote", "All 3 weapons unlocked • Cosmetics never change power");
                 onlineStatus.text = defaultHomeNote;
             }
             RefreshGoalProgress();
@@ -546,20 +604,20 @@ namespace Hotdrop.Core
             {
                 // Training not finished, or no library yet: the route shown honestly, not "100%".
                 fraction = 0f;
-                SetGoalContext("TRAINING");
-                goalProgressName.text = "Guided Training";
-                goalProgressLabel.text = UiPresentationProfile.NormalizeRichText("0 / 1 <color=#bbc6d8>(0%)</color>");
-                rewardEyebrow.text = "UNLOCKS";
-                rewardText.text = "Launch Challenges (offline)";
+                SetGoalContext(L("goal.context.training", "Training"));
+                goalProgressName.text = L("goal.guidedTraining", "Guided Training");
+                goalProgressLabel.text = F("goal.progress", "{0} / {1} <color=#bbc6d8>({2}%)</color>", 0, 1, 0);
+                rewardEyebrow.text = L("goal.unlocks", "Unlocks");
+                rewardText.text = L("goal.launchChallenges", "Launch Challenges (offline)");
             }
             else
             {
                 fraction = Mathf.Clamp01((float)done / total);
-                SetGoalContext("OFFLINE");
-                goalProgressName.text = "Challenge Progress";
-                goalProgressLabel.text = UiPresentationProfile.NormalizeRichText($"{done} / {total} <color=#bbc6d8>({Mathf.RoundToInt(fraction * 100f)}%)</color>");
-                rewardEyebrow.text = done >= total ? "ALL CLEARED" : "NEXT UP";
-                rewardText.text = done >= total ? "Beat your best times" : "Tap to start this challenge";
+                SetGoalContext(L("goal.context.offline", "Offline"));
+                goalProgressName.text = L("goal.challengeProgress", "Challenge Progress");
+                goalProgressLabel.text = F("goal.progress", "{0} / {1} <color=#bbc6d8>({2}%)</color>", done, total, Mathf.RoundToInt(fraction * 100f));
+                rewardEyebrow.text = done >= total ? L("goal.allCleared", "All Cleared") : L("goal.nextUp", "Next Up");
+                rewardText.text = done >= total ? L("goal.beatBestTimes", "Beat your best times") : L("goal.startChallenge", "Tap to start this challenge");
             }
             float width = ((RectTransform)goalBar).rect.width > 0f ? ((RectTransform)goalBar).rect.width : 338f;
             goalFill.rectTransform.sizeDelta = new Vector2(Mathf.Max(0f, (width - 4f) * fraction), -4f);
@@ -586,11 +644,13 @@ namespace Hotdrop.Core
             if (homeStrip == null) return;
             int revision = ++identityRefreshRevision;
             var client = BackendClient.Instance;
-            bool hasSession = client.HasSession;
-            displayedAlias = "GUEST";
+            bool hasSession = client.HasSession || client.HasSavedSession;
+            displayedAlias = hasSession
+                ? UiDraw.L("profile.identity.aliasSyncing", "Account Syncing")
+                : L("guest", "Guest");
             displayedLevel = displayedSeals = "";
             connectionDetail = "";
-            SetStrip(displayedAlias, displayedLevel, displayedSeals, "CHECKING");
+            SetStrip(displayedAlias, displayedLevel, displayedSeals, L("status.checking", "Checking"));
             var availability = await ReadConnectionStateAsync(client);
             connectionState = availability.state;
             connectionDetail = availability.detail;
@@ -600,10 +660,15 @@ namespace Hotdrop.Core
 
             var profile = await client.GetProfileAsync();
             if (this == null || revision != identityRefreshRevision || homeStrip == null) return;
+            if (profile.Ok && profile.Value != null)
+            {
+                await SyncBodyRigPreferenceAsync(client, profile.Value.bodyRigId);
+                if (this == null || revision != identityRefreshRevision || homeStrip == null) return;
+            }
             if (profile.Ok && profile.Value != null && !string.IsNullOrEmpty(profile.Value.alias))
             {
                 displayedAlias = profile.Value.alias;
-                displayedLevel = $"Level {Mathf.Clamp(profile.Value.level, 1, 20)}";
+                displayedLevel = F("identity.levelTemplate", "Level {0}", Mathf.Clamp(profile.Value.level, 1, 20));
                 SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
                 // Seals are permanent server-derived progress, so only ask when a goal exists.
                 if (ContractsMasteryFeature.Enabled)
@@ -617,6 +682,39 @@ namespace Hotdrop.Core
                     }
                 }
             }
+            else
+            {
+                displayedAlias = UiDraw.L("profile.identity.aliasUnavailable", "Account Unavailable");
+                displayedLevel = displayedSeals = "";
+                SetStrip(displayedAlias, displayedLevel, displayedSeals, connectionState);
+            }
+        }
+
+        async Task SyncBodyRigPreferenceAsync(BackendClient client, string accountRigId)
+        {
+            // The account is authoritative after a successful prior save. A local choice that
+            // has not reached the account wins until its retry succeeds, so an older profile
+            // response cannot undo the player's latest selection.
+            if (!BodyRigStore.SyncPending && BodyRigs.TryParse(accountRigId, out var accountRig))
+            {
+                ApplyAccountRigPreference(accountRig);
+                return;
+            }
+
+            var localRig = BodyRigStore.Current;
+            if (!BodyRigStore.SyncPending) BodyRigStore.Set(localRig);
+            var result = await client.EquipAsync(BodyRigs.Id(localRig));
+            if (result.Ok) BodyRigStore.MarkAccountSynced(localRig);
+            else Debug.LogWarning("HOTDROP account body-rig sync is pending; the local selection remains active.");
+        }
+
+        async void PersistChosenBodyRig(BodyRig rig)
+        {
+            var client = BackendClient.Instance;
+            if (!client.HasSession && !client.HasSavedSession) return;
+            var result = await client.EquipAsync(BodyRigs.Id(rig));
+            if (result.Ok) BodyRigStore.MarkAccountSynced(rig);
+            else Debug.LogWarning("HOTDROP account body-rig sync is pending; the local selection remains active.");
         }
 
         async Task<(string state, string detail)> ReadConnectionStateAsync(BackendClient client)
@@ -624,26 +722,26 @@ namespace Hotdrop.Core
             try
             {
                 var status = await client.ClientStatusAsync();
-                if (status.Error == BackendError.UpdateRequired) return ("UPDATE REQUIRED", "A newer version is required for online play.");
+                if (status.Error == BackendError.UpdateRequired) return (L("status.updateRequired", "Update Required"), L("status.updateRequiredDetail", "A newer version is required for online play."));
                 if (!status.Ok || status.Value == null)
                     return (status.Error == BackendError.NoInternet || status.Error == BackendError.NotConfigured
-                        ? "OFFLINE" : "SERVER UNAVAILABLE", "");
+                        ? L("status.offline", "Offline") : L("status.serverUnavailable", "Server Unavailable"), "");
                 switch (status.Value.state)
                 {
                     case "maintenance":
-                        return ("MAINTENANCE", FormatHomeStatusDetail(status.Value.message, status.Value.etaUtc));
+                        return (L("status.maintenance", "Maintenance"), FormatHomeStatusDetail(status.Value.message, status.Value.etaUtc));
                     case "queue_paused":
-                        return ("QUEUE PAUSED", FormatHomeStatusDetail(status.Value.message, null));
+                        return (L("status.queuePaused", "Queue Paused"), FormatHomeStatusDetail(status.Value.message, null));
                     case "available":
-                        return ("ONLINE", "");
+                        return (L("status.online", "Online"), "");
                     default:
-                        return ("SERVER STATUS UNKNOWN", "");
+                        return (L("status.unknown", "Server Status Unknown"), "");
                 }
             }
             catch (System.Exception exception)
             {
                 Debug.LogWarning($"Home server status check failed: {exception.Message}");
-                return ("SERVER UNAVAILABLE", "");
+                return (L("status.serverUnavailable", "Server Unavailable"), "");
             }
         }
 
@@ -653,8 +751,8 @@ namespace Hotdrop.Core
             // disabled on the label. Preserve a compact ETA on its own line when one is supplied.
             string cleanMessage = CleanStatusText(message, 110);
             string cleanEta = CleanStatusText(etaUtc, 48);
-            if (string.IsNullOrEmpty(cleanMessage)) cleanMessage = "Online matchmaking is temporarily unavailable.";
-            return string.IsNullOrEmpty(cleanEta) ? cleanMessage : cleanMessage + "\nETA: " + cleanEta + " UTC";
+            if (string.IsNullOrEmpty(cleanMessage)) cleanMessage = L("status.matchmakingUnavailable", "Online matchmaking is temporarily unavailable.");
+            return string.IsNullOrEmpty(cleanEta) ? cleanMessage : F("status.etaTemplate", "{0}\nETA: {1} UTC", cleanMessage, cleanEta);
         }
 
         static string CleanStatusText(string value, int maxLength)
@@ -696,13 +794,13 @@ namespace Hotdrop.Core
             aliasText.text = StreamSafePresentation.AccountAlias(alias);
             levelText.text = StreamSafePresentation.AccountProgress(level);
             sealsCount.text = StreamSafePresentation.AccountProgress(seals);
-            netText.text = string.IsNullOrEmpty(state) ? "OFFLINE" : state;
+            netText.text = string.IsNullOrEmpty(state) ? L("status.offline", "Offline") : state;
             bool hasServiceDetail = !string.IsNullOrWhiteSpace(connectionDetail);
             onlineStatus.text = hasServiceDetail ? connectionDetail : defaultHomeNote;
             serviceStatusIcon.gameObject.SetActive(!hasServiceDetail);
             onlineStatus.color = hasServiceDetail ? UiDraw.Hex("#ffda88") : UiDraw.Hex("#bbc6d8", .9f);
-            netDot.color = state == "ONLINE" ? UiDraw.Hex("#30d5e8")
-                : state == "MAINTENANCE" || state == "QUEUE PAUSED" ? UiDraw.Hex("#ffda88") : UIDesignTokens.SignalWarning;
+            netDot.color = state == L("status.online", "Online") ? UiDraw.Hex("#30d5e8")
+                : state == L("status.maintenance", "Maintenance") || state == L("status.queuePaused", "Queue Paused") ? UiDraw.Hex("#ffda88") : UIDesignTokens.SignalWarning;
             LayoutChips();
         }
 
@@ -762,48 +860,50 @@ namespace Hotdrop.Core
                     morePanel.SetActive(true);
                     UiScreenEnterMotion.Reopen(morePanel);
                     morePanel.transform.SetAsLastSibling();
+                    RefreshMoreAccountPrivacy();
                     RefreshAccountLinkReminder(++morePanelRevision);
                 }
                 return;
             }
-            var screen = Hotdrop.UI.MenuLayout.Create(panel.transform, "More", "MORE", () => HideScreen(morePanel));
+            var screen = Hotdrop.UI.MenuLayout.Create(panel.transform, "More", L("moreTitle", "More"), () => HideScreen(morePanel));
             morePanel = screen.Root;
             moreContent = screen.Content;
             moreStatus = screen.Status;
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "PROFILE", () => PlayerProductScreens.Open(game, panel, "Profile"), "PROFILE");
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "ONLINE RELAY", PlayOnline, "ONLINE RELAY");
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "TRAINING", () => { Hide(); game.StartTutorial(); }, "TRAINING");
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "SETTINGS", () => game.GetComponent<OfflinePauseMenu>().OpenSettings(), "SETTINGS");
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "ACCOUNT", () => PlayerProductScreens.Open(game, panel, "Account"), "ACCOUNT");
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "SUPPORT / REPORT", () => PlayerProductScreens.Open(game, panel, "Support"), "SUPPORT");
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "CONTRACTS", () => PlayerProductScreens.Open(game, panel, "Contracts"), "CONTRACTS");
-            Hotdrop.UI.MenuLayout.AddButton(screen.Content, "MASTERY", () => PlayerProductScreens.Open(game, panel, "Mastery"), "MASTERY");
-            screen.Status.text = "Account, support and deletion stay reachable here.";
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.profile", "Profile"), () => PlayerProductScreens.Open(game, panel, "Profile"), "PROFILE");
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.onlineRelay", "Online Relay"), PlayOnline, "ONLINE RELAY");
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.training", "Training"), () => { Hide(); game.StartTutorial(); }, "TRAINING");
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.settings", "Settings"), () => game.GetComponent<OfflinePauseMenu>().OpenSettings(), "SETTINGS");
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.account", "Account"), () => PlayerProductScreens.Open(game, panel, "Account"), "ACCOUNT");
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.support", "Support / Report"), () => PlayerProductScreens.Open(game, panel, "Support"), "SUPPORT");
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.contracts", "Contracts"), () => PlayerProductScreens.Open(game, panel, "Contracts"), "CONTRACTS");
+            Hotdrop.UI.MenuLayout.AddButton(screen.Content, L("more.mastery", "Mastery"), () => PlayerProductScreens.Open(game, panel, "Mastery"), "MASTERY");
+            screen.Status.text = L("more.status", "Account, support and deletion stay reachable here.");
             RefreshAccountLinkReminder(++morePanelRevision);
         }
 
         async void RefreshAccountLinkReminder(int revision)
         {
-            if (morePanel == null || moreContent == null || !morePanel.activeInHierarchy || moreLinkReminderAdded ||
+            if (StreamSafePresentation.Enabled || morePanel == null || moreContent == null || !morePanel.activeInHierarchy || moreLinkReminderAdded ||
                 PlayerPrefs.GetInt(AccountLinkReminderShownKey, 0) != 0 || !PlatformIdentity.Available)
                 return;
             var profile = await BackendClient.Instance.GetProfileAsync();
             if (this == null || revision != morePanelRevision || morePanel == null || !morePanel.activeInHierarchy ||
-                moreLinkReminderAdded || PlayerPrefs.GetInt(AccountLinkReminderShownKey, 0) != 0)
+                moreLinkReminderAdded || StreamSafePresentation.Enabled || PlayerPrefs.GetInt(AccountLinkReminderShownKey, 0) != 0)
                 return;
             if (!profile.Ok || profile.Value == null)
             {
                 if (moreStatus != null)
-                    moreStatus.text = "Account level could not be checked. Reopen More when online to retry the account-link reminder.";
+                    moreStatus.text = L("more.accountLevelUnavailable", "Account level could not be checked. Reopen More when online to retry the account-link reminder.");
                 return;
             }
             if (!profile.Value.isGuest || profile.Value.level < 5) return;
 
-            var reminder = Hotdrop.UI.MenuLayout.AddButton(moreContent, "LINK ACCOUNT", () =>
+            var reminder = Hotdrop.UI.MenuLayout.AddButton(moreContent, L("more.linkAccount", "Link Account"), () =>
                 PlayerProductScreens.Open(game, panel, "Account"), "ACCOUNT_LINK_REMINDER");
+            moreLinkReminder = reminder.gameObject;
             reminder.transform.SetSiblingIndex(0);
             if (moreStatus != null)
-                moreStatus.text = "Link your guest account to recover progress after reinstall or on another phone.";
+                moreStatus.text = L("more.linkReminder", "Link your guest account to recover progress after reinstall or on another phone.");
             moreLinkReminderAdded = true;
             PlayerPrefs.SetInt(AccountLinkReminderShownKey, 1);
             PlayerPrefs.Save();
@@ -848,9 +948,10 @@ namespace Hotdrop.Core
                 return;
             }
             var parent = panel != null ? panel.transform : game.matchHUD.transform;
-            var screen = Hotdrop.UI.MenuLayout.Create(parent, "RigChoice", firstRun ? "CHOOSE YOUR LOOK" : "CHANGE YOUR LOOK", null);
+            var screen = Hotdrop.UI.MenuLayout.Create(parent, "RigChoice", firstRun ? L("rig.firstRunTitle", "Choose Your Look") : L("rig.changeTitle", "Change Your Look"), null);
             rigChoicePanel = screen.Root;
             selectedRig = BodyRigStore.Current;
+            rigChoiceInteracted = false;
             faceFraming = false;
             screen.Root.transform.Find("Nav_Bar").gameObject.SetActive(false);
             screen.Content.parent.parent.gameObject.SetActive(false);
@@ -862,14 +963,14 @@ namespace Hotdrop.Core
                 false, 192f);
 
             // Header: title + starter chip, the equal-hitbox guarantee, framing toggle.
-            var title = UiDraw.Text(root, "Title", firstRun ? "CHOOSE YOUR LOOK" : "CHANGE YOUR LOOK", UiFont.Heading, TitleDp,
+            var title = UiDraw.Text(root, "Title", firstRun ? L("rig.firstRunTitle", "Choose Your Look") : L("rig.changeTitle", "Change Your Look"), UiFont.Heading, TitleDp,
                 Color.white, -.025f);
             float titleWidth = UiDraw.Width(title);
             UiDraw.Place(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(RigSide, -RigEdge - 16f), new Vector2(titleWidth + 4f, 32f));
             if (firstRun)
             {
                 // The chip marks these as the provided starter looks, which is only true on first run.
-                var chipText = UiDraw.Text(root, "StarterOutfitLabel", "STARTER OUTFIT", UiFont.Mono, CaptionDp, UiDraw.Hex("#30d5e8"), .05f,
+                var chipText = UiDraw.Text(root, "StarterOutfitLabel", L("rig.starterOutfit", "Starter Outfit"), UiFont.Mono, CaptionDp, UiDraw.Hex("#30d5e8"), .05f,
                     TextAlignmentOptions.Midline);
                 float chipWidth = UiDraw.Width(chipText) + 22f;
                 var chip = UiDraw.Box(root, "StarterOutfitChip", UiDraw.Hex("#1b2940"), 4f, UiDraw.Hex("#49627b", .4f));
@@ -879,7 +980,7 @@ namespace Hotdrop.Core
             }
             UiDraw.Place(UiDraw.Icon(root, "VerifiedIcon", "verified", 14f, UiDraw.Hex("#30d5e8")).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(RigSide, -RigEdge - 42f), new Vector2(14f, 14f));
-            var note = UiDraw.Text(root, "RigNote", "Appearance only. Same movement, abilities, animations, and hitbox.", UiFont.Body, CaptionDp,
+            var note = UiDraw.Text(root, "RigNote", L("rig.note", "Appearance only. Same movement, abilities, animations, and hitbox."), UiFont.Body, CaptionDp,
                 UiDraw.Hex("#bbc6d8"));
             UiDraw.Place(note.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(RigSide + 20f, -RigEdge - 42f), new Vector2(560f, 16f));
             BuildFramingToggle(root);
@@ -887,8 +988,8 @@ namespace Hotdrop.Core
             // Two equal cards, 440 x 480, 40 apart, centred between header and footer.
             // Presentation 01 is the ready-to-play default, so it sits first and starts selected.
             var second = BodyRigs.Default == BodyRig.Male ? BodyRig.Female : BodyRig.Male;
-            AddRigOption(root, BodyRigs.Default, new Vector2(-240f, 5f), "BODY PRESENTATION 01");
-            AddRigOption(root, second, new Vector2(240f, 5f), "BODY PRESENTATION 02");
+            AddRigOption(root, BodyRigs.Default, new Vector2(-240f, 5f), RigName(BodyRigs.Default), mirrorVenue: false);
+            AddRigOption(root, second, new Vector2(240f, 5f), RigName(second), mirrorVenue: true);
 
             // Footer: reassurance note left, Decide Later + Continue right.
             var footer = UiDraw.Box(root, "RigFooter", UiDraw.Hex("#060e1d", .7f));
@@ -899,12 +1000,12 @@ namespace Hotdrop.Core
             UiDraw.Place(UiDraw.Icon(footerRect, "ShuffleIcon", "shuffle", 16f, UiDraw.Hex("#30d5e8")).rectTransform,
                 new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(RigSide, RigEdge + 24f), new Vector2(16f, 16f));
             var reassure = UiDraw.Text(footerRect, "Reassurance", firstRun
-                    ? "You can freely change your appearance anytime from <color=#f4f7fb><b>Appearance</b></color>."
-                    : "Applies to your next spawn in offline play.",
-                UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"));
+                    ? L("rig.firstRunReassurance", "You can freely change your appearance anytime from <color=#f4f7fb><b>Appearance</b></color>.")
+                    : L("rig.changeReassurance", "Applies to your next spawn in offline play."),
+                UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8"));
             UiDraw.Place(reassure.rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(RigSide + 24f, RigEdge + 24f), new Vector2(640f, 16f));
 
-            var continueText = UiDraw.Text(footerRect, "Caption", firstRun ? "CONTINUE" : "SAVE RUNNER", UiFont.Heading, UiDp,
+            var continueText = UiDraw.Text(footerRect, "Caption", firstRun ? L("rig.continue", "Continue") : L("rig.saveRunner", "Save Runner"), UiFont.Heading, UiDp,
                 UiDraw.Hex("#060e1d"), .05f, TextAlignmentOptions.MidlineLeft);
             float continueWidth = 40f + UiDraw.Width(continueText) + 8f + 16f + 40f;
             var continueButton = UiDraw.Tap(footerRect, "RigContinue", UiDraw.Hex("#30d5e8"), 12f, () => ChooseRig(selectedRig, firstRun));
@@ -918,10 +1019,10 @@ namespace Hotdrop.Core
             System.Action later = firstRun
                 ? (System.Action)(() => ChooseRig(BodyRigs.Default, true))
                 : () => { HideScreen(rigChoicePanel); DisposeChoicePreviews(); };
-            var laterText = UiDraw.Text(footerRect, "Caption", firstRun ? "DECIDE LATER" : "BACK", UiFont.Heading, CaptionDp,
+            var laterText = UiDraw.Text(footerRect, "Caption", firstRun ? L("rig.decideLater", "Decide Later") : L("rig.back", "Back"), UiFont.Heading, CaptionDp,
                 UiDraw.Hex("#bbc6d8"), .05f, TextAlignmentOptions.Midline);
             float laterWidth = 24f + UiDraw.Width(laterText) + 24f;
-            var laterButton = UiDraw.Tap(footerRect, firstRun ? "DECIDE LATER" : "BACK", new Color(0f, 0f, 0f, 0f), 12f, later);
+            var laterButton = UiDraw.Tap(footerRect, firstRun ? L("rig.decideLater", "Decide Later") : L("rig.back", "Back"), new Color(0f, 0f, 0f, 0f), 12f, later);
             UiDraw.Place((RectTransform)laterButton.transform, new Vector2(1f, 0f), new Vector2(1f, .5f),
                 new Vector2(-RigSide - continueWidth - 16f, RigEdge + 24f), new Vector2(laterWidth, 48f));
             laterText.transform.SetParent(laterButton.transform, false);
@@ -948,8 +1049,8 @@ namespace Hotdrop.Core
                 x += width + 8f;
                 return tab.GetComponent<Image>();
             }
-            fullBodyTab = Tab("FramingFullBody", "accessibility_new", "FULL BODY", false, out fullBodyText, out fullBodyIcon);
-            faceTab = Tab("FramingFace", "face", "FACE", true, out faceText, out faceIcon);
+            fullBodyTab = Tab("FramingFullBody", "accessibility_new", L("rig.fullBody", "Full Body"), false, out fullBodyText, out fullBodyIcon);
+            faceTab = Tab("FramingFace", "face", L("rig.face", "Face"), true, out faceText, out faceIcon);
             var divider = UiDraw.Box(rect, "Divider", UiDraw.Hex("#49627b", .4f));
             UiDraw.Place(divider.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(x + 4f, 0f), new Vector2(1f, 24f));
             x += 9f + 8f;
@@ -981,13 +1082,13 @@ namespace Hotdrop.Core
             var off = new Color(0f, 0f, 0f, 0f);
             fullBodyTab.color = faceFraming ? off : on;
             faceTab.color = faceFraming ? on : off;
-            fullBodyText.color = faceFraming ? UiDraw.Hex("#7f8ca3") : Color.white;
-            faceText.color = faceFraming ? Color.white : UiDraw.Hex("#7f8ca3");
-            fullBodyIcon.color = faceFraming ? UiDraw.Hex("#7f8ca3") : UiDraw.Hex("#30d5e8");
-            faceIcon.color = faceFraming ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#7f8ca3");
+            fullBodyText.color = faceFraming ? UiDraw.Hex("#bbc6d8") : Color.white;
+            faceText.color = faceFraming ? Color.white : UiDraw.Hex("#bbc6d8");
+            fullBodyIcon.color = faceFraming ? UiDraw.Hex("#bbc6d8") : UiDraw.Hex("#30d5e8");
+            faceIcon.color = faceFraming ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#bbc6d8");
         }
 
-        void AddRigOption(RectTransform parent, BodyRig rig, Vector2 centre, string caption)
+        void AddRigOption(RectTransform parent, BodyRig rig, Vector2 centre, string caption, bool mirrorVenue)
         {
             const float pad = 21f;
             var view = new RigCardView();
@@ -1020,12 +1121,12 @@ namespace Hotdrop.Core
             UiDraw.Fill(area, pad, artTop, pad, artBottom);
             view.venue = UiDraw.Node(area, "Rooftop").gameObject.AddComponent<RawImage>();
             UiDraw.Place(view.venue.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 10f), new Vector2(398f, 224f));
-            view.venue.texture = Resources.Load<Texture2D>("HomeRooftop");
-            view.venue.uvRect = caption.EndsWith("01") ? new Rect(0f, 0f, 1f, 1f) : new Rect(1f, 0f, -1f, 1f);
+            view.venue.texture = UiPresentationProfile.LoadRooftopArtwork();
+            view.venue.uvRect = mirrorVenue ? new Rect(1f, 0f, -1f, 1f) : new Rect(0f, 0f, 1f, 1f);
             view.venue.raycastTarget = false;
             view.runner = UiDraw.Node(area, "RunnerPreview").gameObject.AddComponent<RawImage>();
             // The runner stands on the rooftop inside the shot, at the scale the reference art shows.
-            UiDraw.Place(view.runner.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(caption.EndsWith("01") ? -8f : 8f, 0f), new Vector2(104f, 130f));
+            UiDraw.Place(view.runner.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(mirrorVenue ? 8f : -8f, 0f), new Vector2(104f, 130f));
             view.runner.raycastTarget = false;
             var rigPreview = new HomeCharacterPreview(rig: rig);
             view.runner.texture = rigPreview.Texture;
@@ -1034,11 +1135,11 @@ namespace Hotdrop.Core
             var hintRect = hint.rectTransform;
             hintRect.anchorMin = new Vector2(0f, 0f); hintRect.anchorMax = new Vector2(1f, 0f); hintRect.pivot = new Vector2(.5f, 0f);
             hintRect.offsetMin = new Vector2(32f, 8f); hintRect.offsetMax = new Vector2(-32f, 8f + 26.5f);
-            var hintText = UiDraw.Text(hint.transform, "Caption", "DRAG TO ROTATE", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), 0f,
+            var hintText = UiDraw.Text(hint.transform, "Caption", L("rig.dragRotate", "Drag to Rotate"), UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8"), 0f,
                 TextAlignmentOptions.MidlineLeft);
             float hintWidth = UiDraw.Width(hintText);
             UiDraw.Place(hintText.rectTransform, new Vector2(.5f, .5f), new Vector2(0f, .5f), new Vector2(-(hintWidth + 16f) / 2f + 16f, 0f), new Vector2(hintWidth + 2f, 16f));
-            UiDraw.Place(UiDraw.Icon(hint.transform, "Icon", "drag_pan", 12f, UiDraw.Hex("#7f8ca3")).rectTransform,
+            UiDraw.Place(UiDraw.Icon(hint.transform, "Icon", "drag_pan", 12f, UiDraw.Hex("#bbc6d8")).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(0f, .5f), new Vector2(-(hintWidth + 16f) / 2f, 0f), new Vector2(12f, 12f));
 
             // Footer row: equipment and the equal-hitbox fact.
@@ -1048,9 +1149,9 @@ namespace Hotdrop.Core
             var dot = UiDraw.Box(card, "EquipDot", UiDraw.Hex("#30d5e8"), 4f);
             UiDraw.Place(dot.rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(pad, pad + 8f), new Vector2(8f, 8f));
             view.art = dot;
-            UiDraw.Place(UiDraw.Text(card, "Equipment", "ARC Rifle (Equipped)", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8")).rectTransform,
+            UiDraw.Place(UiDraw.Text(card, "Equipment", L("rig.equipment", "ARC Rifle (Equipped)"), UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8")).rectTransform,
                 new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(pad + 14f, pad + 8f), new Vector2(200f, 16f));
-            UiDraw.Place(UiDraw.Text(card, "HitboxNote", "Standard Hitbox Footprint", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), 0f,
+            UiDraw.Place(UiDraw.Text(card, "HitboxNote", L("rig.hitboxNote", "Standard Hitbox Footprint"), UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), 0f,
                     TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, 0f), new Vector2(1f, .5f), new Vector2(-pad, pad + 8f), new Vector2(220f, 16f));
 
@@ -1063,7 +1164,7 @@ namespace Hotdrop.Core
             var choice = tap.GetComponent<Button>();
             choice.targetGraphic = tapImage;
             choice.transition = Selectable.Transition.None;
-            choice.onClick.AddListener(() => { selectedRig = rig; RefreshRigSelection(); });
+            choice.onClick.AddListener(() => { rigChoiceInteracted = true; selectedRig = rig; RefreshRigSelection(); });
             tap.GetComponent<HomePreviewDrag>().Preview = rigPreview;
             if (rig == BodyRig.Female) { femaleChoice = choice; femaleView = view; } else { maleChoice = choice; maleView = view; }
         }
@@ -1082,9 +1183,9 @@ namespace Hotdrop.Core
                 view.check.color = selected ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#49627b", .6f);
                 view.checkIcon.enabled = selected;
                 view.title.color = selected ? Color.white : UiDraw.Hex("#bbc6d8");
-                view.badge.text = selected ? "SELECTED" : "TAP TO SELECT";
+                view.badge.text = selected ? L("rig.selected", "Selected") : L("rig.tapToSelect", "Tap to Select");
                 view.badge.font = UIFonts.Get(selected ? UiFont.Mono : UiFont.MonoRegular);
-                view.badge.color = selected ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#7f8ca3");
+                view.badge.color = selected ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#bbc6d8");
                 var badgeRect = view.badge.rectTransform;
                 badgeRect.anchoredPosition = new Vector2(selected ? -21f - 8f : -21f, badgeRect.anchoredPosition.y);
                 float w = UiDraw.Width(view.badge) + 16f + 2f;
@@ -1094,6 +1195,19 @@ namespace Hotdrop.Core
                 view.venue.color = new Color(1f, 1f, 1f, selected ? 1f : .85f);
                 view.runner.color = new Color(1f, 1f, 1f, selected ? 1f : .85f);
             }
+        }
+
+        /// <summary>Hydrates account-owned appearance without replacing an explicit in-flight choice.</summary>
+        public bool ApplyAccountRigPreference(BodyRig rig)
+        {
+            if (BodyRigStore.SyncPending || (rigChoicePanel != null && rigChoiceInteracted)) return false;
+            BodyRigStore.ApplyAccountPreference(rig);
+            if (rigChoicePanel != null)
+            {
+                selectedRig = rig;
+                RefreshRigSelection();
+            }
+            return true;
         }
 
         void DisposeChoicePreviews()
@@ -1107,6 +1221,8 @@ namespace Hotdrop.Core
         void ChooseRig(BodyRig rig, bool firstRun)
         {
             BodyRigStore.Set(rig);
+            identityRefreshRevision++;
+            PersistChosenBodyRig(rig);
             HideScreen(rigChoicePanel);
             DisposeChoicePreviews();
             if (firstRun)
@@ -1139,16 +1255,16 @@ namespace Hotdrop.Core
         {
             if (studyPanel != null) { studyPanel.SetActive(!studyPanel.activeSelf); RefreshStudy(); return; }
             var root = panel;
-            var screen = Hotdrop.UI.MenuLayout.Create(root.transform, "StudyPanel", "PAD STUDY — FACILITATOR", () => studyPanel.SetActive(false));
+            var screen = Hotdrop.UI.MenuLayout.Create(root.transform, "StudyPanel", L("study.title", "Pad Study — Facilitator"), () => studyPanel.SetActive(false));
             studyPanel = screen.Root;
             var content = screen.Content;
             studyStatus = Hotdrop.UI.MenuLayout.AddText(content, "", 22, Hotdrop.UI.MatchHUD.MainText, "StudyStatus");
             var versions = Hotdrop.UI.MenuLayout.Row(content);
-            Hotdrop.UI.MenuLayout.AddButton(versions, "VERSION: WITH PADS", () => { StudySettings.SetCohort(StudySettings.PadsOn); RefreshStudy(); });
-            Hotdrop.UI.MenuLayout.AddButton(versions, "VERSION: WITHOUT PADS", () => { StudySettings.SetCohort(StudySettings.PadsOff); RefreshStudy(); });
-            Hotdrop.UI.MenuLayout.AddButton(content, "NORMAL PLAY (NOT STUDY)", () => { StudySettings.SetCohort("default"); RefreshStudy(); });
-            Hotdrop.UI.MenuLayout.AddButton(content, "TOGGLE INCENTIVIZED TESTER FLAG", () => { StudySettings.SetIncentivizedTester(!StudySettings.IncentivizedTester); RefreshStudy(); });
-            Hotdrop.UI.MenuLayout.AddButton(content, "NEW PARTICIPANT (REPLAY TUTORIAL)", () =>
+            Hotdrop.UI.MenuLayout.AddButton(versions, L("study.version.withPads", "Version: With Pads"), () => { StudySettings.SetCohort(StudySettings.PadsOn); RefreshStudy(); });
+            Hotdrop.UI.MenuLayout.AddButton(versions, L("study.version.withoutPads", "Version: Without Pads"), () => { StudySettings.SetCohort(StudySettings.PadsOff); RefreshStudy(); });
+            Hotdrop.UI.MenuLayout.AddButton(content, L("study.normalPlay", "Normal Play (Not Study)"), () => { StudySettings.SetCohort("default"); RefreshStudy(); });
+            Hotdrop.UI.MenuLayout.AddButton(content, L("study.toggleIncentivizedTester", "Toggle Incentivized Tester Flag"), () => { StudySettings.SetIncentivizedTester(!StudySettings.IncentivizedTester); RefreshStudy(); });
+            Hotdrop.UI.MenuLayout.AddButton(content, L("study.newParticipant", "New Participant (Replay Tutorial)"), () =>
             {
                 PlayerPrefs.DeleteKey(GameBootstrap.TutorialDoneKey);
                 Telemetry.Track("study_participant_started");
@@ -1157,16 +1273,22 @@ namespace Hotdrop.Core
                 game.touchInput.enabled = true;
                 game.StartTutorial();
             });
-            Hotdrop.UI.MenuLayout.AddText(content, "Collect data:  adb pull /sdcard/Android/data/" + Application.identifier + "/files/" + Telemetry.QueueFileName, 20, Hotdrop.UI.MatchHUD.SecondaryText);
-            screen.Status.text = "Never reward participants for choosing either version (spec section 25).";
+            Hotdrop.UI.MenuLayout.AddText(content, F("study.collectDataTemplate", "Collect data:  adb pull {0}", "/sdcard/Android/data/" + Application.identifier + "/files/" + Telemetry.QueueFileName), 20, Hotdrop.UI.MatchHUD.SecondaryText);
+            screen.Status.text = L("study.noRewardRule", "Never reward participants for choosing either version (spec section 25).");
             RefreshStudy();
         }
 
         void RefreshStudy()
         {
             if (studyStatus == null) return;
-            studyStatus.text = $"Cohort: {Telemetry.Cohort}   ·   Pads {(StudySettings.PadsEnabled ? "ON" : "OFF")}   ·   Incentivized: {(Telemetry.IncentivizedTester ? "YES" : "NO")}   ·   " +
-                               $"Queued events: {Telemetry.ReadQueued().Length}   ·   Tutorial will {(PlayerPrefs.GetInt(GameBootstrap.TutorialDoneKey, 0) == 0 ? "run" : "not run")} next launch";
+            bool tutorialWillRun = PlayerPrefs.GetInt(GameBootstrap.TutorialDoneKey, 0) == 0;
+            studyStatus.text = F("study.statusTemplate",
+                "Cohort: {0}   ·   Pads {1}   ·   Incentivized: {2}   ·   Queued events: {3}   ·   Tutorial will {4} next launch",
+                Telemetry.Cohort,
+                L(StudySettings.PadsEnabled ? "study.padsOn" : "study.padsOff", StudySettings.PadsEnabled ? "ON" : "OFF"),
+                L(Telemetry.IncentivizedTester ? "study.incentivized" : "study.notIncentivized", Telemetry.IncentivizedTester ? "YES" : "NO"),
+                Telemetry.ReadQueued().Length,
+                L(tutorialWillRun ? "study.tutorialWillRun" : "study.tutorialWillNotRun", tutorialWillRun ? "run" : "not run"));
         }
     }
 }

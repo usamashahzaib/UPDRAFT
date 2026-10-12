@@ -20,5 +20,5 @@ Support now distinguishes account loading from account-service failure, presents
 ## Unmet
 
 - Inspect the support screen, retry transition, report roster, deletion gate, and A/B/C contrast in Unity at 16:9 and 20:9.
-- Localization remains an A7 prerequisite because Unity Localization and translated font assets are not configured.
+- Unity Localization is configured and authored Support/account-recovery copy uses the `support.*` table lookups, as recorded in `A7_LOCALIZATION_SUPPORT.md`. The Unity Editor seed command has not populated all current entries in the checked-in English table; translated locales, Urdu/Devanagari fonts, and device acceptance remain open.
 - Offline and server-failure behavior still needs runtime/network acceptance.

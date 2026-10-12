@@ -73,11 +73,11 @@ namespace Hotdrop.UI
             var rule = UiDraw.Box(header, "Rule", UIDesignTokens.WithAlpha(Edge, .4f)).rectTransform;
             rule.anchorMin = Vector2.zero; rule.anchorMax = new Vector2(1f, 0f); rule.pivot = new Vector2(.5f, 0f); rule.sizeDelta = new Vector2(0f, 1f);
             UiDraw.Place(UiDraw.Dot(header, "Live", 10f, Cyan).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(10f, 10f));
-            var state = UiDraw.Text(header, "State", "RELAY MATCHMAKING", UiFont.Heading, SearchCaptionDp, Cyan, .05f);
+            var state = UiDraw.Text(header, "State", UiDraw.L("matchSearch.header.state", "Relay Matchmaking"), UiFont.Heading, SearchCaptionDp, Cyan, .05f);
             float sw = UiDraw.Width(state);
             UiDraw.Place(state.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(54f, 0f), new Vector2(sw + 2f, 16f));
             UiDraw.Place(UiDraw.Text(header, "Sep", "•", UiFont.Body, SearchCaptionDp, Edge).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(66f + sw, 0f), new Vector2(10f, 16f));
-            UiDraw.Place(UiDraw.Text(header, "Mode", "Switchyard 3v3 • Three Minute Round", UiFont.Body, SearchCaptionDp, Text2).rectTransform,
+            UiDraw.Place(UiDraw.Text(header, "Mode", UiDraw.L("matchSearch.header.mode", "Switchyard 3v3 • Three Minute Round"), UiFont.Body, SearchCaptionDp, Text2).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(84f + sw, 0f), new Vector2(320f, 16f));
             if (!string.IsNullOrWhiteSpace(region))
             {
@@ -104,23 +104,21 @@ namespace Hotdrop.UI
             sweep.gameObject.AddComponent<SpinUi>().degreesPerSecond = -120f;
             UiDraw.Place(UiDraw.Text(radar, "SearchTime", $"{elapsed / 60:00}:{elapsed % 60:00}", UiFont.Mono, SearchEmphasisDp, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 7f), new Vector2(160f, 36f));
-            UiDraw.Place(UiDraw.Text(radar, "SearchTimeCaption", "SEARCH TIME", UiFont.HeadingSemiBold, SearchCaptionDp, Muted, .05f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(radar, "SearchTimeCaption", UiDraw.L("matchSearch.radar.caption", "Search Time"), UiFont.HeadingSemiBold, SearchCaptionDp, Muted, .05f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -17f), new Vector2(160f, 14f));
-            UiDraw.Place(UiDraw.Text(stack, "SearchingTitle", "FINDING A RELAY MATCH", UiFont.Heading, SearchEmphasisDp, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
+            UiDraw.Place(UiDraw.Text(stack, "SearchingTitle", UiDraw.L("matchSearch.title", "Finding a Relay Match"), UiFont.Heading, SearchEmphasisDp, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -216f), new Vector2(576f, 32f));
-            var explain = UiDraw.Text(stack, "SearchExplanation", string.IsNullOrEmpty(region)
-                    ? "Finding 6 players for a fair 3v3 Relay match."
-                    : $"Finding 6 players in {region} for a fair, low-latency match.",
+            var explain = UiDraw.Text(stack, "SearchExplanation", ExplanationText(region),
                 UiFont.Body, SearchBodyDp, Text2, 0f, TextAlignmentOptions.Midline);
             explain.textWrappingMode = TextWrappingModes.Normal;
             UiDraw.Place(explain.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -258f), new Vector2(448f, 40f));
 
             var squad = UiDraw.Box(stack, "Squad", UIDesignTokens.WithAlpha(Panel, .9f), 12f, Edge);
             var sq = UiDraw.Place(squad.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -302f), new Vector2(576f, 116f));
-            UiDraw.Place(UiDraw.Text(sq, "SquadHeading", $"YOUR SQUAD ({memberCount}/3)", UiFont.Heading, SearchCaptionDp, Muted, .05f).rectTransform,
+            UiDraw.Place(UiDraw.Text(sq, "SquadHeading", string.Format(UiDraw.L("matchSearch.squad.headingTemplate", "Your Squad ({0}/3)"), memberCount), UiFont.Heading, SearchCaptionDp, Text2, .05f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(17f, -26f), new Vector2(240f, 16f));
             bool allReady = party?.members != null && Array.TrueForAll(party.members, m => m == null || m.isReady);
-            UiDraw.Place(UiDraw.Text(sq, "ReadyHeading", party == null ? "SOLO QUEUE" : allReady ? "ALL MEMBERS READY" : "PARTY SEARCH", UiFont.MonoMedium, SearchCaptionDp, Cyan, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
+            UiDraw.Place(UiDraw.Text(sq, "ReadyHeading", ReadyHeadingText(party, allReady), UiFont.MonoMedium, SearchCaptionDp, Cyan, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-17f, -26f), new Vector2(240f, 16f));
             UiDraw.HRule(sq, "Rule", UIDesignTokens.WithAlpha(Edge, .4f), 41f, 17f, 17f);
             float seatW = (576f - 34f - 24f) / 3f;
@@ -129,7 +127,7 @@ namespace Hotdrop.UI
                 var member = party?.members != null && i < party.members.Length ? party.members[i] : null;
                 bool self = member != null && string.Equals(member.playerId, playerId, StringComparison.OrdinalIgnoreCase);
                 bool solo = party == null && i == 0;
-                string alias = member?.alias ?? (solo ? "YOU" : "OPEN SEAT");
+                string alias = member?.alias ?? (solo ? UiDraw.L("matchSearch.seat.you", "You") : UiDraw.L("matchSearch.seat.openSeat", "Open Seat"));
                 bool filled = member != null || solo;
                 var seat = UiDraw.Box(sq, "Seat_" + i, Ink, 8f, i == 0 ? UIDesignTokens.WithAlpha(Cyan, .4f) : Edge);
                 UiDraw.Place(seat.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(17f + i * (seatW + 12f), -54f), new Vector2(seatW, 46f));
@@ -138,22 +136,24 @@ namespace Hotdrop.UI
                     UiFont.Heading, SearchBodyDp, filled ? Text1 : Muted);
                 name.overflowMode = TextOverflowModes.Ellipsis;
                 UiDraw.Place(name.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(25f, 7f), new Vector2(seatW - 34f, 16f));
-                UiDraw.Place(UiDraw.Text(seat.transform, "Status", self || solo ? (party != null && i == 0 ? "HOST" : "YOU") : member == null ? "WAITING" : member.isReady ? "READY" : "NOT READY",
-                        UiFont.MonoRegular, SearchCaptionDp, Muted).rectTransform,
+                UiDraw.Place(UiDraw.Text(seat.transform, "Status", SeatStatusText(member, self, solo, party != null && i == 0),
+                        UiFont.MonoRegular, SearchCaptionDp, Text2).rectTransform,
                     new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(25f, -9f), new Vector2(seatW - 34f, 14f));
             }
 
             float ax = 0f;
             var actions = UiDraw.Place(UiDraw.Node(stack, "Actions"), new Vector2(.5f, 1f), new Vector2(.5f, 1f), new Vector2(0f, -442f), new Vector2(576f, 48f));
-            float pw = practiceAvailable ? Measure("PRACTICE WHILE WAITING") : 0f, cw = Measure("CANCEL SEARCH");
+            string practiceCaption = UiDraw.L("matchSearch.action.practice", "Practice While Waiting");
+            string cancelCaption = UiDraw.L("matchSearch.action.cancel", "Cancel Search");
+            float pw = practiceAvailable ? Measure(practiceCaption) : 0f, cw = Measure(cancelCaption);
             float total = pw + cw + (practiceAvailable ? 16f : 0f);
             ax = -total / 2f;
             if (practiceAvailable)
             {
-                Action(actions, "PracticeWhileWaiting", "flight_takeoff", "PRACTICE WHILE WAITING", Panel, Edge, Text2, ax, pw, practice);
+                Action(actions, "PracticeWhileWaiting", "flight_takeoff", practiceCaption, Panel, Edge, Text2, ax, pw, practice);
                 ax += pw + 16f;
             }
-            Action(actions, "CancelSearch", "close", "CANCEL SEARCH", Panel, UIDesignTokens.WithAlpha(Edge, .5f), Text2, ax, cw, cancel);
+            Action(actions, "CancelSearch", "close", cancelCaption, Panel, UIDesignTokens.WithAlpha(Edge, .5f), Text2, ax, cw, cancel);
 
             // Footer: the fairness rule and the venue.
             var footer = UiDraw.Box(root, "Footer", UIDesignTokens.WithAlpha(Ink, .9f)).rectTransform;
@@ -161,10 +161,37 @@ namespace Hotdrop.UI
             footer.sizeDelta = new Vector2(0f, 42f); footer.anchoredPosition = Vector2.zero;
             UiDraw.HRule(footer, "Rule", UIDesignTokens.WithAlpha(Edge, .4f), 0f);
             UiDraw.Place(UiDraw.Icon(footer, "Info", "info", 14f, Cyan).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(14f, 14f));
-            UiDraw.Place(UiDraw.Text(footer, "Fairness", practiceAvailable ? "Honest latency matching active. Practice leaves the queue before starting." : "Honest latency matching active.",
-                    UiFont.Body, SearchCaptionDp, Muted).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(54f, 0f), new Vector2(600f, 16f));
-            UiDraw.Place(UiDraw.Text(footer, "Venue", "SWITCHYARD  ·  RELAY", UiFont.MonoRegular, SearchCaptionDp, Muted, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
+            UiDraw.Place(UiDraw.Text(footer, "Fairness", FairnessText(practiceAvailable),
+                    UiFont.Body, SearchCaptionDp, Text2).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(54f, 0f), new Vector2(600f, 16f));
+            UiDraw.Place(UiDraw.Text(footer, "Venue", UiDraw.L("matchSearch.footer.venue", "SWITCHYARD  ·  RELAY"), UiFont.MonoRegular, SearchCaptionDp, Muted, .05f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, 0f), new Vector2(300f, 16f));
+            LayoutFooterSafeArea(root);
+        }
+
+        static void LayoutFooterSafeArea(Transform root)
+        {
+            if (!(root is RectTransform rootRect)) return;
+            var footer = root.Find("Footer") as RectTransform;
+            if (footer == null) return;
+
+            // Search is hosted on the full-screen HUD canvas, so a bottom-anchored footer
+            // can sit under Android's gesture band or the iOS home indicator. Use the same
+            // canvas-space insets as the rest of the UI and keep the edge-anchored copy inside.
+            Rect content = SafeAreaRoot.ContentRectFor(rootRect.rect);
+            float left = Mathf.Max(0f, content.xMin + rootRect.rect.width * .5f);
+            float right = Mathf.Max(0f, rootRect.rect.width * .5f - content.xMax);
+            float bottom = Mathf.Max(0f, content.yMin + rootRect.rect.height * .5f);
+            footer.anchoredPosition = new Vector2(0f, bottom);
+
+            var icon = footer.Find("Info");
+            if (icon is RectTransform iconRect)
+                iconRect.anchoredPosition = new Vector2(32f + left, iconRect.anchoredPosition.y);
+            var fairness = footer.Find("Fairness");
+            if (fairness is RectTransform fairnessRect)
+                fairnessRect.anchoredPosition = new Vector2(54f + left, fairnessRect.anchoredPosition.y);
+            var venue = footer.Find("Venue");
+            if (venue is RectTransform venueRect)
+                venueRect.anchoredPosition = new Vector2(-32f - right, venueRect.anchoredPosition.y);
         }
 
         static void UpdateLiveSearch(Transform root, int elapsed, string region, PartyDto party, string playerId,
@@ -175,14 +202,12 @@ namespace Hotdrop.UI
             {
                 if (label.name == "SearchTime") label.text = $"{elapsed / 60:00}:{elapsed % 60:00}";
                 else if (label.name == "Region") label.text = region ?? "";
-                else if (label.name == "SearchExplanation") label.text = string.IsNullOrEmpty(region)
-                    ? "Finding 6 players for a fair 3v3 Relay match."
-                    : $"Finding 6 players in {region} for a fair, low-latency match.";
-                else if (label.name == "SquadHeading") label.text = $"YOUR SQUAD ({Mathf.Clamp(party?.members?.Length ?? 1, 1, 3)}/3)";
+                else if (label.name == "SearchExplanation") label.text = ExplanationText(region);
+                else if (label.name == "SquadHeading") label.text = string.Format(UiDraw.L("matchSearch.squad.headingTemplate", "Your Squad ({0}/3)"), Mathf.Clamp(party?.members?.Length ?? 1, 1, 3));
                 else if (label.name == "ReadyHeading")
                 {
                     bool allReady = party?.members != null && Array.TrueForAll(party.members, m => m == null || m.isReady);
-                    label.text = party == null ? "SOLO QUEUE" : allReady ? "ALL MEMBERS READY" : "PARTY SEARCH";
+                    label.text = ReadyHeadingText(party, allReady);
                 }
             }
 
@@ -198,17 +223,41 @@ namespace Hotdrop.UI
                 bool self = member != null && string.Equals(member.playerId, playerId, StringComparison.OrdinalIgnoreCase);
                 if (alias != null)
                 {
-                    alias.GetComponent<TextMeshProUGUI>().text = StreamSafePresentation.PlayerName(member?.alias ?? (solo ? "YOU" : "OPEN SEAT"), i);
+                    alias.GetComponent<TextMeshProUGUI>().text = StreamSafePresentation.PlayerName(member?.alias ??
+                        (solo ? UiDraw.L("matchSearch.seat.you", "You") : UiDraw.L("matchSearch.seat.openSeat", "Open Seat")), i);
                     alias.GetComponent<TextMeshProUGUI>().color = member != null || solo ? Text1 : Muted;
                 }
-                if (status != null) status.GetComponent<TextMeshProUGUI>().text = self || solo ? (party != null && i == 0 ? "HOST" : "YOU") : member == null ? "WAITING" : member.isReady ? "READY" : "NOT READY";
+                if (status != null)
+                {
+                    var statusLabel = status.GetComponent<TextMeshProUGUI>();
+                    statusLabel.text = SeatStatusText(member, self, solo, party != null && i == 0);
+                    statusLabel.color = Text2;
+                }
             }
 
             var practiceButton = root.Find("Stack/Actions/PracticeWhileWaiting")?.GetComponent<Button>();
             if (practiceButton != null) practiceButton.gameObject.SetActive(practiceAvailable);
             Rebind(root.Find("Stack/Actions/PracticeWhileWaiting")?.GetComponent<Button>(), practice);
             Rebind(root.Find("Stack/Actions/CancelSearch")?.GetComponent<Button>(), cancel);
+            LayoutFooterSafeArea(root);
         }
+
+        static string ExplanationText(string region) => string.IsNullOrEmpty(region)
+            ? UiDraw.L("matchSearch.explain.noRegion", "Finding 6 players for a fair 3v3 Relay match.")
+            : string.Format(UiDraw.L("matchSearch.explain.regionTemplate", "Finding 6 players in {0} for a fair, low-latency match."), region);
+
+        static string ReadyHeadingText(PartyDto party, bool allReady) => party == null
+            ? UiDraw.L("matchSearch.squad.solo", "Solo Queue")
+            : allReady ? UiDraw.L("matchSearch.squad.allReady", "All Members Ready") : UiDraw.L("matchSearch.squad.partySearch", "Party Search");
+
+        static string SeatStatusText(PartyMemberDto member, bool self, bool solo, bool isHostSeat) =>
+            self || solo ? (isHostSeat ? UiDraw.L("matchSearch.seat.host", "Host") : UiDraw.L("matchSearch.seat.you", "You"))
+            : member == null ? UiDraw.L("matchSearch.seat.waiting", "Waiting")
+            : member.isReady ? UiDraw.L("matchSearch.seat.ready", "Ready") : UiDraw.L("matchSearch.seat.notReady", "Not Ready");
+
+        static string FairnessText(bool practiceAvailable) => practiceAvailable
+            ? UiDraw.L("matchSearch.footer.fairnessWithPractice", "Honest latency matching active. Practice keeps your place in the queue.")
+            : UiDraw.L("matchSearch.footer.fairnessOnly", "Honest latency matching active.");
 
         static void Rebind(Button button, Action action)
         {

@@ -42,8 +42,37 @@ MonoBehaviour:
   countdownSeconds: 3
   loadTimeoutSeconds: 30
   respawnDelaySeconds: 4
+  musicPreUnlockSilenceSeconds: 1.5
+  musicRhythmStartSeconds: 20
+  musicLeadStartSeconds: 60
+  musicBaseTempoBpm: 120
+  musicEndgameTempoBonusBpm: 4
+  endgameHudTrimSeconds: 60
   botSubstitutionDelaySeconds: 5
   pingLifetimeSeconds: 8
   pingCooldownSeconds: 2
+  spatialAudioMinDistanceMeters: 3
+  weaponFullMixDistanceMeters: 15
+  weaponDistantReportDistanceMeters: 40
+  spatialAudioMaxDistanceMeters: 50
+  weaponMidDistanceLowPassHz: 1800
+  nearbyWeaponCaptionMeters: 10
+  cockpitCombatRangeMeters: 30
+  cockpitFadedOpacity: 0.15
+  cockpitFadeDurationSeconds: 0.2
+  rosterIdleFadeSeconds: 5
+  hitArcDurationSeconds: 0.8
+  hitArcMaxOpacity: 0.9
+  hitArcWidthDegrees: 50
+  lowHealthThresholdFraction: 0.3
+  lowHealthVignetteMaxOpacity: 0.55
+  lowHealthCueDurationSeconds: 1.2
+  lowHealthAudioRepeatIntervalSeconds: 1.2
+  lowHealthDesaturationAmount: 30
+  flightSpeedLinesMaxOpacity: 0.14
+  padLaunchFovKickDegrees: 2
+  padLaunchChromaticIntensity: 0.08
+  padLaunchChromaticDurationSeconds: 0.15
+  shakeMaxEventsPerSecond: 2
   minimumAimPointDistanceMeters: 0.5
   cameraAimRayDistanceMeters: 100

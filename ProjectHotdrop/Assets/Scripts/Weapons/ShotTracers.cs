@@ -15,7 +15,7 @@ namespace Hotdrop.Weapons
         static ShotTracers instance;
         LineRenderer[] lines;
         float[] expiresAt;
-        Material friendly, enemy;
+        Material friendly, enemy, beam;
         int next;
 
         static ShotTracers Instance
@@ -31,6 +31,9 @@ namespace Hotdrop.Weapons
         {
             friendly = Resources.Load<Material>("Materials/Friendly");
             enemy = Resources.Load<Material>("Materials/Enemy");
+            // Additive beam (07_WORLD_ART): team colour as vertex colour, HDR on rich tiers so
+            // bloom turns a shot into a streak of light. Falls back to the team materials.
+            beam = Resources.Load<Material>("Materials/VfxBeam");
             lines = new LineRenderer[PoolSize];
             expiresAt = new float[PoolSize];
             for (int i = 0; i < PoolSize; i++)
@@ -54,7 +57,16 @@ namespace Hotdrop.Weapons
             var line = self.lines[self.next];
             self.expiresAt[self.next] = Time.time + Lifetime;
             self.next = (self.next + 1) % PoolSize;
-            line.sharedMaterial = friendlyToViewer ? self.friendly : self.enemy;
+            if (self.beam != null)
+            {
+                var team = friendlyToViewer ? Hotdrop.UI.UIDesignTokens.Ally : Hotdrop.UI.UIDesignTokens.HazardCoral;
+                float glow = Hotdrop.Map.SwitchyardAtmosphere.Quality > 0 ? 3f : 1f;
+                line.sharedMaterial = self.beam;
+                line.startColor = new Color(team.r * glow, team.g * glow, team.b * glow, 1f);
+                line.endColor = new Color(team.r * glow, team.g * glow, team.b * glow, .35f);
+                line.startWidth = .06f; line.endWidth = .03f;
+            }
+            else line.sharedMaterial = friendlyToViewer ? self.friendly : self.enemy;
             // Start slightly ahead of the muzzle so the line never covers the shooter's own hands.
             line.SetPosition(0, Vector3.MoveTowards(from, to, 0.6f));
             line.SetPosition(1, to);

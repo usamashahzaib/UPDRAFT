@@ -27,7 +27,8 @@ namespace Hotdrop.UI
         // palette. Existing screens keep reading MenuLayout.Background / ButtonFill unchanged.
         public static Color Background => UIDesignTokens.Background;      // opaque: HUD must not show through
         public static Color ButtonFill => UIDesignTokens.SurfacePanel;
-        public const float TopBarHeight = 80f;
+        // BACK is exactly 48 dp; the 80 px bar grows only where 48 dp is taller, so BACK stays on screen.
+        public static float TopBarHeight => Mathf.Max(80f, UiMetrics.MinTouchUnits);
         public const float StatusHeight = 52f;
         public const float ContentMaxWidth = 1120f;
         public const float Spacing = 14f;
@@ -60,7 +61,7 @@ namespace Hotdrop.UI
             screen.Title.enableAutoSizing = true; screen.Title.fontSizeMin = UiMetrics.MinTextUnits; screen.Title.fontSizeMax = UiMetrics.TextSize(30);
             if (back != null)
             {
-                screen.Back = ButtonObject(bar.transform, "Nav_Back", "BACK", back);
+                screen.Back = ButtonObject(bar.transform, "Nav_Back", UiDraw.L("menu.nav.back", "Back"), back);
                 var backRt = screen.Back.GetComponent<RectTransform>();
                 backRt.anchorMin = backRt.anchorMax = new Vector2(0, 0.5f); backRt.pivot = new Vector2(0, 0.5f);
                 backRt.anchoredPosition = new Vector2(24, 0); backRt.sizeDelta = new Vector2(142, UiMetrics.MinTouchUnits);
@@ -103,6 +104,8 @@ namespace Hotdrop.UI
             scrollRect.horizontal = false; scrollRect.movementType = ScrollRect.MovementType.Clamped;
             scroll.AddComponent<ContentWidthFitter>().Bind(contentRt, scrollRt);
             screen.Content = contentRt;
+
+            root.AddComponent<MenuBarReflow>().Bind(barRt, screen.Back?.GetComponent<RectTransform>(), scrollRt);
             return screen;
         }
 
@@ -230,6 +233,37 @@ namespace Hotdrop.UI
             if (content == null || view == null) return;
             float width = Mathf.Min(MaxWidth, view.rect.width - 48f);
             if (Mathf.Abs(content.sizeDelta.x - width) > 0.5f) content.sizeDelta = new Vector2(width, content.sizeDelta.y);
+        }
+    }
+
+    /// <summary>
+    /// Every other generated menu re-fits its bars when display density changes; this one did
+    /// not, so BACK (and whatever the top bar grew to accommodate) could sit smaller than the
+    /// current 48 dp floor, or the scroll viewport could start under the bar, on a reused
+    /// <see cref="MenuLayout.Create"/> root whose density changed after it was first built
+    /// (Home's More/rig-choice/study panels, and the offline Challenge pause/result screens).
+    /// </summary>
+    sealed class MenuBarReflow : MonoBehaviour
+    {
+        RectTransform bar, back, scroll;
+        float lastBarHeight = -1f;
+
+        public void Bind(RectTransform bar, RectTransform back, RectTransform scroll)
+        {
+            this.bar = bar; this.back = back; this.scroll = scroll;
+            Fit();
+        }
+
+        void LateUpdate() => Fit();
+
+        void Fit()
+        {
+            float height = MenuLayout.TopBarHeight;
+            if (Mathf.Approximately(height, lastBarHeight)) return;
+            lastBarHeight = height;
+            if (bar != null) bar.sizeDelta = new Vector2(bar.sizeDelta.x, height);
+            if (back != null) back.sizeDelta = new Vector2(back.sizeDelta.x, UiMetrics.MinTouchUnits);
+            if (scroll != null) scroll.offsetMax = new Vector2(scroll.offsetMax.x, -height);
         }
     }
 }

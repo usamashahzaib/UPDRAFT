@@ -13,13 +13,41 @@ decision.
 |---|---|---|
 | Non-deprecated purchase SDK | `com.unity.purchasing 4.15.1` in `Packages/manifest.json` (embeds Google Play Billing 8.0.0 per its changelog). No client store code exists yet — no `IStoreListener`/`UnityPurchasing` references in `Assets/Scripts`. | IAP 4 is deprecated as of 2026-06-08 (Unity end-of-support announcement); IAP 5 is the support path. **Proposed input to implementers:** target IAP 5.x, not 4.x, so the integration does not land on an unsupported major. Play Billing 8 itself meets Google's current floor; re-check the floor at implementation time. |
 | Three bundles only | `CatalogConfig`: exactly `signal` ($1.99), `foundry` ($3.99), `skyline` ($5.99), cosmetic-only, no premium currency. | Matches spec shape. Localized price must come from the store at runtime (`referenceUsdPrice` is reference only) — verify at implementation. |
-| Previews | Contents listed as strings in `CatalogConfig`. | No preview UI exists yet. Gate F requires previews **on device**; nothing to measure until built. |
+| Previews | Contents listed as strings in `CatalogConfig`; a localized concept-only shop preview now exists in `ShopConceptView`. | No store-backed, on-device bundle preview or purchase flow exists. Gate F measurement starts only after approved SKU/content mapping and the store-backed surface is implemented. |
 | Backend verification | `CommerceEndpoints.verify-purchase` has an explicit **TODO**: it stores the transaction as `pending_verification` and **never calls the Google Play Developer API**. | Correct fail-safe direction (nothing grants entitlements), but Gate F cannot pass with the TODO in place. This is the single largest F blocker. |
-| Exactly-once grant | Idempotency lookup by `GooglePurchaseToken` (duplicate returns `alreadyProcessed`). | Good pattern; also needs a uniqueness constraint on the token column and a race-safe insert (unique index + retry) — verify at implementation. |
+| Exactly-once groundwork | Idempotency lookup by `GooglePurchaseToken`, a unique EF model index and checked-in database migration; concurrent duplicate inserts now re-read the committed transaction and return `alreadyProcessed`. | Pending-only scaffold still does not validate receipts or grant entitlements. Keep purchases disabled until Developer API verification, acknowledgement, refund/revocation handling, linked-identity checks, and lifecycle acceptance are implemented. |
 | Pending/ack/restore/refund/revoke | `PurchaseTransaction.Status` enum covers `pending/verified/acknowledged/refunded/revoked`; `/restore` returns inventory rows. **No RTDN/webhook endpoint exists** (searched `voided|RTDN|webhook|developerNotification` — zero hits); no code transitions to `refunded/revoked`; entitlements are never removed on refund. | Refund/revocation is currently **detection-less**. Gate F explicitly requires it. Needs Google Play RTDN (pub/sub) or a scheduled voided-purchase sweep before acceptance. |
-| Linked identity required | Purchase endpoints sit behind `RequireAuthorization`; Google identity linking exists in `AuthEndpoints` (link/revoke). | Verify at implementation: purchases must reject session tokens without a linked Google identity, not merely any auth. |
+| Linked identity required | Purchase endpoints sit behind `RequireAuthorization`; Google identity linking exists in `AuthEndpoints` (link/revoke). | `verify-purchase` now checks the persisted, server-verified `LinkedPlatformIdentity` after the purchases-off gate and rejects guest/unlinked sessions. The live Google identity and purchase lifecycle still require configured provider credentials and acceptance. |
 | Rewarded ads: opt-in, skippable, capped | `AdConfig` caps: crate roll 1/day, credit bonus 20 credits 3/day, cosmetic trial 24 h 1/day. Hard rules encoded as constants: `RewardedOnly`, `Skippable`, `NoForcedInterstitials`, `NoMidMatchAds`. **No ad SDK in the manifest, no ad code anywhere.** | Policy shape is right and kill switches exist server-side (`Features:PurchasesEnabled`) — but there is no ad **kill switch field** (`rewardedAdsEnabled` is a build-time client asset, not remotely toggleable). Propose a server-side ads flag alongside `PurchasesEnabled` so no-fill/quality incidents can be killed without a client release. |
 | Purchase-off defaults | `shopEnabled = 0`, `rewardedAdsEnabled = 0`, `PurchasesEnabled = false`. | Correct posture. Keep until Gate D passes and F acceptance is recorded. |
+
+### Google Play integration prerequisites (2026-10-09)
+
+- The current backend has Google Play Games identity OAuth settings only; it has no Android Publisher package name or service-account credential configuration. Those identity credentials do not authorize purchase verification.
+- The Unity catalog defines internal bundle IDs, reference USD prices, and human-readable content descriptions. It does not define verified Google Play product SKUs or a mapping from each bundle to the server's canonical cosmetic IDs. Do not infer SKUs from internal bundle IDs or grant items from display descriptions.
+- Google's current `ProductPurchaseV2` verification call requires the app package name and purchase token and returns product line items, purchase state, and acknowledgement state. The server must compare returned product IDs and a `PURCHASED` state before treating a token as valid. See the [official getproductpurchasev2 reference](https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.productsv2/getproductpurchasev2).
+- Until package/SKU configuration, service-account access, canonical bundle entitlement IDs, and the grant-before-ack flow are supplied and verified, keep `PurchasesEnabled` false and do not acknowledge or grant a purchase. This is a concrete configuration/catalog prerequisite, in addition to the outstanding legal and release acceptance.
+
+### Purchase-token race handling (2026-10-07)
+
+- `HotdropDbContext` and the initial database migration already define a unique index on
+  `PurchaseTransaction.GooglePurchaseToken`; the earlier note that the index was missing was
+  stale.
+- `CommerceEndpoints.verify-purchase` now handles a concurrent duplicate insert by clearing the
+  failed pending entity from the request context and re-reading the winning row. If that token
+  exists, it returns an idempotent response only when the account and product match the stored
+  transaction; a token already bound to another account or product returns a generic 409 conflict.
+  If no row exists, the original database failure propagates. The handler still grants no
+  entitlement, and the purchase feature flag remains required.
+- Once that feature flag is enabled, the endpoint rejects null/blank request fields and unknown
+  product IDs, using the same exact three bundle IDs as `/catalog`; opaque purchase tokens are not
+  rewritten or trimmed.
+- Once enabled, the endpoint also requires the account's persisted `LinkedPlatformIdentity`; the
+  link endpoint sets it only after server-side Google Play Games verification, and unlink clears it.
+  Purchases remain disabled by default.
+- The existing `CommerceEndpointsTests` cover sequential duplicate requests, not simultaneous
+  requests or invalid request cases. Backend compilation succeeded with 0 errors and one `NU1900`
+  vulnerability-feed warning; no tests were run for this change.
 
 ## 1. Monetization KPI definitions (pre-registered, measured only after Gate D passes)
 

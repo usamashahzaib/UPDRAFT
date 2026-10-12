@@ -127,6 +127,13 @@ namespace Hotdrop.Tests.PlayMode
             PlayerProductScreens.Open(game, GameObject.Find("Home"), "Support");
             yield return null;
             yield return CaptureBoth(canvas, "17_support");
+            // Support scrolls on a phone; also photograph its lower half and its end.
+            foreach (var (part, fraction) in new[] { ("17_support_middle", .5f), ("17_support_end", 1f) })
+                foreach (int captureWidth in new[] { 1920, 2400 })
+                {
+                    yield return null;
+                    Capture(canvas, part, captureWidth, supportScroll: fraction);
+                }
             GameObject.Find("PlayerProductScreen").transform.Find("Nav_Bar/Nav_Back").GetComponent<Button>().onClick.Invoke();
             yield return null;
             Assert.IsNotNull(GameObject.Find("Home"), "BACK must return to the actual Home.");
@@ -285,13 +292,27 @@ namespace Hotdrop.Tests.PlayMode
             Capture(canvas, "12_contracts_read_only_v2", 2400, ParityFolder);
             visual.transform.Find("Footer/Other").GetComponent<Button>().onClick.Invoke();
             yield return null;
-            visual = GameObject.Find("GoalsVisual");
+            // The Contracts screen is still sliding out for one motion; read the incoming page.
+            visual = IncomingGoalsVisual();
+            Assert.IsNotNull(visual, "MASTERY must open its own page.");
             Assert.IsNotNull(visual.transform.Find("Viewport/Page/Track_01"));
             Capture(canvas, "13_mastery_read_only_v2", 1920, ParityFolder);
             Capture(canvas, "13_mastery_read_only_v2", 2400, ParityFolder);
             visual.transform.Find("Footer/Back").GetComponent<Button>().onClick.Invoke();
             yield return null;
             Assert.IsNotNull(GameObject.Find("Home"));
+        }
+
+        /// <summary>The Goals page of the screen being opened, not one still playing its exit motion.</summary>
+        static GameObject IncomingGoalsVisual()
+        {
+            foreach (var t in Object.FindObjectsByType<RectTransform>(FindObjectsSortMode.None))
+            {
+                if (t.name != "GoalsVisual" || !t.gameObject.activeInHierarchy) continue;
+                var motion = t.GetComponentInParent<Hotdrop.UI.UiScreenEnterMotion>();
+                if (motion == null || !motion.IsExiting) return t.gameObject;
+            }
+            return null;
         }
 
         [UnityTest]
@@ -331,11 +352,20 @@ namespace Hotdrop.Tests.PlayMode
             yield return null;
             game.OpenOfflineLibrary();
             yield return null;
-            AssertRaycastReachesButton(canvas, GameObject.Find("Challenge_ch_basic_route"));
-            AssertRaycastReachesButton(canvas, GameObject.Find("OfflineChallengeVisual")
-                .transform.Find("Footer/DeployChallenge").gameObject);
             var challengeScroll = GameObject.Find("OfflineChallengeVisual")
                 .transform.Find("Viewport").GetComponent<ScrollRect>();
+            // The sticky footer grows with the 48 dp floor, so on a short screen the first card can
+            // sit partly under it; scroll it to the middle of the page as a player would.
+            var basicRoute = GameObject.Find("Challenge_ch_basic_route");
+            Canvas.ForceUpdateCanvases();
+            var cardRect = (RectTransform)basicRoute.transform;
+            float cardY = -challengeScroll.content.InverseTransformPoint(cardRect.TransformPoint(cardRect.rect.center)).y;
+            float maxScroll = Mathf.Max(0f, challengeScroll.content.rect.height - challengeScroll.viewport.rect.height);
+            challengeScroll.content.anchoredPosition = new Vector2(challengeScroll.content.anchoredPosition.x,
+                Mathf.Clamp(cardY - challengeScroll.viewport.rect.height * .5f, 0f, maxScroll));
+            AssertRaycastReachesButton(canvas, basicRoute);
+            AssertRaycastReachesButton(canvas, GameObject.Find("OfflineChallengeVisual")
+                .transform.Find("Footer/DeployChallenge").gameObject);
             Canvas.ForceUpdateCanvases();
             challengeScroll.verticalNormalizedPosition = 0f;
             Canvas.ForceUpdateCanvases();
@@ -344,7 +374,13 @@ namespace Hotdrop.Tests.PlayMode
             yield return null;
             PlayerProductScreens.Open(game, GameObject.Find("Home"), "Support");
             yield return null;
+            // Account actions appear only once the profile is known; wait for that load to land.
+            for (float waited = 0f; GameObject.Find("ManageAccount") == null && waited < 5f; waited += Time.unscaledDeltaTime)
+                yield return null;
             AssertRaycastReachesButton(canvas, GameObject.Find("ManageAccount"));
+            // On a phone-width page the purge gate ends the left column; scroll it into view first.
+            SupportHubView.ScrollTo(canvas, 1f);
+            Canvas.ForceUpdateCanvases();
             AssertRaycastReachesButton(canvas, GameObject.Find("DeleteAccount"));
             GameObject.Find("SupportHubVisual").transform.Find("TopBar/Back").GetComponent<Button>().onClick.Invoke();
             yield return null;
@@ -573,7 +609,7 @@ namespace Hotdrop.Tests.PlayMode
         /// this is the one frame that proves it is reached, not just the arithmetic.</para>
         /// </summary>
         [UnityTest]
-        public IEnumerator PreparationWithTheObjectiveBehindThePlayer_CapturesTheEdgeMarker()
+        public IEnumerator LiveMatchWithTheObjectiveBehindThePlayer_CapturesTheEdgeMarker()
         {
             var game = GameBootstrap.Instance;
             PlayerPrefs.SetInt(GameBootstrap.TutorialDoneKey, 1);
@@ -585,16 +621,16 @@ namespace Hotdrop.Tests.PlayMode
             game.StartOfflinePractice();
             var canvas = game.matchHUD.GetComponent<Canvas>();
 
-            // Waited for rather than slept through: the loadout screen only exists during
-            // preparation, and a fixed delay that lands before the player exists photographs
-            // nothing at all.
+            // Wait until the live HUD has a clear marker region. The preparation screen names
+            // the opening objective in its header and can leave no collision-free world-marker
+            // slot across the weapon cards.
             float deadline = Time.realtimeSinceStartup + 15f;
             while (Time.realtimeSinceStartup < deadline &&
                    (game.matchController.LocalPlayer == null ||
-                    game.matchController.CurrentPhase != Hotdrop.Match.MatchPhase.Preparation))
+                    game.matchController.CurrentPhase != Hotdrop.Match.MatchPhase.InProgress))
                 yield return null;
-            Assert.AreEqual(Hotdrop.Match.MatchPhase.Preparation, game.matchController.CurrentPhase,
-                "Screen 07 only exists during preparation; capturing later photographs the wrong screen.");
+            Assert.AreEqual(Hotdrop.Match.MatchPhase.InProgress, game.matchController.CurrentPhase,
+                "The live match HUD must be active before capturing its world marker.");
 
             var local = game.matchController.LocalPlayer;
             Assert.IsNotNull(local, "A live match must have a local player to turn round.");
@@ -606,19 +642,16 @@ namespace Hotdrop.Tests.PlayMode
                 "the objective starts inside the frustum, so this frame would photograph the ordinary " +
                 $"path. It projected to {onScreen}; if that stops being true the setup needs reworking.");
 
-            // Two frames, one per end of the arc. Straight behind, the edge marker lands in the
-            // middle of the bottom edge and the rule has to find the slot beside the weapon panel.
-            // Behind and over the left shoulder, the marker's X is pinned to the left edge; this
-            // used to be an unavoidable residual against the legacy teammate list, which the
-            // screen 08 HUD no longer shows during preparation, so both frames carry the full
-            // clearance gate. Both are photographed; neither is chosen for its result.
+            // Two frames, one per end of the arc. Straight behind and behind the left shoulder,
+            // the marker must remain on the canvas and clear every live HUD panel. Both frames
+            // are photographed; neither is chosen for its result.
             yield return FaceObjectiveFromBehind(game, world, 0f);
             AssertObjectiveIsBehind(root, game.matchHUD.mainCamera, world);
-            Capture(canvas, "07b_preparation_objective_behind", 1920, ParityFolder, true);
+            Capture(canvas, "08b_live_objective_behind", 1920, ParityFolder, true);
 
             yield return FaceObjectiveFromBehind(game, world, -45f);
             AssertObjectiveIsBehind(root, game.matchHUD.mainCamera, world);
-            Capture(canvas, "07c_preparation_objective_behind_left", 1920, ParityFolder, true);
+            Capture(canvas, "08c_live_objective_behind_left", 1920, ParityFolder, true);
         }
 
         /// <summary>
@@ -685,6 +718,12 @@ namespace Hotdrop.Tests.PlayMode
             GameObject.Find("PLAY 3-MINUTE RELAY").GetComponent<Button>().onClick.Invoke();
             yield return null;
             Assert.AreEqual(6, game.matchController.ActivePlayerCount, "Play Now must start a real match without waiting for a server.");
+            // Home slides out over one motion; from the first frame it must stop taking touches.
+            var leavingHome = GameObject.Find("Home");
+            if (leavingHome != null)
+                Assert.IsFalse(leavingHome.GetComponent<CanvasGroup>().blocksRaycasts, "Home must not block the match while it leaves.");
+            for (float waited = 0f; GameObject.Find("Home") != null && waited < 1f; waited += Time.unscaledDeltaTime)
+                yield return null;
             Assert.IsFalse(GameObject.Find("Home") != null, "Home must not block the match.");
             Assert.IsNull(GameObject.Find("RigChoice"), "Character choice must not cover an active match.");
             foreach (var player in PlayerController.All)
@@ -857,7 +896,7 @@ namespace Hotdrop.Tests.PlayMode
                     Assert.Fail(
                         $"Marker overlaps a HUD panel at {width}x{height}. " +
                         $"'{labels[i]}' footprint {footprints[i]} intersects panel {p} {panels[p]}. " +"A world marker - icon and caption both - must never be drawn over a panel "
-                        + "the player is reading.");
+                        + "the player is reading. All published panels: " + string.Join(", ", panels));
                 }
 
             // Non-overlap is not the contract, and this frame is the reason. The objective marker
@@ -1132,7 +1171,7 @@ namespace Hotdrop.Tests.PlayMode
                 }
         }
 
-        internal static void Capture(Canvas canvas, string label, int width, string directoryName = "journey_2026-10-02", bool includeGameplay = false, bool expectResidualFrame = false, bool assertHud = true)
+        internal static void Capture(Canvas canvas, string label, int width, string directoryName = "journey_2026-10-02", bool includeGameplay = false, bool expectResidualFrame = false, bool assertHud = true, float supportScroll = -1f)
         {
             const int height = 1080;
             const float dpi = 400;
@@ -1183,6 +1222,7 @@ namespace Hotdrop.Tests.PlayMode
                 Canvas.ForceUpdateCanvases();
                 GoalsPagesView.RefreshVisible(canvas);
                 SupportHubView.RefreshVisible(canvas);
+                if (supportScroll >= 0f) SupportHubView.ScrollTo(canvas, supportScroll);
                 var pauseConsole = Object.FindFirstObjectByType<OfflinePauseMenu>();
                 if (pauseConsole != null && pauseConsole.IsOpen) pauseConsole.RefreshForComposedFrame();
                 Canvas.ForceUpdateCanvases();
@@ -1224,17 +1264,32 @@ namespace Hotdrop.Tests.PlayMode
                     foreach (var t in canvas.transform.GetComponentsInChildren<RectTransform>(true))
                         if (t.name == "SupportHubVisual") { support = t; break; }
                     Assert.IsNotNull(support, "The Support page must be on screen.");
+                    // The page is laid out in dp and the root scales it to canvas units.
                     var page = (RectTransform)support.Find("Viewport/Page");
                     float canvasWidth = ((RectTransform)canvas.transform).rect.width;
-                    Assert.AreEqual(canvasWidth, page.sizeDelta.x, 1f, $"Support page must match the {width}x{height} canvas width.");
-                    float previousRight = float.NegativeInfinity;
-                    foreach (string column in new[] { "Account", "Report", "Assistance" })
+                    float unitsPerDp = support.localScale.x;
+                    Assert.AreEqual(UiMetrics.UnitsForDp(1f), unitsPerDp, .001f, "The Support root must scale dp to canvas units.");
+                    Assert.AreEqual(canvasWidth, page.sizeDelta.x * unitsPerDp, 1f, $"Support page must match the {width}x{height} canvas width.");
+                    var columns = new List<Rect>();
+                    foreach (string column in new[] { "Account", "Report", "Assistance", "Purge" })
                     {
                         var card = (RectTransform)page.Find(column);
-                        float left = card.anchoredPosition.x, right = left + card.sizeDelta.x;
-                        Assert.Greater(left, previousRight, $"{column} must not overlap the column before it at {width}x{height}.");
-                        Assert.LessOrEqual(right, canvasWidth, $"{column} must stay inside the canvas at {width}x{height}.");
-                        previousRight = right;
+                        var r = new Rect(card.anchoredPosition.x, -card.anchoredPosition.y, card.sizeDelta.x, card.sizeDelta.y);
+                        Assert.LessOrEqual(r.xMax, page.sizeDelta.x, $"{column} must stay inside the page at {width}x{height}.");
+                        foreach (var other in columns)
+                            Assert.IsFalse(r.Overlaps(other), $"{column} must not overlap another column at {width}x{height}.");
+                        columns.Add(r);
+                    }
+                    // The centre tabs must not collide with the brand or the account cluster.
+                    var nav = (RectTransform)support.Find("TopBar/Nav");
+                    if (nav != null)
+                    {
+                        var bar = (RectTransform)support.Find("TopBar");
+                        float navLeft = bar.rect.width * .5f - nav.sizeDelta.x * .5f;
+                        var chip = (RectTransform)bar.Find("SystemChip");
+                        var credits = (RectTransform)bar.Find("Credits");
+                        Assert.GreaterOrEqual(navLeft, chip.anchoredPosition.x + chip.sizeDelta.x, $"Tabs overlap the account chip at {width}x{height}.");
+                        Assert.LessOrEqual(bar.rect.width - navLeft, credits.anchoredPosition.x - credits.sizeDelta.x + 1f, $"Tabs overlap the credits at {width}x{height}.");
                     }
                 }
                 if (label.StartsWith("10_settings"))

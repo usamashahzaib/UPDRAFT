@@ -66,6 +66,7 @@ namespace Hotdrop.Network
             var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             Object.Destroy(disc.GetComponent<Collider>());
             disc.name = "Disc";
+            disc.GetComponent<MeshFilter>().sharedMesh = Hotdrop.Pads.LaunchPadBehaviour.SharedVisualMesh;
             disc.transform.SetParent(pad.transform, false);
             disc.transform.localScale = new Vector3(1.4f, 0.05f, 1.4f);
             disc.GetComponent<Renderer>().sharedMaterial = Resources.Load<Material>(friendly ? "Materials/Friendly" : "Materials/Enemy");
@@ -86,6 +87,13 @@ namespace Hotdrop.Network
                 Line(pad.transform, "Cross", "Materials/Enemy", origin + new Vector3(-d, 0, -d), origin + new Vector3(d, 0, d), origin,
                     origin + new Vector3(-d, 0, d), origin + new Vector3(d, 0, -d));
             }
+
+            // Pads are spawned outside the SwitchyardGenerator hierarchy, so its
+            // profile pass cannot reach them. Keep their viewer-relative team cues
+            // aligned with the selected A/B/C palette, including live profile changes.
+            var profileTint = pad.GetComponent<Hotdrop.Player.TeamProfileTint>();
+            if (profileTint == null) profileTint = pad.gameObject.AddComponent<Hotdrop.Player.TeamProfileTint>();
+            profileTint.SetFriendly(friendly);
         }
 
         static void Line(Transform parent, string name, string material, params Vector3[] points)

@@ -29,8 +29,11 @@ public class MatchResultProgressionTests : IClassFixture<HotdropWebApplicationFa
         ids.Select((id, i) => new ParticipantResult(id, !draw && (i < 3) == teamAWins, true, false, i < 3 ? "A" : "B")).ToList(),
         HasBots: hasBots);
 
-    async Task Submit(Guid matchId, SubmitResultRequest request) =>
+    async Task Submit(Guid matchId, SubmitResultRequest request)
+    {
+        await _factory.SeedAllocatedMatchAsync(matchId, request.Participants.Select(p => p.PlayerId).ToArray());
         (await _factory.CreateGameServerClient().PostAsJsonAsync($"/api/matches/{matchId}/result", request)).EnsureSuccessStatusCode();
+    }
 
     async Task<(PlayerAccount account, int credits)> Load(Guid id)
     {

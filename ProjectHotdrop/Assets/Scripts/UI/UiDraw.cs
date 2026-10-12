@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Localization.Settings;
 
 namespace Hotdrop.UI
 {
@@ -72,6 +73,20 @@ namespace Hotdrop.UI
             return rt;
         }
 
+        /// <summary>Fits a texture inside its target rectangle without stretching its aspect ratio.</summary>
+        public static void FitRawImage(RawImage image, Vector2 targetSize)
+        {
+            if (image == null || image.texture == null || targetSize.x <= 0f || targetSize.y <= 0f
+                || image.texture.width <= 0 || image.texture.height <= 0) return;
+
+            float aspect = image.texture.width / (float)image.texture.height;
+            float width = targetSize.x;
+            float height = targetSize.y;
+            if (width / height > aspect) width = height * aspect;
+            else height = width / aspect;
+            image.rectTransform.sizeDelta = new Vector2(width, height);
+        }
+
         /// <summary>Stretches a rect over its parent with CSS-style insets.</summary>
         public static RectTransform Fill(RectTransform rt, float left = 0, float top = 0, float right = 0, float bottom = 0)
         {
@@ -83,6 +98,12 @@ namespace Hotdrop.UI
             return rt;
         }
 
+        /// <summary>
+        /// Canvas units per local unit of the page being built. A page laid out in dp and scaled up by
+        /// this factor sets it while building so its labels keep their dp size; 1 everywhere else.
+        /// </summary>
+        public static float TextUnitScale = 1f;
+
         /// <summary>A label in one of the UIUX families, at a CSS size and letter-spacing.</summary>
         public static TextMeshProUGUI Text(Transform parent, string name, string value, UiFont font, float px,
             Color color, float trackingEm = 0f, TextAlignmentOptions alignment = TextAlignmentOptions.MidlineLeft)
@@ -91,7 +112,11 @@ namespace Hotdrop.UI
             var text = rt.gameObject.AddComponent<TextMeshProUGUI>();
             UIFonts.Use(text, font);
             text.text = UiPresentationProfile.NormalizeRichText(value);
-            text.fontSize = UiMetrics.ScaleTextSize(px);
+            // Inside a UiDpPanel the panel's own scale already turns local units into dp, so the
+            // label is authored in local units; converting it again drew HUD text ~2.8x too large.
+            text.fontSize = UiDpPanel.Contains(parent)
+                ? Mathf.Max(px * UiMetrics.TextScale, UiMetrics.MinTextDp)
+                : UiMetrics.ScaleTextSize(px) / TextUnitScale;
             // White was used as a neutral text default by older screens. Resolve it
             // through the active profile so profile switching also reaches labels
             // that predate UIDesignTokens.
@@ -168,6 +193,11 @@ namespace Hotdrop.UI
         {
             if (art.TryGetValue(resource, out var tex) && tex != null) return tex;
             tex = Resources.Load<Texture2D>("UIUX/" + resource);
+            // New model-rendered weapon portraits take precedence when present. Until the
+            // editor generator has run and the outputs are reviewed, keep the current silhouettes
+            // available through the same lookup so this migration cannot blank the HUD.
+            if (tex == null && resource != null && resource.StartsWith("WeaponPortraits/", System.StringComparison.Ordinal))
+                tex = Resources.Load<Texture2D>("UIUX/" + resource.Substring("WeaponPortraits/".Length));
             art[resource] = tex;
             return tex;
         }
@@ -324,7 +354,7 @@ namespace Hotdrop.UI
             Fill(layer);
             layer.SetAsFirstSibling();
             Fill(Box(layer, "Base", Hex("#0b1322")).rectTransform);
-            var rooftop = Resources.Load<Texture2D>("HomeRooftop");
+            var rooftop = UiPresentationProfile.LoadRooftopArtwork();
             if (rooftop != null)
             {
                 var photo = Node(layer, "Photo").gameObject.AddComponent<RawImage>();
@@ -436,6 +466,103 @@ namespace Hotdrop.UI
 
         /// <summary>The width a label needs for its text, for sizing CSS inline boxes.</summary>
         public static float Width(TMP_Text text, string value = null) => text.GetPreferredValues(value ?? text.text).x;
+
+        /// <summary>Trims <paramref name="text"/> to the longest prefix (plus a literal "...", not
+        /// the single-glyph ellipsis character) that fits <paramref name="maxWidth"/>, measured on
+        /// <paramref name="measurer"/> without changing its displayed text. Built for call sites
+        /// that need the box geometry to actually clip long content: TMP's own Ellipsis overflow
+        /// mode was tried first and found to render the whole label blank in this project's batch
+        /// PlayMode captures (reproduced on both rich-text and plain-string labels, and on a
+        /// pre-existing call site, not just a new one), so this never changes a component's own
+        /// overflow mode.</summary>
+        public static string Truncate(TMP_Text measurer, string text, float maxWidth)
+        {
+            if (string.IsNullOrEmpty(text) || Width(measurer, text) <= maxWidth) return text;
+            const string suffix = "...";
+            if (Width(measurer, suffix) > maxWidth) return suffix;
+            int lo = 0, hi = text.Length;
+            while (lo < hi)
+            {
+                int mid = (lo + hi + 1) / 2;
+                if (Width(measurer, text.Substring(0, mid) + suffix) <= maxWidth) lo = mid; else hi = mid - 1;
+            }
+            return text.Substring(0, lo) + suffix;
+        }
+
+        /// <summary>The shared string table used by authored player-facing UI copy.
+        /// Screen-specific keys share this collection; split it only if the key count becomes
+        /// difficult to manage.</summary>
+        public const string UiStringTable = "UIStrings";
+
+        /// <summary>Looks up <paramref name="key"/> in <see cref="UiStringTable"/> and returns
+        /// <paramref name="fallback"/> (the English copy, inline at the call site) if the tables
+        /// aren't initialized yet, the key is missing, or the lookup throws for any other reason -
+        /// this must never be the thing that breaks a screen build. The lookup is forced
+        /// synchronous (<c>WaitForCompletion</c>): every call site here builds its whole screen in
+        /// one synchronous method, same as before localization, so an async result would just be
+        /// read before it arrived.</summary>
+        public static string L(string key, string fallback)
+        {
+            return TryL(key, fallback, out string result) ? result : fallback;
+        }
+
+        /// <summary>Looks up a localized string like <see cref="L"/> and reports whether it
+        /// came from the configured table. The fallback is returned through <paramref name="result"/>
+        /// on an unavailable table, missing key, empty entry, or lookup failure.</summary>
+        public static bool TryL(string key, string fallback, out string result)
+        {
+            try
+            {
+                var op = LocalizationSettings.StringDatabase.GetLocalizedStringAsync(UiStringTable, key);
+                string localized = op.IsDone ? op.Result : op.WaitForCompletion();
+                // A missing table entry does not fail this lookup or return empty - the
+                // Localization package hands back its own developer-facing diagnostic text
+                // ("No translation found for ...") as a normal, non-empty result. Treat that the
+                // same as missing rather than let it reach a player's screen.
+                if (string.IsNullOrEmpty(localized) || localized.Contains("No translation found"))
+                {
+                    result = fallback;
+                    return false;
+                }
+                result = localized;
+                return true;
+            }
+            catch
+            {
+                result = fallback;
+                return false;
+            }
+        }
+
+        /// <summary>Formats a localized template and falls back to the authored English template
+        /// if a translation contains an invalid format placeholder.</summary>
+        public static string LFormat(string key, string fallback, params object[] args)
+        {
+            string template = L(key, fallback);
+            try
+            {
+                return string.Format(System.Globalization.CultureInfo.InvariantCulture, template, args ?? System.Array.Empty<object>());
+            }
+            catch (System.FormatException)
+            {
+                return string.Format(System.Globalization.CultureInfo.InvariantCulture, fallback, args ?? System.Array.Empty<object>());
+            }
+        }
+
+        /// <summary>Applies uppercase styling using the currently selected locale's casing rules.</summary>
+        public static string ToLocaleUpper(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return value ?? "";
+            try
+            {
+                var culture = LocalizationSettings.SelectedLocale?.Identifier.CultureInfo;
+                return culture != null ? culture.TextInfo.ToUpper(value) : value.ToUpperInvariant();
+            }
+            catch
+            {
+                return value.ToUpperInvariant();
+            }
+        }
 
         /// <summary>A 1 px rule across a parent at <paramref name="y"/> from its top.</summary>
         public static Image HRule(Transform parent, string name, Color color, float y, float left = 0f, float right = 0f)

@@ -23,6 +23,7 @@ Camera aiming, muzzle-parallax compensation, blocked-shot feedback, and server h
 
 - Default `MatchRulesConfig` asset and editor generator carry the same values.
 - Both client ray call sites and the server clamp read the shared config.
+- The network config loader fails closed when `MatchRulesConfig` is missing, either aim distance is non-finite or below 0.5 m, or the minimum exceeds the camera-ray maximum. The authored 0.5 m / 100 m values are unchanged.
 - Existing shot-direction authority coverage was read. Runtime builds and source review were used; tests were not run.
 
 ## Telemetry
@@ -33,3 +34,4 @@ No new telemetry is required; existing latency/completion measurements are uncha
 
 - Cross-client/server behavioral and six-client network verification remain open.
 - Device aiming and weapon cover/range acceptance remain open under the combat gates.
+- Automated regression coverage for missing and malformed aim-ray config was not added or run.

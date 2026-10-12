@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Weapon_BRICK
   m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.WeaponDefinition
   id: 2
-  displayName: BRICK Scattergun
+  displayName: Brick Scattergun
   roleDescription: Point-blank burst. 8 pellets, extreme close range, slow fire rate.
   bodyDamage: 9
   pelletsPerShot: 8

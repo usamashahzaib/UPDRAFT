@@ -75,14 +75,23 @@ done
 echo "end=$(date -Iseconds)" >> TestResults/gatec/$RUN/meta.txt
 ```
 
-**Bandwidth measurement (≤100 KB/s per client budget):** on the Linux server host, sample NIC
-traffic to the clients' Wi-Fi subnet during the match:
+**Bandwidth measurement (≤100 KB/s per client budget):** while running the two-minute pad drill,
+sample the Linux server interface carrying the client traffic:
 ```bash
-sar -n DEV 5 24 | grep -E "eth0"   # 2 minutes @ 5s samples
+RUN_ID=gatec-01  # use the same unique run ID as the adb-host evidence bundle
+mkdir -p "TestResults/gatec/$RUN_ID"
+python3 tools/performance/sample_gatec_bandwidth.py eth0 --duration 120 --interval 5 --clients 6 \
+  > "TestResults/gatec/$RUN_ID/bandwidth.csv" \
+  2> "TestResults/gatec/$RUN_ID/bandwidth-summary.txt"
 ```
-Per-client downlink ≈ server egress ÷ 6 (upper bound; record it that way honestly). The budget's
-stated worst case is a pad-heavy fight — run the **pad drill**: all six players place+launch every
-~5 s for 2 minutes. Prove pad-heaviness from the server log: `grep -c ServerEvent gatec-01.log`
+The sampler emits each interval's server egress and the per-client estimate as CSV, then reports
+the window average and highest interval average. It divides total interface egress by six; this is
+an upper bound, not per-peer attribution, and includes unrelated traffic on that interface. The
+highest five-second interval average is not an instantaneous peak. Keep the CSV and summary with
+the run evidence (copy them into the adb-host bundle if collected on a separate server host); do
+not treat the script output as a PASS decision by itself. The budget's stated
+worst case is a pad-heavy fight — run the **pad drill**: all six players place+launch every ~5 s for
+2 minutes. Prove pad-heaviness from the server log: `grep -c ServerEvent gatec-01.log`
 (DedicatedServer logs every pad event) — require ≥ 60 pad events in the window or the run doesn't
 qualify as the pad-heavy cell.
 
@@ -143,8 +152,8 @@ achieved RTT is far from target is rerun, not explained away.
 ## 5. Evidence checklist for STEP_C.md closeout
 
 Per run: run ID, shaping cell, admission mode, server build SHA-256, client build version, six
-device models/serials, start/end times, `tc` counter snapshot, achieved RTT, per-client bandwidth
-(egress ÷ 6) with the pad-drill event count, injection case + result + log excerpt paths under
+device models/serials, start/end times, `tc` counter snapshot, achieved RTT, `bandwidth.csv` and
+`bandwidth-summary.txt` (egress ÷ 6) with the pad-drill event count, injection case + result + log excerpt paths under
 `TestResults/gatec/<run>/`. Gate C PASS requires: every matrix cell green, bandwidth budget met in
 C6's pad-heavy cell, all seven injection cases with captured evidence, repeated-match leak check —
 all tied to one frozen source revision. No paid deployment without publisher approval.

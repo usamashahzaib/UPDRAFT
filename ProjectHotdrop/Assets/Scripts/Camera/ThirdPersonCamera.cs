@@ -1,5 +1,6 @@
 using UnityEngine;
 using Hotdrop.Config;
+using Hotdrop.Map;
 using Hotdrop.UI;
 
 namespace Hotdrop.Camera
@@ -12,6 +13,9 @@ namespace Hotdrop.Camera
     [RequireComponent(typeof(UnityEngine.Camera))]
     public class ThirdPersonCamera : MonoBehaviour
     {
+        const float MinFocusAimFieldOfView = 20f;
+        const float MaxFocusAimFieldOfView = 55f;
+
         [Header("Config")]
         [SerializeField] public GraphicsConfig graphicsConfig;
 
@@ -24,6 +28,9 @@ namespace Hotdrop.Camera
         [SerializeField] float pitchMax = 60f;
         [SerializeField] float sphereCastRadius = 0.3f;
         [SerializeField] LayerMask obstructionMask;
+        [Header("Focus Aim")]
+        [SerializeField, Range(MinFocusAimFieldOfView, MaxFocusAimFieldOfView)] float focusAimFieldOfView = 40f;
+        [SerializeField, Min(0.1f)] float focusAimTransitionSpeed = 14f;
 
         [Header("Smoothing")]
         [SerializeField] float positionLerpSpeed = 15f;
@@ -39,6 +46,13 @@ namespace Hotdrop.Camera
         float currentPitch;
         float targetYaw;
         float targetPitch;
+        bool focusAimHeld;
+        UnityEngine.Camera cameraComponent;
+        MatchRulesConfig matchRules;
+        int padLaunchFovFramesRemaining;
+        float appliedPadLaunchFovKick;
+        float padLaunchFovKickDegrees;
+        bool reduceMotionWasEnabled;
 
         Vector3 currentVelocity;
         float shakeTimer;
@@ -48,6 +62,7 @@ namespace Hotdrop.Camera
         public Vector3 AimDirection => transform.forward;
         public Vector3 AimPosition => transform.position;
         public bool IsShaking => shakeTimer > 0f;
+        public bool IsFocusAimActive => focusAimHeld;
 
         public const string ShakePrefKey = "CameraShakeEnabled";
 
@@ -58,9 +73,9 @@ namespace Hotdrop.Camera
 
             if (obstructionMask.value == 0)
                 obstructionMask = LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
-            UnityEngine.Camera cam = GetComponent<UnityEngine.Camera>();
-            if (cam != null)
-                cam.fieldOfView = fieldOfView;
+            cameraComponent = GetComponent<UnityEngine.Camera>();
+            if (cameraComponent != null)
+                cameraComponent.fieldOfView = fieldOfView;
 
             if (GetComponent<AudioListener>() == null)
                 gameObject.AddComponent<AudioListener>();
@@ -107,9 +122,33 @@ namespace Hotdrop.Camera
             AddYawPitch(0f, pitchDelta);
         }
 
+        readonly EventRateGate shakeGate = new EventRateGate();
+        int shakeEventLimit = int.MaxValue; // unlimited until MatchRulesConfig supplies shakeMaxEventsPerSecond
+
+        public void SetShakeEventLimit(int maxEventsPerSecond) => shakeEventLimit = maxEventsPerSecond;
+
+        public void SetMatchRulesConfig(MatchRulesConfig rules) => matchRules = rules;
+
+        /// <summary>Three rendered-frame FOV pulse and tier-supported chromatic edge on pad launch.</summary>
+        public void TriggerPadLaunchFeedback()
+        {
+            if (matchRules == null || UIMotionSettings.ReduceMotionEnabled ||
+                float.IsNaN(matchRules.padLaunchFovKickDegrees) || float.IsInfinity(matchRules.padLaunchFovKickDegrees) ||
+                matchRules.padLaunchFovKickDegrees < 0f || matchRules.padLaunchFovKickDegrees > 10f ||
+                float.IsNaN(matchRules.padLaunchChromaticIntensity) || float.IsInfinity(matchRules.padLaunchChromaticIntensity) ||
+                matchRules.padLaunchChromaticIntensity < 0f || matchRules.padLaunchChromaticIntensity > 1f ||
+                float.IsNaN(matchRules.padLaunchChromaticDurationSeconds) || float.IsInfinity(matchRules.padLaunchChromaticDurationSeconds) ||
+                matchRules.padLaunchChromaticDurationSeconds < 0.01f || matchRules.padLaunchChromaticDurationSeconds > 1f) return;
+            padLaunchFovKickDegrees = Mathf.Clamp(matchRules.padLaunchFovKickDegrees, 0f, 10f);
+            padLaunchFovFramesRemaining = 3;
+            SwitchyardAtmosphere.TriggerPadLaunchChromatic(
+                matchRules.padLaunchChromaticIntensity, matchRules.padLaunchChromaticDurationSeconds);
+        }
+
         public void TriggerShake(float magnitudeMultiplier = 1f)
         {
             if (!shakeEnabled || UIMotionSettings.ReduceMotionEnabled) return;
+            if (!shakeGate.TryAcquire(Time.unscaledTime, shakeEventLimit)) return; // Bible 2.5: no shake spam
             shakeTimer = shakeDuration;
             shakeOffset = Random.insideUnitSphere * shakeMagnitude * magnitudeMultiplier;
             shakeOffset.y *= 0.5f; // less vertical shake
@@ -123,6 +162,25 @@ namespace Hotdrop.Camera
 
         void LateUpdate()
         {
+            bool reduceMotion = UIMotionSettings.ReduceMotionEnabled;
+            if (reduceMotion)
+            {
+                padLaunchFovFramesRemaining = 0;
+                if (!reduceMotionWasEnabled) SwitchyardAtmosphere.ClearPadLaunchChromatic();
+            }
+            reduceMotionWasEnabled = reduceMotion;
+            if (cameraComponent != null)
+            {
+                float focusMin = Mathf.Min(MinFocusAimFieldOfView, fieldOfView);
+                float focusMax = Mathf.Min(MaxFocusAimFieldOfView, fieldOfView);
+                float targetFov = focusAimHeld ? Mathf.Clamp(focusAimFieldOfView, focusMin, focusMax) : fieldOfView;
+                float blend = 1f - Mathf.Exp(-focusAimTransitionSpeed * Time.deltaTime);
+                float baseFov = Mathf.Lerp(cameraComponent.fieldOfView - appliedPadLaunchFovKick, targetFov, blend);
+                appliedPadLaunchFovKick = padLaunchFovFramesRemaining > 0
+                    ? padLaunchFovKickDegrees * (padLaunchFovFramesRemaining / 3f) : 0f;
+                if (padLaunchFovFramesRemaining > 0) padLaunchFovFramesRemaining--;
+                cameraComponent.fieldOfView = baseFov + appliedPadLaunchFovKick;
+            }
             if (target == null) return;
 
             // Update shake
@@ -160,6 +218,9 @@ namespace Hotdrop.Camera
             transform.position = ClampToClearSpace(pivot, smoothed, sphereCastRadius, mask);
             transform.rotation = Quaternion.Slerp(transform.rotation, rotation, rotationLerpSpeed * Time.deltaTime);
         }
+
+        /// <summary>Hold-to-zoom shoulder focus; changes camera framing only.</summary>
+        public void SetFocusAimHeld(bool held) => focusAimHeld = held;
 
         const float CollisionSkin = 0.05f;
 

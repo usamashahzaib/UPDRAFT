@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Threading.Tasks;
+using Hotdrop.Player;
 
 namespace Hotdrop.Core
 {
@@ -14,6 +15,9 @@ namespace Hotdrop.Core
         const float CaptionDp = UIDesignTokens.CaptionDp;
         const float UiDp = UIDesignTokens.BodyLargeDp;
         const float TitleDp = UIDesignTokens.TitleMediumDp;
+        static string L(string key, string fallback) => UiDraw.L("startup." + key, fallback);
+        static string Format(string key, string fallback, params object[] args) =>
+            UiDraw.LFormat("startup." + key, fallback, args);
         GameObject panel;
         GameBootstrap game;
         bool advanced;
@@ -28,14 +32,18 @@ namespace Hotdrop.Core
         string remoteStatusDetail;
         string remoteStoreUrl;
 
-        /// <summary>How long the branded connection moment stays up before advancing by itself.</summary>
+        /// <summary>How long a regular branded connection moment stays up before advancing.</summary>
         public const float NormalHoldSeconds = 1.1f;
+        const float FirstFlightQuestionHoldSeconds = 2.5f;
+        bool firstFlightQuestion;
 
         public void Show(GameBootstrap bootstrap)
         {
             game = bootstrap;
             int revision = ++showRevision;
             advanced = false;
+            firstFlightQuestion = game != null && game.ShouldShowFirstFlightQuestion;
+            if (firstFlightQuestion) game.MarkFirstFlightQuestionSeen();
             var state = ResolveState();
             visibleState = state;
             remoteStatusDetail = null;
@@ -50,9 +58,32 @@ namespace Hotdrop.Core
 
             // Normal launches should feel immediate but the branded connection moment remains
             // available for a screenshot and does not block automated or keyboard-free starts.
-            normalAdvanceAt = state == StartupConnectionState.Normal ? Time.unscaledTime + NormalHoldSeconds : -1f;
+            float holdSeconds = firstFlightQuestion ? FirstFlightQuestionHoldSeconds : NormalHoldSeconds;
+            normalAdvanceAt = state == StartupConnectionState.Normal ? Time.unscaledTime + holdSeconds : -1f;
+            var client = BackendClient.Instance;
+            if (Application.internetReachability != NetworkReachability.NotReachable &&
+                (client.HasSession || client.HasSavedSession))
+                _ = RefreshAccountRigPreferenceAsync(revision, client);
             if (state == StartupConnectionState.Normal && Application.internetReachability != NetworkReachability.NotReachable)
                 _ = RefreshRemoteAvailabilityAsync(revision);
+        }
+
+        async Task RefreshAccountRigPreferenceAsync(int revision, BackendClient client)
+        {
+            BackendResult<ProfileDto> profile;
+            try { profile = await client.GetProfileAsync(); }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Account body-rig preference could not be loaded: {exception.Message}");
+                return;
+            }
+
+            if (this == null || revision != showRevision || !profile.Ok || profile.Value == null ||
+                BodyRigStore.SyncPending || !BodyRigs.TryParse(profile.Value.bodyRigId, out var accountRig)) return;
+
+            var home = game != null ? game.GetComponent<OfflineHomeScreen>() : null;
+            if (home != null) home.ApplyAccountRigPreference(accountRig);
+            else BodyRigStore.ApplyAccountPreference(accountRig);
         }
 
         void Update()
@@ -68,7 +99,7 @@ namespace Hotdrop.Core
         static string FrameLabelText()
         {
             var frame = SafeAreaRoot.ScreenSize;
-            return $"ANDROID LANDSCAPE  •  {Mathf.RoundToInt(frame.x)}×{Mathf.RoundToInt(frame.y)}";
+            return Format("frameLabelTemplate", "ANDROID LANDSCAPE  •  {0}×{1}", Mathf.RoundToInt(frame.x), Mathf.RoundToInt(frame.y));
         }
 
         /// <summary>
@@ -172,6 +203,7 @@ namespace Hotdrop.Core
             catch (Exception exception)
             {
                 Debug.LogWarning($"Backend availability check failed: {exception.Message}");
+                ShowRemoteAvailabilityFailure(revision, StartupConnectionState.ServiceUnavailable);
                 return;
             }
             if (this == null || revision != showRevision || advanced || panel == null || !panel.activeSelf) return;
@@ -181,7 +213,7 @@ namespace Hotdrop.Core
                 visibleState = StartupConnectionState.UpdateRequired;
                 remoteStoreUrl = SafeStoreUrl(result.Value?.storeUrl);
                 remoteStatusDetail = result.Value != null && result.Value.minClientProtocol > 0
-                    ? $"Install protocol {result.Value.minClientProtocol} or newer to play online."
+                    ? Format("protocolRequiredTemplate", "Install protocol {0} or newer to play online.", result.Value.minClientProtocol)
                     : null;
             }
             else if (result.Ok && result.Value != null && result.Value.state == "maintenance")
@@ -194,16 +226,31 @@ namespace Hotdrop.Core
                 visibleState = StartupConnectionState.ServiceUnavailable;
                 remoteStatusDetail = FormatRemoteStatus(result.Value.message, null, null);
             }
-            else return;
+            else if (result.Ok && result.Value != null && result.Value.state == "available") return;
+            else
+            {
+                ShowRemoteAvailabilityFailure(revision, result.Error == BackendError.NoInternet
+                    ? StartupConnectionState.NoInternet : StartupConnectionState.ServiceUnavailable);
+                return;
+            }
 
             normalAdvanceAt = -1f;
             Refresh(visibleState);
         }
 
+        void ShowRemoteAvailabilityFailure(int revision, StartupConnectionState state)
+        {
+            if (this == null || revision != showRevision || advanced || panel == null || !panel.activeSelf) return;
+            visibleState = state;
+            remoteStatusDetail = null;
+            normalAdvanceAt = -1f;
+            Refresh(state);
+        }
+
         static string FormatRemoteStatus(string message, string etaUtc, string compensationNote)
         {
             string detail = string.IsNullOrWhiteSpace(message) ? string.Empty : message.Trim();
-            if (!string.IsNullOrWhiteSpace(etaUtc)) detail += $"\nExpected update: {etaUtc.Trim()} UTC.";
+            if (!string.IsNullOrWhiteSpace(etaUtc)) detail += Format("status.expectedUpdateTemplate", "\nExpected update: {0} UTC.", etaUtc.Trim());
             if (!string.IsNullOrWhiteSpace(compensationNote)) detail += $"\n{compensationNote.Trim()}";
             return detail;
         }
@@ -232,7 +279,7 @@ namespace Hotdrop.Core
             // Header: pulsing dot + relay caption left, frame annotation right.
             var dot = UiDraw.Box(root, "LiveDot", UiDraw.Hex("#30d5e8", .7f), 4f);
             UiDraw.Place(dot.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(SideInset, -EdgeInset - 8f), new Vector2(8f, 8f));
-            var caption = UiDraw.Text(root, "UpperLeft", "AIR-GROUND KINETIC RELAY", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), .1f);
+            var caption = UiDraw.Text(root, "UpperLeft", L("header.caption", "Air-Ground Kinetic Relay"), UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), .1f);
             UiDraw.Place(caption.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(SideInset + 16f, -EdgeInset - 8f), new Vector2(400f, 16f));
             frameLabel = UiDraw.Text(root, "UpperRight", FrameLabelText(), UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3", .8f), .1f,
                 TextAlignmentOptions.MidlineRight);
@@ -253,19 +300,25 @@ namespace Hotdrop.Core
             ringPulse = UiDraw.Place(UiDraw.Node(loader, "RelayRingPivot"), new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(120f, 0f), Vector2.zero);
             UiDraw.Place(UiDraw.Art(ringPulse, "RelayRing", "startup_loader_ring", Vector2.zero).rectTransform,
                 new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-120f, 0f), new Vector2(360f, 130f));
-            var preparing = UiDraw.Text(stack, "Preparing", "PREPARING THE ROOFTOP", UiFont.Heading, UiDp, UiDraw.Hex("#f4f7fb"), .25f,
+            string preparingCopy = firstFlightQuestion
+                ? L("firstFlightQuestion", "Do you want to fly?")
+                : L("preparing", "Preparing the Rooftop");
+            var preparing = UiDraw.Text(stack, "Preparing", preparingCopy, UiFont.Heading,
+                firstFlightQuestion ? TitleDp : UiDp, UiDraw.Hex("#f4f7fb"), .25f,
                 TextAlignmentOptions.Midline);
-            UiDraw.Place(preparing.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -258f), new Vector2(512f, 20f));
+            UiDraw.Place(preparing.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -258f),
+                new Vector2(512f, firstFlightQuestion ? 26f : 20f));
             UiDraw.Place(UiDraw.Art(stack, "RouteProgress", "startup_progress", Vector2.zero).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -279f), new Vector2(296f, 46f));
-            statusLine = UiDraw.Text(stack, "Nav_Status", "", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), 0f, TextAlignmentOptions.Midline);
+            statusLine = UiDraw.Text(stack, "Nav_Status", "", UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#bbc6d8"), 0f, TextAlignmentOptions.Midline);
+            statusLine.richText = false;
             UiDraw.Place(statusLine.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -302f), new Vector2(720f, 16f));
 
             // Footer: slogan left, gesture pill centre, build chip right.
-            var slogan = UiDraw.Text(root, "Tagline", "Three players. One team. Three minutes.", UiFont.HeadingSemiBold, CaptionDp,
+            var slogan = UiDraw.Text(root, "Tagline", L("tagline", "Three players. One team. Three minutes."), UiFont.HeadingSemiBold, CaptionDp,
                 UiDraw.Hex("#bbc6d8"), .025f);
             UiDraw.Place(slogan.rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(SideInset, EdgeInset + 26.5f), new Vector2(400f, 16f));
-            var sub = UiDraw.Text(root, "TaglineSub", "Build shortcuts your enemies can steal.", UiFont.Body, CaptionDp, UiDraw.Hex("#7f8ca3"), .025f);
+            var sub = UiDraw.Text(root, "TaglineSub", L("taglineSub", "Build shortcuts your enemies can steal."), UiFont.Body, CaptionDp, UiDraw.Hex("#bbc6d8"), .025f);
             UiDraw.Place(sub.rectTransform, new Vector2(0f, 0f), new Vector2(0f, .5f), new Vector2(SideInset, EdgeInset + 8.25f), new Vector2(400f, 16.5f));
             var pill = UiDraw.Box(root, "SafeZonePill", UiDraw.Hex("#49627b", .3f), 2f);
             UiDraw.Place(pill.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, .5f), new Vector2(0f, EdgeInset + 19.25f), new Vector2(144f, 4f));
@@ -277,9 +330,9 @@ namespace Hotdrop.Core
             recovery.anchorMin = recovery.anchorMax = new Vector2(0.5f, 0.5f);
             recovery.anchoredPosition = new Vector2(0f, -200f);
             recovery.sizeDelta = new Vector2(640f, 52f);
-            RecoveryButton(recovery, "CONTINUE", Continue, "Continue", -210f);
-            RecoveryButton(recovery, "PLAY OFFLINE", PlayOffline, "Offline", 0f);
-            recoveryActionButton = RecoveryButton(recovery, "RETRY CONNECTION", OpenStoreOrRetry, "Retry", 210f);
+            RecoveryButton(recovery, L("button.continue", "Continue"), Continue, "Continue", -210f);
+            RecoveryButton(recovery, L("button.playOffline", "Play Offline"), PlayOffline, "Offline", 0f);
+            recoveryActionButton = RecoveryButton(recovery, L("button.retryConnection", "Retry Connection"), OpenStoreOrRetry, "Retry", 210f);
             shownAt = Time.unscaledTime;
             Animate();
             Refresh(state);
@@ -308,7 +361,7 @@ namespace Hotdrop.Core
         /// </summary>
         static void BuildChip(Transform parent)
         {
-            string value = $"BUILD v{Application.version}";
+            string value = Format("buildChipTemplate", "BUILD v{0}", Application.version);
             var chip = UiDraw.Box(parent, "BuildChip", UiDraw.Hex("#1b2940", .8f), 4f, UiDraw.Hex("#49627b", .4f));
             var text = UiDraw.Text(chip.transform, "Version", value, UiFont.MonoRegular, CaptionDp, UiDraw.Hex("#7f8ca3"), 0f, TextAlignmentOptions.Midline);
             UiDraw.Fill(text.rectTransform);
@@ -327,7 +380,7 @@ namespace Hotdrop.Core
         {
             var baseFill = UiDraw.Box(root, "StartupBase", UiDraw.Hex("#0b1322"));
             UiDraw.Fill(baseFill.rectTransform);
-            var rooftop = Resources.Load<Texture2D>("HomeRooftop");
+            var rooftop = UiPresentationProfile.LoadRooftopArtwork();
             if (rooftop != null)
             {
                 var photo = UiDraw.Node(root, "StartupRooftop").gameObject.AddComponent<RawImage>();
@@ -410,18 +463,18 @@ namespace Hotdrop.Core
             if (status == null) return;
             string message = state switch
             {
-                StartupConnectionState.NoInternet => "NO INTERNET — local Offline play is ready.",
-                StartupConnectionState.ServiceUnavailable => "SERVICE UNAVAILABLE — retry or play Offline.",
-                StartupConnectionState.UpdateRequired => "UPDATE REQUIRED FOR ONLINE PLAY — Offline remains available.",
-                StartupConnectionState.Maintenance => "SERVICE MAINTENANCE — local Offline play is ready.",
-                StartupConnectionState.RecoveringLocalSave => "RECOVERING LOCAL SAVE — your saved training progress is kept safe.",
-                _ => "Synchronizing Relay protocol nodes...",
+                StartupConnectionState.NoInternet => L("state.noInternet", "NO INTERNET — local Offline play is ready."),
+                StartupConnectionState.ServiceUnavailable => L("state.serviceUnavailable", "SERVICE UNAVAILABLE — retry or play Offline."),
+                StartupConnectionState.UpdateRequired => L("state.updateRequired", "UPDATE REQUIRED FOR ONLINE PLAY — Offline remains available."),
+                StartupConnectionState.Maintenance => L("state.maintenance", "SERVICE MAINTENANCE — local Offline play is ready."),
+                StartupConnectionState.RecoveringLocalSave => L("state.recoveringLocalSave", "RECOVERING LOCAL SAVE — your saved training progress is kept safe."),
+                _ => L("state.synchronizing", "Synchronizing Relay protocol nodes..."),
             };
             if (!string.IsNullOrWhiteSpace(remoteStatusDetail)) message += "\n" + remoteStatusDetail;
             status.text = message;
             if (recoveryActionButton != null)
                 recoveryActionButton.SetCaption(state == StartupConnectionState.UpdateRequired && !string.IsNullOrEmpty(remoteStoreUrl)
-                    ? "UPDATE GAME" : "RETRY CONNECTION");
+                    ? L("button.updateGame", "Update Game") : L("button.retryConnection", "Retry Connection"));
             if (recoveryActions != null) recoveryActions.SetActive(state != StartupConnectionState.Normal);
         }
     }

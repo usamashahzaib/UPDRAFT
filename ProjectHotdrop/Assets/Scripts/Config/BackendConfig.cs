@@ -26,6 +26,7 @@ namespace Hotdrop.Config
             get
             {
                 if (string.IsNullOrWhiteSpace(baseUrl)) return false;
+                if (clientProtocolVersion < 1) return false;
                 // A store build must never ship an endpoint that only exists on the
                 // developer's machine. The publisher supplies an HTTPS stage/prod URL.
                 if (!Debug.isDebugBuild && string.Equals(environmentName, "dev", System.StringComparison.OrdinalIgnoreCase)) return false;

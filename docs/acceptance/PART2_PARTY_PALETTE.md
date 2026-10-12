@@ -6,6 +6,7 @@
 - Party join/readiness/leader state, invitation code, seat layout, and callbacks remain unchanged.
 - White sprite/image masks remain untinted where their white value is used as an alpha mask.
 - Newly built Party screens use the active profile palette.
+- Readiness badges, seat instructions/roles, and room status use the secondary-text role when they communicate current state or player guidance; the muted role is reserved for placeholders and decorative emphasis.
 
 ## Review still required
 

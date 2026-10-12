@@ -19,4 +19,6 @@ The training card uses 12/17/22 dp caption, body, and title roles. Long-form ins
 ## Unmet
 
 - Recheck instruction-card occlusion, 16:9/20:9 safe areas, and 12 dp physical text size in Unity; no game capture or device run occurred.
-- Localization remains an A7 prerequisite because Unity Localization is not configured; tutorial copy is still inline.
+- Tutorial copy has since been migrated under A7. Unity Editor import,
+  translated wrapping, and device review remain open in
+  `docs/acceptance/A7_LOCALIZATION_TUTORIAL.md`.

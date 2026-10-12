@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using HotdropBackend.Data;
 using HotdropBackend.Domain;
+using System.Text.Json;
 
 namespace HotdropBackend.Services;
 
@@ -16,6 +17,7 @@ public sealed class ProgressionOptions
     public int CreditsPerEligibleMatch { get; set; } = 20;
     public int CreditsWinBonus { get; set; } = 5;
     public int CreditsPerLevelUp { get; set; } = 20;
+    public int MaxUncontestedOccupationSecondsPerMatch { get; set; } = 210;
     public string[] StarterCosmetics { get; set; } = ["body_standard", "wrap_standard", "badge_rookie"];
     public int UnlockAfterEligibleMatches { get; set; } = 3;
     public string MatchCountUnlock { get; set; } = "body_teal_stripe";
@@ -32,25 +34,45 @@ public sealed class ProgressionOptions
             throw new InvalidOperationException("Progression:XpPerLevel must be greater than zero.");
         if (MaxLevel <= 0)
             throw new InvalidOperationException("Progression:MaxLevel must be greater than zero.");
+        if (MaxUncontestedOccupationSecondsPerMatch < 1)
+            throw new InvalidOperationException("Progression:MaxUncontestedOccupationSecondsPerMatch must be at least one.");
         if (EloK < 0 || XpPerEligibleMatch < 0 || XpWinBonus < 0 || XpDrawBonus < 0 ||
             CreditsPerEligibleMatch < 0 || CreditsWinBonus < 0 || CreditsPerLevelUp < 0)
             throw new InvalidOperationException("Progression reward and rating values cannot be negative.");
+        long maxXpReward = (long)XpPerEligibleMatch + Math.Max(XpWinBonus, XpDrawBonus);
+        if (maxXpReward > int.MaxValue)
+            throw new InvalidOperationException("Progression XP per-match rewards must fit the persisted integer range.");
+        long maxLevelXp = (long)XpPerLevel * (MaxLevel - 1L);
+        if (maxLevelXp > int.MaxValue)
+            throw new InvalidOperationException("Progression:XpPerLevel and MaxLevel must keep the maximum-level threshold within the persisted XP range.");
+        long maxCreditsReward = (long)CreditsPerEligibleMatch + CreditsWinBonus + (long)CreditsPerLevelUp * (MaxLevel - 1L);
+        if (maxCreditsReward > int.MaxValue)
+            throw new InvalidOperationException("Progression credit rewards per match must fit the persisted integer range.");
         if (UnlockAfterEligibleMatches < 1)
             throw new InvalidOperationException("Progression:UnlockAfterEligibleMatches must be at least one.");
+        if (string.IsNullOrWhiteSpace(MatchCountUnlock))
+            throw new InvalidOperationException("Progression:MatchCountUnlock must name a cosmetic id.");
+        if (string.IsNullOrWhiteSpace(FirstMatchBadge))
+            throw new InvalidOperationException("Progression:FirstMatchBadge must name the required first-match badge cosmetic id.");
         if (LevelUnlocks is null || LevelUnlocks.Any(x => x.Key < 1 || x.Key > MaxLevel || string.IsNullOrWhiteSpace(x.Value)))
             throw new InvalidOperationException("Progression:LevelUnlocks must contain non-empty cosmetic ids for levels within MaxLevel.");
         if (StarterCosmetics is null || StarterCosmetics.Any(string.IsNullOrWhiteSpace))
             throw new InvalidOperationException("Progression:StarterCosmetics cannot contain empty cosmetic ids.");
     }
 
-    public int LevelForXp(int xp) => Math.Min(MaxLevel, 1 + xp / XpPerLevel);
+    public int LevelForXp(int xp) => xp <= 0
+        ? 1
+        : (int)Math.Min(MaxLevel, 1L + xp / (long)XpPerLevel);
 }
 
 /// <param name="Slot">QA-025: the server-assigned in-match slot shown to other players (optional for older servers).</param>
 public sealed record ParticipantResult(Guid PlayerId, bool Won, bool Eligible, bool HadBotSubstitution, string? Team = null, int? Slot = null,
     bool IsHuman = true, AuthoritativeProgressFacts? ProgressFacts = null);
 
-public sealed record SubmitResultRequest(bool Draw, List<ParticipantResult> Participants, bool ServerFailed = false, bool HasBots = false);
+public sealed record PadTelemetryFact(string EventName, string PadId, string MapId, float X, float Y, float Z, float MatchTime, int Team, int PadTeam);
+
+public sealed record SubmitResultRequest(bool Draw, List<ParticipantResult> Participants, bool ServerFailed = false, bool HasBots = false,
+    string? Region = null, List<PadTelemetryFact>? PadTelemetry = null, string? StudyCohort = null);
 
 public sealed record PlayerResultSummary(Guid PlayerId, int XpGained, int CreditsGained, int Level, int? RatingDelta, IReadOnlyList<string> Unlocked);
 
@@ -113,7 +135,7 @@ public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMa
             }
 
             int oldLevel = options.LevelForXp(account.ProfileXp);
-            account.ProfileXp += xp;
+            account.ProfileXp = (int)Math.Min(int.MaxValue, (long)account.ProfileXp + xp);
             participation.ProfileXpAfter = account.ProfileXp;
             int newLevel = options.LevelForXp(account.ProfileXp);
             account.Level = newLevel;
@@ -139,7 +161,49 @@ public sealed class MatchResultProcessor(ProgressionOptions options, ContractsMa
             summaries.Add(new PlayerResultSummary(p.PlayerId, xp, credits, newLevel, delta, unlocked));
         }
 
-        if (contractsMasteryEnabled) await contractsMastery.ApplyMatchAsync(matchId, request, fresh, db, cancellationToken);
+        bool padFactsAlreadyStored = await db.AnalyticsEvents.AnyAsync(e => e.MatchId == matchId && e.Source == "server" &&
+            (e.EventName == "pad_placed" || e.EventName == "pad_used" || e.EventName == "pad_destroyed"), cancellationToken);
+        if (!request.ServerFailed && !padFactsAlreadyStored && request.PadTelemetry is { Count: > 0 })
+        {
+            foreach (var fact in request.PadTelemetry)
+            {
+                if (fact.EventName is not ("pad_placed" or "pad_used" or "pad_destroyed") ||
+                    string.IsNullOrWhiteSpace(fact.PadId) || fact.PadId.Length > 64 ||
+                    string.IsNullOrWhiteSpace(fact.MapId) || fact.MapId.Length > 64 ||
+                    !float.IsFinite(fact.X) || !float.IsFinite(fact.Y) || !float.IsFinite(fact.Z) ||
+                    !float.IsFinite(fact.MatchTime) || fact.MatchTime < 0) continue;
+
+                db.AnalyticsEvents.Add(new AnalyticsEvent
+                {
+                    EventName = fact.EventName,
+                    SchemaVersion = 1,
+                    Source = "server",
+                    MatchId = matchId,
+                    BuildVersion = "server",
+                    BalanceVersion = "v1.0-spec",
+                    Region = string.IsNullOrWhiteSpace(request.Region) ? "unknown" : request.Region,
+                    DeviceTier = "server",
+                    PartySize = Math.Clamp(request.Participants.Count, 1, 3),
+                    HasBots = request.HasBots,
+                    Cohort = request.StudyCohort is "study_pads_on" or "study_pads_off" ? request.StudyCohort : "default",
+                    Timestamp = now,
+                    PayloadJson = JsonSerializer.Serialize(new
+                    {
+                        mapId = fact.MapId,
+                        padId = fact.PadId,
+                        x = fact.X,
+                        y = fact.Y,
+                        z = fact.Z,
+                        matchTime = fact.MatchTime,
+                        team = fact.Team,
+                        padTeam = fact.PadTeam,
+                    }),
+                });
+            }
+        }
+
+        if (contractsMasteryEnabled) await contractsMastery.ApplyMatchAsync(matchId, request, fresh, db,
+            options.MaxUncontestedOccupationSecondsPerMatch, cancellationToken);
         try
         {
             await db.SaveChangesAsync(cancellationToken);

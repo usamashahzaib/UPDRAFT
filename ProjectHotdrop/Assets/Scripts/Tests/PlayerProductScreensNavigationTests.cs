@@ -131,6 +131,8 @@ namespace Hotdrop.Tests
         {
             PlayerProductScreens.Open(root.transform, home, "Support");
             Invoke("Close");
+            // BACK slides the page out over one motion; EditMode has no frame loop, so settle it here.
+            foreach (var driver in root.GetComponentsInChildren<Hotdrop.UI.UiMotionDriver>(true)) driver.Tick(1f);
             Assert.IsNull(Panel, "panel must be removed on BACK");
             Assert.IsTrue(home.activeSelf, "Home must be shown again on BACK");
         }

@@ -34,7 +34,7 @@ public sealed record PadTeammateUse(Guid PadOwnerPlayerId, Guid TeammatePlayerId
 public sealed class ContractsMasteryService
 {
     public async Task ApplyMatchAsync(Guid matchId, SubmitResultRequest request, IReadOnlyList<ParticipantResult> fresh,
-        HotdropDbContext db, CancellationToken cancellationToken)
+        HotdropDbContext db, int maxUncontestedOccupationSecondsPerMatch, CancellationToken cancellationToken)
     {
         var players = request.Participants.ToDictionary(p => p.PlayerId);
         var now = DateTimeOffset.UtcNow;
@@ -43,7 +43,7 @@ public sealed class ContractsMasteryService
             if (!participant.Eligible || request.ServerFailed) continue;
             var facts = participant.ProgressFacts;
             if (facts is null) continue;
-            int occupation = Math.Clamp(facts.ValidUncontestedOccupationSeconds, 0, 180);
+            int occupation = Math.Clamp(facts.ValidUncontestedOccupationSeconds, 0, maxUncontestedOccupationSecondsPerMatch);
             var qualifyingUses = (facts.HumanTeammatePadUses ?? [])
                 .Take(64)
                 .Where(u => u.PadOwnerPlayerId == participant.PlayerId && u.TeammatePlayerId != participant.PlayerId && u.TeammateIsHuman

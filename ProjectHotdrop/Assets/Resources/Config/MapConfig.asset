@@ -31,5 +31,15 @@ MonoBehaviour:
   - {x: -20, y: 3, z: 14}
   - {x: 20, y: 3, z: -14}
   - {x: -20, y: 3, z: -14}
+  - {x: 34, y: 3, z: 26}
+  - {x: -34, y: 3, z: 26}
+  - {x: 36, y: 3, z: 12}
+  - {x: -36, y: 3, z: 12}
+  - {x: 34, y: 3, z: -26}
+  - {x: -34, y: 3, z: -26}
+  - {x: 36, y: 3, z: -12}
+  - {x: -36, y: 3, z: -12}
+  rampRunMeters: 7
+  rampWidthMeters: 4
   minimumMainRouteWidth: 4
   sightlineBlockerZ: 20

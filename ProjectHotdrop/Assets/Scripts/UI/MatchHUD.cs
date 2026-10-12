@@ -18,6 +18,28 @@ namespace Hotdrop.UI
     /// </summary>
     public class MatchHUD : MonoBehaviour
     {
+        static string L(string key, string fallback) => UiDraw.L("hud." + key, fallback);
+        static string F(string key, string fallback, params object[] args) => UiDraw.LFormat("hud." + key, fallback, args);
+        public static string Localized(string key, string fallback) => L(key, fallback);
+        static string PadReasonKey(string value)
+        {
+            var key = new System.Text.StringBuilder();
+            bool separator = false;
+            foreach (char c in value ?? string.Empty)
+            {
+                if (char.IsLetterOrDigit(c))
+                {
+                    if (separator && key.Length > 0) key.Append('.');
+                    key.Append(char.ToLowerInvariant(c));
+                    separator = false;
+                }
+                else separator = true;
+            }
+            return key.ToString();
+        }
+        public static string LocalizedPadReason(string reason) =>
+            string.IsNullOrEmpty(reason) ? "" : L("pad.reject." + PadReasonKey(reason), reason);
+
         // UI foundation (Prompt 01): the HUD reads the central semantic tokens instead of
         // carrying its own literals. Field names are unchanged, so every existing caller -
         // scene wiring, HUD code and tests alike - keeps working.
@@ -100,17 +122,28 @@ namespace Hotdrop.UI
         IMatchParticipant localPlayer;
         Hotdrop.Input.TouchInputManager touch;
         System.Action playAgainAction, homeAction;
+        System.Action<int> reportParticipantAction;
+        System.Func<int, bool> reportParticipantEligible;
         System.Action<int> selectWeaponAction;
         bool hasMatch;
         float combatFeedbackUntil;
         WeaponDefinition[] weapons;
         int selectedPreparationWeapon;
+        int lastKillerParticipantId = -1;
+        int eliminationVictimParticipantId = -1;
+        string eliminationVictimFallbackName = "";
+        IReadOnlyList<IMatchParticipant> resultsParticipants;
+        string resultsFooter = "", resultsNextGoal = "", resultsPersonalBest = "", resultsReceipt = "";
+        Color resultsReceiptColor;
+        int resultsAllyScore, resultsEnemyScore;
 
         // Runtime-built elements.
         RectTransform canvasRect;
         RectTransform objectiveMarker;
         TextMeshProUGUI objectiveMarkerText;
+        Image objectiveMarkerBacking;
         PingSystem pingSystem;
+        QuickChatWheelView quickChatWheel;
 
         /// <summary>Reused buffer for the panels currently on screen; see <see cref="ActivePanelRects"/>.</summary>
         readonly List<Rect> markerExclusions = new List<Rect>();
@@ -133,6 +166,16 @@ namespace Hotdrop.UI
 
         /// <summary>Half the measured ink height of the combat-feedback line at font size 22.</summary>
         public const float CombatFeedbackInkHalfHeight = 12.3f;
+
+        void OnEnable() => StreamSafePresentation.Changed += RefreshLegacyResultsPrivacy;
+
+        void OnDisable() => StreamSafePresentation.Changed -= RefreshLegacyResultsPrivacy;
+
+        void RefreshLegacyResultsPrivacy()
+        {
+            if (resultsPanel == null || !resultsPanel.activeInHierarchy || resultsParticipants == null) return;
+            RebuildLegacyResultsText();
+        }
 
         /// <summary>
         /// The live footprint, in canvas-local units, of every HUD panel currently on screen.
@@ -233,6 +276,7 @@ namespace Hotdrop.UI
 
         void Awake()
         {
+            if (matchRules == null) matchRules = Resources.Load<MatchRulesConfig>("Config/MatchRulesConfig");
             canvasRect = GetComponent<RectTransform>();
             if (playAgainButton != null) playAgainButton.onClick.AddListener(() => playAgainAction?.Invoke());
             if (homeButton != null) homeButton.onClick.AddListener(() => homeAction?.Invoke());
@@ -245,6 +289,8 @@ namespace Hotdrop.UI
             }
 
             BuildRuntimeElements();
+            damageFeedback = DamageFeedbackView.Create(transform, canvasRect, matchRules);
+            flightSpeedLines = FlightSpeedLinesView.Create(transform, canvasRect);
             BuildUiuxOverlay();
             // Appearance and marker projection each have exactly one owner; this class asks,
             // it does not decide. See HudAppearance / HudMarkerLayer.
@@ -258,6 +304,8 @@ namespace Hotdrop.UI
             if (mainCamera == null) mainCamera = UnityEngine.Camera.main;
             if (GetComponent<PingSystem>() == null) gameObject.AddComponent<PingSystem>();
             pingSystem = GetComponent<PingSystem>();// Objective edge marker: a diamond plus zone name and distance, laid out on one row
+            quickChatWheel = GetComponent<QuickChatWheelView>();
+            if (quickChatWheel == null) quickChatWheel = gameObject.AddComponent<QuickChatWheelView>();
             // inside HudMarkerLayer.MarkerFootprintSize. Icon-above-caption made the marker 74 units
             // tall, and the preparation screen's only free gap inside the readable band is 40, so no
             // placement rule could ever have cleared it. One row is 36 and fits; the panel geometry
@@ -267,6 +315,11 @@ namespace Hotdrop.UI
             // UIUX objective reticle inside the one-row footprint: a 34 px gold ring (gold/20 fill,
             // 2 px gold/90 rim, flag glyph) and a mono label chip on a #1b2940/90 plate with a
             // gold/50 rail. The chip is the world-anchored caption's legibility plate.
+            // High-contrast option: an opaque profile-background disc under the ring, inside the
+            // ring's own 34 px footprint, so the cue holds against a bright sky. Off by default.
+            objectiveMarkerBacking = UiDraw.Dot(marker, "HighContrastBacking", 34f, UIDesignTokens.WithAlpha(UIDesignTokens.Background, 1f));
+            objectiveMarkerBacking.rectTransform.anchoredPosition = new Vector2(HudMarkerLayer.MarkerIconCenterX, 0);
+            objectiveMarkerBacking.gameObject.SetActive(false);
             var ring = UiDraw.Ring(marker, "Diamond", 34f, 2f, UiDraw.Hex("#ffd166", .9f));
             ring.rectTransform.anchoredPosition = new Vector2(HudMarkerLayer.MarkerIconCenterX, 0);
             var ringFill = UiDraw.Dot(ring.transform, "Fill", 32f, UiDraw.Hex("#ffd166", .2f));
@@ -353,27 +406,29 @@ namespace Hotdrop.UI
                     // 1920x1080). Before this the title sat high with ~35 units of dead space above
                     // it while the stat block hung 9.25 units below the card's bottom border - the
                     // numbers a player picks a weapon by rendered outside the card they belong to.
-                    // Measured ink: title ~41 tall, role 71.76 over 3 lines, stats 42.51 over 2.
-                    // Those total 155.27 and fit inside 200 with real margins, so this rebalances the
-                    // stack rather than shrinking type or dropping content: title ink lands at
-                    // y -28..13, role at -92.88..-21.12, stats at -143.26..-100.75, leaving gaps of
-                    // ~7 between blocks and ~17 below the last one.
+                    // Keep title, role and wrapped stats inside the card with separation between
+                    // blocks. Typography uses the Preparation tokens below, so long configured
+                    // values wrap without shrinking below the 12 dp caption floor.
                     if (b.nameText != null)
                     {
                         b.nameText.rectTransform.anchoredPosition = new Vector2(0, 87.5f);
                         b.nameText.rectTransform.sizeDelta = new Vector2(250, 50);
-                        b.nameText.fontSize = 34; b.nameText.fontSizeMax = 34;
+                        b.nameText.fontSize = UiMetrics.ScaleTextSize(HudEmphasisFontSize);
+                        b.nameText.enableAutoSizing = true;
+                        b.nameText.fontSizeMin = b.nameText.fontSizeMax = UiMetrics.ScaleTextSize(HudEmphasisFontSize);
                     }
-                    if (b.roleText == null) b.roleText = Ui.Text("Role", b.button.transform, "", 21, SecondaryText);
+                    if (b.roleText == null) b.roleText = Ui.Text("Role", b.button.transform, "", HudCaptionFontSize, SecondaryText);
                     // Applied whether or not the text was just created: a scene-authored Role child
                     // must get the same layout as a code-built one, or this file would only own half
                     // of the card it is responsible for.
                     b.roleText.rectTransform.anchoredPosition = new Vector2(0, 23);
                     b.roleText.rectTransform.sizeDelta = new Vector2(250, 100);
                     b.roleText.textWrappingMode = TextWrappingModes.Normal;
-                    b.roleText.fontSizeMin = 17;
+                    b.roleText.fontSize = UiMetrics.ScaleTextSize(HudCaptionFontSize);
+                    b.roleText.enableAutoSizing = true;
+                    b.roleText.fontSizeMin = b.roleText.fontSizeMax = UiMetrics.ScaleTextSize(HudCaptionFontSize);
                     // Values are filled directly from WeaponDefinition; never use a made-up power bar.
-                    b.statsText = Ui.Text("Stats", b.button.transform, "", 17, SecondaryText);
+                    b.statsText = Ui.Text("Stats", b.button.transform, "", HudCaptionFontSize, SecondaryText);
                     // Wrapping is what keeps a long stat line inside the card. Disabling it let
                     // "9 DMG - 8 PELLETS - 75 RPM" render 279 units wide across a 270-unit card.
                     // Wrapping keeps every number at the same size rather than shrinking it to fit.
@@ -392,7 +447,9 @@ namespace Hotdrop.UI
                 if (preparationText != null)
                 {
                     preparationText.rectTransform.sizeDelta = new Vector2(600, 70);
-                    preparationText.fontSizeMax = 32; preparationText.fontSizeMin = 20;
+                    preparationText.fontSize = UiMetrics.ScaleTextSize(HudCaptionFontSize);
+                    preparationText.enableAutoSizing = true;
+                    preparationText.fontSizeMin = preparationText.fontSizeMax = UiMetrics.ScaleTextSize(HudCaptionFontSize);
                 }
             }
             padStatusText = padChargeText;
@@ -435,6 +492,13 @@ namespace Hotdrop.UI
                 UIFonts.Use(combatFeedbackText, UiFont.Heading);
                 combatFeedbackText.fontSize = combatFeedbackText.fontSizeMax = UiMetrics.ScaleTextSize(HudValueFontSize);
                 combatFeedbackText.characterSpacing = 8f;
+                // No plate (it must not read as a panel), but a soft dark underlay keeps the line
+                // readable over bright cladding and sky.
+                var feedbackMaterial = combatFeedbackText.fontMaterial;
+                feedbackMaterial.EnableKeyword(ShaderUtilities.Keyword_Underlay);
+                feedbackMaterial.SetColor(ShaderUtilities.ID_UnderlayColor, new Color(0.02f, 0.04f, 0.08f, .85f));
+                feedbackMaterial.SetFloat(ShaderUtilities.ID_UnderlaySoftness, .55f);
+                feedbackMaterial.SetFloat(ShaderUtilities.ID_UnderlayDilate, .35f);
             }
             foreach (var t in new[] { deathTitle, deathCountdown, deathSpectate })
                 if (t != null) UIFonts.Use(t, t == deathTitle ? UiFont.Heading : UiFont.MonoMedium);
@@ -480,10 +544,12 @@ namespace Hotdrop.UI
         /// <summary>Offline practice / tutorial (controller null = tutorial).</summary>
         public void Initialize(MatchController controller, PlayerController player, WeaponDefinition[] weaponDefinitions = null)
         {
+            player.SetMatchRulesConfig(matchRules);
             Bind(player, player.touchInput, weaponDefinitions ?? controller?.weaponDefinitions, controller != null,
                 controller != null ? controller.OnPlayAgain : null,
                 controller != null ? controller.OnReturnHome : null,
                 controller != null ? controller.SetLocalWeapon : null);
+            if (touch != null) touch.QuickChatEnabled = false;
             UpdateHealth(player.CurrentHealth / player.MaxHealth);
             UpdateAmmo(player.CurrentAmmo, player.MaxAmmo);
             HighlightWeapon(System.Array.IndexOf(weapons ?? new WeaponDefinition[0], player.CurrentWeapon));
@@ -491,21 +557,29 @@ namespace Hotdrop.UI
 
         /// <summary>Networked match: same HUD, actions routed to the network session.</summary>
         public void InitializeNetwork(IMatchParticipant local, Hotdrop.Input.TouchInputManager touchInput, WeaponDefinition[] weaponDefinitions,
-            System.Action playAgain, System.Action home, System.Action<int> selectWeapon)
+            System.Action playAgain, System.Action home, System.Action<int> selectWeapon,
+            System.Action<int> reportParticipant = null, System.Func<int, bool> reportParticipantEligible = null)
         {
-            Bind(local, touchInput, weaponDefinitions, true, playAgain, home, selectWeapon);
+            Bind(local, touchInput, weaponDefinitions, true, playAgain, home, selectWeapon,
+                reportParticipant, reportParticipantEligible);
+            if (touch != null) touch.QuickChatEnabled = QuickChatWheelView.AvailabilityGateOpen;
             UpdateHealth(local.HealthFraction);
         }
 
         void Bind(IMatchParticipant local, Hotdrop.Input.TouchInputManager touchInput, WeaponDefinition[] weaponDefinitions, bool match,
-            System.Action playAgain, System.Action home, System.Action<int> selectWeapon)
+            System.Action playAgain, System.Action home, System.Action<int> selectWeapon,
+            System.Action<int> reportParticipant = null, System.Func<int, bool> reportParticipantEligible = null)
         {
             localPlayer = local;
+            if (touch != null) touch.OnQuickChatRequested -= OpenQuickChatWheel;
             touch = touchInput;
+            if (touch != null) touch.OnQuickChatRequested += OpenQuickChatWheel;
             weapons = weaponDefinitions;
             hasMatch = match;
             playAgainAction = playAgain;
             homeAction = home;
+            reportParticipantAction = reportParticipant;
+            this.reportParticipantEligible = reportParticipantEligible;
             selectWeaponAction = selectWeapon;
             if (teammatePanel != null) teammatePanel.SetActive(false);
             SetZoneInfoVisible(false);
@@ -519,7 +593,7 @@ namespace Hotdrop.UI
             if (!match)
             {
                 // Training has no score, clock or rotation.
-                if (activeZoneText != null) { activeZoneText.text = "TRAINING"; activeZoneText.color = Objective; }
+                if (activeZoneText != null) { activeZoneText.text = L("training", "Training"); activeZoneText.color = Objective; }
                 if (nextZoneText != null) nextZoneText.text = "";
                 if (timerText != null) timerText.text = "";
                 if (scoreAText != null) scoreAText.text = "";
@@ -528,14 +602,20 @@ namespace Hotdrop.UI
             if (weapons != null)
                 for (int i = 0; i < weaponButtons.Length && i < weapons.Length; i++)
                 {
-                    if (weaponButtons[i]?.nameText != null) weaponButtons[i].nameText.text = weapons[i].displayName.ToUpperInvariant();
-                    if (weaponButtons[i]?.roleText != null) weaponButtons[i].roleText.text = weapons[i].roleDescription;
+                    if (weaponButtons[i]?.nameText != null) weaponButtons[i].nameText.text = PreparationView.WeaponName(weapons[i]);
+                    if (weaponButtons[i]?.roleText != null) weaponButtons[i].roleText.text = PreparationView.Role(weapons[i]);
                     if (weaponButtons[i]?.statsText != null)
                     {
                         var w = weapons[i];
                         weaponButtons[i].statsText.text = FormatLoadoutStats(w);
                     }
                 }
+        }
+
+        void OpenQuickChatWheel()
+        {
+            if (!hasMatch || touch == null || !touch.QuickChatEnabled || !QuickChatWheelView.AvailabilityGateOpen) return;
+            quickChatWheel?.Open();
         }
 
         public void HighlightWeapon(int index)
@@ -550,15 +630,20 @@ namespace Hotdrop.UI
                 image.color = selected ? UIDesignTokens.WithAlpha(UIDesignTokens.PrimaryAction, 0.35f) : PanelBg;
                 if (weaponButtons[i].nameText != null)
                     weaponButtons[i].nameText.text = weapons != null && i < weapons.Length
-                        ? (selected ? "> " : "") + weapons[i].displayName.ToUpperInvariant() + (selected ? " <" : "")
+                        ? (selected ? "> " : "") + PreparationView.WeaponName(weapons[i]) + (selected ? " <" : "")
                         : weaponButtons[i].nameText.text;
             }
         }
 
         void Update()
         {
-            if (combatFeedbackText != null && combatFeedbackText.gameObject.activeSelf && Time.unscaledTime >= combatFeedbackUntil)
-                combatFeedbackText.gameObject.SetActive(false);
+            if (combatFeedbackText != null && combatFeedbackText.gameObject.activeSelf)
+            {
+                if (Time.unscaledTime >= combatFeedbackUntil)
+                    HideCombatFeedback();
+                else if (eliminationVictimParticipantId >= 0)
+                    combatFeedbackText.text = F("combat.eliminatedTemplate", "Eliminated {0}", ResolveParticipantDisplayName(eliminationVictimParticipantId, eliminationVictimFallbackName));
+            }
             if (hitMarkerText != null && hitMarkerText.gameObject.activeSelf && Time.unscaledTime >= hitMarkerUntil)
                 hitMarkerText.gameObject.SetActive(false);
             if (localPlayer == null) return;
@@ -586,6 +671,9 @@ namespace Hotdrop.UI
         /// </summary>
         public void RefreshHudMarkers()
         {
+            // Panels first: markers avoid the panels' measured rects, so those must be at device size.
+            if (uiux != null) uiux.RefreshPhysicalScale();
+            UiDpScaler.RefreshAll();
             UpdateObjectiveMarker();
             var pings = GetComponent<PingSystem>();
             if (pings != null) pings.RefreshMarkers();
@@ -669,11 +757,28 @@ namespace Hotdrop.UI
                 HudMarkerLayer.MarkerRowHeight,
                 pingSystem != null ? pingSystem.PlacedMarkers : null);
 
+            // The loadout surface can occupy every readable placement during preparation. The
+            // header already names the opening objective, so suppress the world marker when no
+            // collision-free slot exists instead of drawing it across the weapon cards.
+            if (HudMarkerLayer.ClearanceAt(local, markerExclusions,
+                    pingSystem != null ? pingSystem.PlacedMarkers : null) < HudMarkerLayer.MarkerClearance)
+            {
+                objectiveMarker.gameObject.SetActive(false);
+                return;
+            }
+
             objectiveMarker.gameObject.SetActive(true);
             objectiveMarker.localPosition = local;
+            if (objectiveMarkerBacking != null)
+            {
+                bool highContrast = PlayerPrefs.GetInt(Hotdrop.Core.OfflinePauseMenu.HighContrastObjectiveMarkerKey, 0) == 1;
+                if (objectiveMarkerBacking.gameObject.activeSelf != highContrast) objectiveMarkerBacking.gameObject.SetActive(highContrast);
+                // The palette follows the presentation profile, which can change mid-session.
+                if (highContrast) objectiveMarkerBacking.color = UIDesignTokens.WithAlpha(UIDesignTokens.Background, 1f);
+            }
             float distance = Vector3.Distance(localPlayer.Position, match.ActiveObjectivePosition);
-            string objectiveLabel = match is IObjectivePresentation objective ? objective.ActiveObjectiveLabel : match.ScoringZone.ToString().ToUpperInvariant();
-            objectiveMarkerText.text = $"{objectiveLabel} • {distance:0}m";
+            string objectiveLabel = match is IObjectivePresentation objective ? objective.ActiveObjectiveLabel : PreparationView.ZoneShortLabel(match.ScoringZone);
+            objectiveMarkerText.text = F("objective.markerTemplate", "{0} • {1:0}m", objectiveLabel, distance);
             var plate = objectiveMarker.Find("Plate") as RectTransform;
             if (plate != null) plate.sizeDelta = new Vector2(Mathf.Min(HudMarkerLayer.MarkerCaptionSize.x, UiDraw.Width(objectiveMarkerText) + 20f), 20f);
         }
@@ -690,7 +795,8 @@ namespace Hotdrop.UI
                 if (p == null || ReferenceEquals(p, localPlayer) || p.TeamId != localPlayer.TeamId) continue;
                 var ui = teammateSlots[slot++];
                 if (ui == null) continue;
-                if (ui.nameText != null) ui.nameText.text = p.IsAlive ? p.DisplayName : $"{p.DisplayName}  DOWN {p.RespawnRemaining:0}s";
+                if (ui.nameText != null) ui.nameText.text = p.IsAlive ? p.DisplayName
+                    : F("teammate.downTemplate", "{0}  DOWN {1:0}s", p.DisplayName, p.RespawnRemaining);
                 ui.UpdateStatus(p.IsAlive, p.HealthFraction);
             }
         }
@@ -707,14 +813,17 @@ namespace Hotdrop.UI
                 if (hasMatch) EnableWeaponSelect(dead || phase == MatchPhase.Preparation);
             }
             if (!dead) return;
-            deathTitle.text = string.IsNullOrEmpty(lastKillerName)
-                ? "ELIMINATED — LEFT THE ARENA"
-                : $"ELIMINATED BY {lastKillerName}  ·  {lastWeaponName}" + (string.IsNullOrEmpty(lastAttackDirection) ? "" : $"  ·  FROM {lastAttackDirection}");
+            string killerName = ResolveLastKillerName();
+            deathTitle.text = string.IsNullOrEmpty(killerName)
+                ? L("death.leftArena", "ELIMINATED — LEFT THE ARENA")
+                : F("death.byTemplate", "ELIMINATED BY {0}  ·  {1}{2}", killerName, lastWeaponName,
+                    string.IsNullOrEmpty(lastAttackDirection) ? "" : F("death.fromTemplate", "  ·  FROM {0}", lastAttackDirection));
             int seconds = Mathf.CeilToInt(localPlayer.RespawnRemaining);
-            deathCountdown.text = hasMatch ? $"RESPAWN IN {seconds}   ·   CHANGE WEAPON BELOW" : $"RESPAWN IN {seconds}";
+            deathCountdown.text = hasMatch ? F("death.respawnWithLoadoutTemplate", "RESPAWN IN {0}   ·   CHANGE WEAPON BELOW", seconds)
+                : F("death.respawnTemplate", "Respawn in {0}", seconds);
             var spectated = MatchView.Current?.SpectatedTeammate;
-            deathSpectate.text = !hasMatch ? "TIP: STRAFE WHILE FIRING AND FIGHT FROM COVER — OPPONENTS AIM AT YOUR LAST POSITION"
-                : spectated != null ? $"WATCHING {spectated.DisplayName}" : "";
+            deathSpectate.text = !hasMatch ? L("death.trainingTip", "TIP: STRAFE WHILE FIRING AND FIGHT FROM COVER — OPPONENTS AIM AT YOUR LAST POSITION")
+                : spectated != null ? F("death.watchingTemplate", "Watching {0}", spectated.DisplayName) : "";
         }
 
         public void UpdateScores(int scoreA, int scoreB)
@@ -741,9 +850,10 @@ namespace Hotdrop.UI
         {
             int ally = localIsA ? scoreA : scoreB;
             int rival = localIsA ? scoreB : scoreA;
-            string allyName = localIsA ? "TEAM A" : "TEAM B";
-            string rivalName = localIsA ? "TEAM B" : "TEAM A";
-            return ($"{allyName} · YOU  {ally}", $"{rival}  {rivalName}");
+            string allyName = localIsA ? L("score.teamA", "Team A") : L("score.teamB", "Team B");
+            string rivalName = localIsA ? L("score.teamB", "Team B") : L("score.teamA", "Team A");
+            return (F("score.allyTemplate", "{0} · YOU  {1}", allyName, ally),
+                F("score.rivalTemplate", "{0}  {1}", rival, rivalName));
         }
 
         public void UpdateTimer(float matchTime)
@@ -760,29 +870,47 @@ namespace Hotdrop.UI
             else remaining = matchRules.regulationDurationSeconds - matchTime;
             remaining = Mathf.Max(0f, remaining);
             int total = Mathf.CeilToInt(remaining);
-            timerText.text = $"{prefix}{total / 60}:{total % 60:00}";
+            timerText.text = (prefix.Length > 0 ? L("clock.overtimePrefix", "OT ") : "") + $"{total / 60}:{total % 60:00}";
             uiux?.SetClock(remaining, prefix.Length > 0);
+        }
+
+        DamageFeedbackView damageFeedback;
+        FlightSpeedLinesView flightSpeedLines;
+        public DamageFeedbackView DamageFeedback => damageFeedback;
+
+        /// <summary>Bible 2.5 directional hit arc. The argument is a world-space direction from the local player toward the attacker.</summary>
+        public void ShowDamageFrom(Vector3 directionToAttacker)
+        {
+            if (damageFeedback == null || mainCamera == null) return;
+            damageFeedback.SetRules(matchRules);
+            damageFeedback.ShowHit(mainCamera.transform.forward, directionToAttacker);
         }
 
         public void UpdateHealth(float normalizedHealth)
         {
+            if (damageFeedback != null) { damageFeedback.SetRules(matchRules); damageFeedback.SetHealth(normalizedHealth); }
             if (healthSlider != null) healthSlider.value = normalizedHealth;
             uiux?.SetHealth(normalizedHealth);
             if (healthFill != null && healthGradient != null) healthFill.color = healthGradient.Evaluate(normalizedHealth);
             if (healthValueText != null)
             {
                 int hp = Mathf.CeilToInt(normalizedHealth * 100f); // spec: 100 HP for everyone
-                healthValueText.text = normalizedHealth <= 0.3f ? $"LOW HP {hp}" : hp.ToString();
-                healthValueText.color = normalizedHealth <= 0.3f ? Enemy : MainText;
+                bool lowHealth = matchRules != null && normalizedHealth <= matchRules.lowHealthThresholdFraction;
+                healthValueText.text = lowHealth ? F("health.lowTemplate", "Low HP {0}", hp) : hp.ToString();
+                healthValueText.color = lowHealth ? Enemy : MainText;
             }
         }
+
+        /// <summary>Bible 2.5 peripheral flight lines, driven by local planar speed.</summary>
+        public void UpdateFlightMotion(float planarSpeed, bool airborne)
+            => flightSpeedLines?.SetFlightMotion(planarSpeed, airborne, matchRules);
 
         public void UpdateAmmo(int current, int max)
             => UpdateAmmo(current, max, false, 0f);
 
         public void UpdateAmmo(int current, int max, bool reloading, float reloadProgress)
         {
-            string label = reloading ? $"RELOADING {Mathf.RoundToInt(Mathf.Clamp01(reloadProgress) * 100f)}%" : $"{current}/{max}";
+            string label = reloading ? F("ammo.reloadingTemplate", "Reloading {0}%", Mathf.RoundToInt(Mathf.Clamp01(reloadProgress) * 100f)) : $"{current}/{max}";
             if (ammoText != null)
             {
                 ammoText.text = label;
@@ -794,8 +922,7 @@ namespace Hotdrop.UI
             {
                 touch.AmmoLabel = label;
                 var weapon = localPlayer is PlayerController pc ? pc.CurrentWeapon : null;
-                string shortName = weapon != null && !string.IsNullOrEmpty(weapon.displayName)
-                    ? weapon.displayName.Split(' ')[0].ToUpperInvariant() : "";
+                string shortName = weapon != null ? PreparationView.WeaponShortName(weapon) : "";
                 touch.WeaponLabel = shortName.Length > 0 ? $"{shortName} {max}" : "";
             }
             if (ammoProgressFill != null) ammoProgressFill.fillAmount = max > 0 ? (float)current / max : 0f;
@@ -807,23 +934,23 @@ namespace Hotdrop.UI
         {
             if (pad == null) return;
             bool friendly = localPlayer == null || pad.TeamId == localPlayer.TeamId;
-            string state = pad.State == PadState.Arming ? "ARMING" :
-                pad.State == PadState.Armed ? "ARMED — ANYONE CAN LAUNCH" :
-                pad.State == PadState.Destroyed ? "DESTROYED" : "EXPIRED";
+            string state = pad.State == PadState.Arming ? L("pad.arming", "Arming") :
+                pad.State == PadState.Armed ? L("pad.armed", "ARMED — ANYONE CAN LAUNCH") :
+                pad.State == PadState.Destroyed ? L("pad.destroyed", "Destroyed") : L("pad.expired", "Expired");
             string health = pad.State == PadState.Arming || pad.State == PadState.Armed
-                ? $"  ·  {Mathf.CeilToInt(Mathf.Max(0f, pad.Health))} HP" : "";
-            string text = $"{(friendly ? "ALLY" : "ENEMY")} PAD  ·  {state}{health}";
+                ? F("pad.healthSuffix", "  ·  {0} HP", Mathf.CeilToInt(Mathf.Max(0f, pad.Health))) : "";
+            string text = F("pad.statusTemplate", "{0} PAD  ·  {1}{2}", friendly ? L("team.ally", "Ally") : L("team.enemy", "Enemy"), state, health);
             if (padStatusText != null) padStatusText.text = text;
             if (touch != null) touch.PadStatusLabel = text;
-            if (padButtonFill != null) padButtonFill.color = friendly ? Friendly : Enemy;
+            if (padButtonFill != null) padButtonFill.color = UIDesignTokens.TextPrimary;
         }
 
         /// <summary>Preparation-card copy sourced exclusively from the selected weapon config.</summary>
         public static string FormatLoadoutStats(WeaponDefinition weapon)
         {
             if (weapon == null) return "";
-            string pellets = weapon.pelletsPerShot > 1 ? $"  ·  {weapon.pelletsPerShot} PELLETS" : "";
-            string damage = $"{weapon.bodyDamage:0} DMG{pellets}";
+            string pellets = weapon.pelletsPerShot > 1 ? F("loadout.pelletsTemplate", "  ·  {0} PELLETS", weapon.pelletsPerShot) : "";
+            string damage = F("loadout.damageTemplate", "{0:0} DMG{1}", weapon.bodyDamage, pellets);
             // A pellet weapon's damage row does not fit one 250-unit line - "9 DMG  ·  8 PELLETS  ·
             // 75 RPM" measured 279 wide against a 250 box and 270 card. Letting it wrap split
             // "75 RPM" across two lines, and a fire rate whose unit is separated from its number is
@@ -831,22 +958,27 @@ namespace Hotdrop.UI
             // instead: the pellet count belongs with the damage it modifies, so the rate moves to
             // its own line. The card has room for the extra row (measured ink 63.8 in a 68 box).
             string damageRow = weapon.pelletsPerShot > 1
-                ? $"{damage}\n{weapon.roundsPerMinute:0} RPM"
-                : $"{damage}  ·  {weapon.roundsPerMinute:0} RPM";
-            return $"{damageRow}\n{weapon.magazineSize} MAG  ·  {weapon.reloadSeconds:0.0}s RELOAD";
+                ? F("loadout.damageAndRateTemplate", "{0}\n{1:0} RPM", damage, weapon.roundsPerMinute)
+                : F("loadout.damageAndRateTemplate", "{0}  ·  {1:0} RPM", damage, weapon.roundsPerMinute);
+            return F("loadout.magReloadTemplate", "{0}\n{1} MAG  ·  {2:0.0}s RELOAD", damageRow, weapon.magazineSize, weapon.reloadSeconds);
         }
 
         /// <summary>Shared copy makes the pre-match restrictions explicit without inventing a gameplay rule.</summary>
         public static string PreparationCopy(float seconds) =>
-            $"LOADOUT  ·  {seconds:0}s\nSPAWN LOCKED  ·  DAMAGE BLOCKED  ·  PADS UNAVAILABLE";
+            F("preparationTemplate", "LOADOUT  ·  {0:0}s\nSPAWN LOCKED  ·  DAMAGE BLOCKED  ·  PADS UNAVAILABLE", seconds);
 
-        public void ShowPadReady() => ShowCombatFeedback("PAD READY", Objective, 0.8f);
+        public void ShowPadReady() => ShowCombatFeedback(L("combat.padReady", "Pad Ready"), Objective, 0.8f);
 
-        public void ShowPadActivated() => ShowCombatFeedback("LAUNCH", Objective, 0.5f);
+        public void ShowPadActivated() => ShowCombatFeedback(L("combat.launch", "Launch"), Objective, 0.5f);
 
-        public void ShowPadRejected(string reason) => ShowCombatFeedback($"CAN'T PLACE PAD — {reason}", SecondaryText, 1.2f);
+        public void ShowPadRejected(string reason)
+        {
+            GameAudio.Play2D(GameCue.UiNegative);
+            ShowCombatFeedback(F("combat.padRejectedTemplate", "CAN'T PLACE PAD — {0}",
+                LocalizedPadReason(reason)), SecondaryText, 1.2f);
+        }
 
-        public void ShowBlockedShot() => ShowCombatFeedback("SHOT BLOCKED", UIDesignTokens.SignalWarning, 0.7f);
+        public void ShowBlockedShot() => ShowCombatFeedback(L("combat.shotBlocked", "Shot Blocked"), UIDesignTokens.SignalWarning, 0.7f);
 
         public void ShowHitConfirmed(bool headshot = false, bool elimination = false)
         {
@@ -859,24 +991,63 @@ namespace Hotdrop.UI
         }
 
         /// <summary>killerName empty = left the arena / no killer.</summary>
-        public void ShowEliminated(string killerName, WeaponId weapon, string attackDirection = "")
+        public void ShowEliminated(IMatchParticipant killer, WeaponId weapon, string attackDirection = "")
         {
-            lastKillerName = killerName ?? "";
-            lastWeaponName = weapon.ToString().ToUpperInvariant();
+            lastKillerParticipantId = killer != null ? killer.ParticipantId : -1;
+            lastKillerName = killer?.DisplayName ?? "";
+            lastWeaponName = weapon.ToString();
             lastAttackDirection = attackDirection ?? "";
+            damageFeedback?.Clear();
+            flightSpeedLines?.Clear();
             HideCombatFeedback();
         }
 
-        public void ShowEliminationConfirmed(string victimName) => ShowCombatFeedback($"ELIMINATED {victimName}", Friendly, 1.2f);
+        string ResolveLastKillerName()
+        {
+            if (lastKillerParticipantId < 0) return "";
+            return ResolveParticipantDisplayName(lastKillerParticipantId, lastKillerName);
+        }
+
+        string ResolveParticipantDisplayName(int participantId, string fallbackName)
+        {
+            var participants = MatchView.Current?.Participants;
+            if (participants != null)
+                foreach (var participant in participants)
+                    if (participant != null && participant.ParticipantId == participantId)
+                        return participant.DisplayName;
+            var offlineParticipant = PlayerController.Find(participantId);
+            if (offlineParticipant != null) return offlineParticipant.DisplayName;
+            return StreamSafePresentation.Enabled
+                ? StreamSafePresentation.PlayerName(fallbackName, participantId)
+                : fallbackName;
+        }
+
+        public void ShowEliminationConfirmed(IMatchParticipant victim)
+        {
+            if (victim == null)
+            {
+            ShowCombatFeedback(L("combat.eliminated", "Eliminated"), Friendly, 1.2f);
+                return;
+            }
+
+            string fallbackName = victim.DisplayName ?? "";
+            ShowCombatFeedback(F("combat.eliminatedTemplate", "Eliminated {0}", fallbackName), Friendly, 1.2f);
+            eliminationVictimParticipantId = victim.ParticipantId;
+            eliminationVictimFallbackName = fallbackName;
+        }
 
         public void HideCombatFeedback()
         {
             if (combatFeedbackText != null) combatFeedbackText.gameObject.SetActive(false);
+            eliminationVictimParticipantId = -1;
+            eliminationVictimFallbackName = "";
         }
 
         public void ShowCombatFeedback(string message, Color color, float seconds)
         {
             if (combatFeedbackText == null) return;
+            eliminationVictimParticipantId = -1;
+            eliminationVictimFallbackName = "";
             // Transient messaging is laid out in the reserved strip above the marker band, never
             // inside it. At the old y=110 its ink measured y 97.71..122.29, overlapping the only
             // 40-unit gap markers have on the preparation screen; combined with a 33.94-tall marker
@@ -897,8 +1068,9 @@ namespace Hotdrop.UI
             bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
             bool ally = localIsA ? teamAPresent : teamBPresent;
             bool enemy = localIsA ? teamBPresent : teamAPresent;
-            string zone = match != null ? match.ScoringZone.ToString().ToUpperInvariant() : "ZONE";
-            string status = ally && enemy ? "CONTESTED" : ally ? "ALLY SCORING" : enemy ? "ENEMY SCORING" : "OPEN";
+            string zone = match != null ? PreparationView.ZoneShortLabel(match.ScoringZone) : L("zone.generic", "Zone");
+            string status = ally && enemy ? L("zone.contested", "Contested") : ally ? L("zone.allyScoring", "Ally Scoring")
+                : enemy ? L("zone.enemyScoring", "Enemy Scoring") : L("zone.open", "Open");
             activeZoneText.text = $"{zone}  ·  {status}";
             activeZoneText.color = ally && enemy ? Objective : ally ? Friendly : enemy ? Enemy : MainText;
             uiux?.SetZone(zone, status, ally && enemy ? UiDraw.Hex("#ffda88") : ally ? UiDraw.Hex("#7cefff") : enemy ? UiDraw.Hex("#ffb2b7") : UiDraw.Hex("#bbc9cb"));
@@ -911,13 +1083,13 @@ namespace Hotdrop.UI
             if (upcoming.HasValue)
             {
                 float seconds = matchRules.SecondsUntilRotation(matchTime);
-                nextZoneText.text = $"NEXT: {upcoming.Value.ToString().ToUpperInvariant()} IN {Mathf.CeilToInt(seconds)}s";
+                nextZoneText.text = F("rotation.nextTemplate", "NEXT: {0} IN {1}s", PreparationView.ZoneShortLabel(upcoming.Value), Mathf.CeilToInt(seconds));
                 nextZoneText.color = Objective;
-                uiux?.SetNext(upcoming.Value.ToString().ToUpperInvariant(), Mathf.CeilToInt(seconds));
+                uiux?.SetNext(PreparationView.ZoneShortLabel(upcoming.Value), Mathf.CeilToInt(seconds));
             }
             else
             {
-                nextZoneText.text = matchTime >= matchRules.regulationDurationSeconds ? "OVERTIME — HOLD 3s TO WIN" : "";
+                nextZoneText.text = matchTime >= matchRules.regulationDurationSeconds ? L("rotation.overtime", "OVERTIME — HOLD 3s TO WIN") : "";
                 nextZoneText.color = SecondaryText;
                 uiux?.SetNext(null, 0);
             }
@@ -955,7 +1127,7 @@ namespace Hotdrop.UI
         {
             if (countdownPanel == null || !countdownPanel.activeSelf) return;
             int count = Mathf.CeilToInt((matchRules != null ? matchRules.countdownSeconds : 3f) - elapsed);
-            if (countdownText != null) countdownText.text = count > 0 ? count.ToString() : "GO";
+            if (countdownText != null) countdownText.text = count > 0 ? count.ToString() : L("countdown.go", "Go");
         }
 
         public void EnableWeaponSelect(bool enabled)
@@ -966,7 +1138,7 @@ namespace Hotdrop.UI
         public void OnMatchStart()
         {
             HideAllPanels();
-            ShowCombatFeedback("GO — CAPTURE THE ZONE", Objective, 1.2f);
+            ShowCombatFeedback(L("combat.matchStart", "GO — CAPTURE THE ZONE"), Objective, 1.2f);
         }
 
         public void ShowOvertime()
@@ -982,7 +1154,7 @@ namespace Hotdrop.UI
         public void ShowNextZone(ZoneId? zone)
         {
             if (nextZoneText != null && zone.HasValue && MatchView.Current == null)
-                nextZoneText.text = $"NEXT: {zone.Value.ToString().ToUpperInvariant()}";
+                nextZoneText.text = F("rotation.nextZoneTemplate", "Next: {0}", PreparationView.ZoneShortLabel(zone.Value));
         }
 
         string resultsHeader = "";
@@ -992,32 +1164,41 @@ namespace Hotdrop.UI
         /// line of the results screen. Pass null to clear it.
         /// </summary>
         public void SetResultsReceipt(string receipt, Color color, string saveNote = null,
-            ResultsTrustState trustState = ResultsTrustState.Pending)
+            ResultsTrustState? trustState = null)
         {
+            resultsReceipt = receipt ?? "";
+            resultsReceiptColor = color;
             if (resultStatsText == null) return;
+            string visibleReceipt = Hotdrop.UI.StreamSafePresentation.Enabled && !string.IsNullOrEmpty(receipt)
+                ? UiDraw.L("profile.accreditation.xpHidden", "Progress Hidden") : receipt;
             resultStatsText.text = UiPresentationProfile.NormalizeRichText(string.IsNullOrEmpty(receipt) ? resultsHeader
-                : $"{resultsHeader}\n<color=#{ColorUtility.ToHtmlStringRGB(color)}>{receipt}</color>");
+                : $"{resultsHeader}\n<color=#{ColorUtility.ToHtmlStringRGB(color)}>{visibleReceipt}</color>");
             ResultsView.SetReceipt(this, receipt, color, saveNote);
-            ResultsView.SetTrustState(this, trustState, saveNote);
+            if (trustState.HasValue)
+                ResultsView.SetTrustState(this, trustState.Value, saveNote);
+            else if (!string.IsNullOrEmpty(saveNote))
+                ResultsView.SetSaveNote(this, saveNote);
         }
 
         /// <summary>Passes the exact backend receipt to the results reveal; the sticky replay
         /// action remains available while the short presentation runs.</summary>
         public void SetResultsReward(MatchReceiptDto receipt, Color color)
         {
+            resultsReceipt = "";
             if (resultStatsText != null) resultStatsText.text = UiPresentationProfile.NormalizeRichText(resultsHeader);
             ResultsView.SetTrustState(this, ResultsTrustState.Verified);
             ResultsView.RevealReward(this, receipt, color);
         }
 
         public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, string endCondition) =>
-            ShowResults(isWin, isDraw, scoreA, scoreB, endCondition, null, "PRACTICE MATCH — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY");
+            ShowResults(isWin, isDraw, scoreA, scoreB, endCondition, null, L("result.practiceFooter", "PRACTICE MATCH — NO ONLINE XP, CREDITS, CONTRACTS, OR MASTERY"));
 
         public void ShowResults(bool isWin, bool isDraw, int scoreA, int scoreB, string endCondition,
             System.Collections.Generic.IReadOnlyList<IMatchParticipant> players, string footer, string nextGoal = null,
             ResultsTrustState trustState = ResultsTrustState.Practice)
         {
             HideAllPanels();
+            flightSpeedLines?.Clear();
             if (deathPanel != null) deathPanel.SetActive(false);
             if (objectiveMarker != null) objectiveMarker.gameObject.SetActive(false);
             // Observed in the 11_results parity capture: the teammate cards stayed live over the
@@ -1030,39 +1211,66 @@ namespace Hotdrop.UI
             if (resultsPanel != null) resultsPanel.SetActive(true);
             if (resultTitleText != null)
             {
-                resultTitleText.text = isDraw ? "DRAW" : isWin ? "VICTORY" : "DEFEAT";
-                resultTitleText.color = isDraw ? Objective : isWin ? Friendly : Enemy;
+                resultTitleText.text = isDraw ? L("result.draw", "Draw") : isWin ? L("result.victory", "Victory") : L("result.defeat", "Defeat");
+                resultTitleText.color = isDraw ? Objective : isWin ? Friendly : UIDesignTokens.SignalWarning;
             }
 
             bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
             int ally = localIsA ? scoreA : scoreB, enemy = localIsA ? scoreB : scoreA;
-            resultsHeader = $"ALLY {ally}  —  {enemy} ENEMY\n{footer}";
-            // Amendment 1: outcome + one contribution + the next reachable goal, on one screen.
-            if (!string.IsNullOrEmpty(nextGoal))
-                resultsHeader += $"\n<color=#FFD166>{nextGoal}</color>";
-            if (resultStatsText != null) resultStatsText.text = UiPresentationProfile.NormalizeRichText(resultsHeader);
+            // Persist the record once at match end even while Stream-Safe hides it; the display
+            // sites below and in ResultsView gate on the live preference, so toggling it off
+            // during Results reveals this match's notice without a second record pass.
+            string personalBest = localPlayer != null
+                ? PersonalBests.Record(localPlayer, trustState == ResultsTrustState.Practice) : "";
+            resultsParticipants = players;
+            resultsFooter = footer;
+            resultsNextGoal = nextGoal;
+            resultsPersonalBest = personalBest;
+            resultsAllyScore = ally;
+            resultsEnemyScore = enemy;
+            resultsReceipt = "";
+            RebuildLegacyResultsText();
             ResultsView.Show(this, isWin, isDraw, ally, enemy, players, localPlayer,
-                footer, nextGoal, playAgainAction, homeAction, trustState);
+                footer, nextGoal, playAgainAction, homeAction, trustState,
+                reportParticipantAction, reportParticipantEligible, personalBest);
+        }
 
-            if (resultTableText == null || players == null) return;
+        void RebuildLegacyResultsText()
+        {
+            resultsHeader = F("result.scoreTemplate", "ALLY {0}  —  {1} ENEMY\n{2}",
+                resultsAllyScore, resultsEnemyScore, resultsFooter);
+            // Amendment 1: outcome + one contribution + the next reachable goal, on one screen.
+            if (!StreamSafePresentation.Enabled && !string.IsNullOrEmpty(resultsNextGoal))
+                resultsHeader += $"\n<color=#FFD166>{resultsNextGoal}</color>";
+            if (resultStatsText != null)
+            {
+                string visibleReceipt = StreamSafePresentation.Enabled && !string.IsNullOrEmpty(resultsReceipt)
+                    ? UiDraw.L("profile.accreditation.xpHidden", "Progress Hidden") : resultsReceipt;
+                string text = string.IsNullOrEmpty(visibleReceipt) ? resultsHeader
+                    : $"{resultsHeader}\n<color=#{ColorUtility.ToHtmlStringRGB(resultsReceiptColor)}>{visibleReceipt}</color>";
+                resultStatsText.text = UiPresentationProfile.NormalizeRichText(text);
+            }
+
+            if (resultTableText == null || resultsParticipants == null) return;
             var sb = new System.Text.StringBuilder();
-            sb.Append("<b>PLAYER                           ELIMS   DEATHS   ZONE TIME   LAUNCHES</b>\n");
+            sb.Append("<b>" + L("result.tableHeader", "Player                           Elims   Deaths   Zone Time   Launches") + "</b>\n");
+            bool localIsA = localPlayer == null || localPlayer.TeamId == 0;
             for (int team = 0; team < 2; team++)
             {
                 int wanted = team == 0 ? (localIsA ? 0 : 1) : (localIsA ? 1 : 0);
-                sb.Append(team == 0 ? "<color=#30D5E8>ALLY TEAM</color>\n" : "\n<color=#FF6376>ENEMY TEAM</color>\n");
-                foreach (var p in players)
+                sb.Append(team == 0 ? "<color=#30D5E8>" + L("team.ally", "Ally") + "</color>\n" : "\n<color=#FF6376>" + L("team.enemy", "Enemy") + "</color>\n");
+                foreach (var p in resultsParticipants)
                 {
                     if (p == null || p.TeamId != wanted) continue;
-                    string name = ReferenceEquals(p, localPlayer) ? $"<b>{p.DisplayName} (YOU)</b>" : p.DisplayName;
-                    if (!p.IsConnected) name += " <color=#FFB45C>(DISCONNECTED)</color>";
+                    string name = ReferenceEquals(p, localPlayer) ? F("result.youNameTemplate", "<b>{0} ({1})</b>", p.DisplayName, L("you", "You")) : p.DisplayName;
+                    if (!p.IsConnected) name += " <color=#FFB45C>(" + L("result.disconnected", "Disconnected") + ")</color>";
                     sb.Append($"{name,-32}  {p.Eliminations,5}   {p.Deaths,6}   {Mathf.RoundToInt(p.ObjectiveSeconds),7}s   {p.PadLaunches,8}\n");
                 }
             }
-            if (localPlayer != null)
+            if (!StreamSafePresentation.Enabled && localPlayer != null)
             {
-                var bests = PersonalBests.Record(localPlayer);
-                if (bests.Length > 0) sb.Append($"\n<color=#FFD166>NEW PERSONAL BEST: {bests}</color>");
+                if (!string.IsNullOrEmpty(resultsPersonalBest))
+                    sb.Append("\n<color=#FFD166>" + F("result.personalBestTemplate", "New Personal Best: {0}", resultsPersonalBest) + "</color>");
             }
             resultTableText.text = UiPresentationProfile.NormalizeRichText(sb.ToString());
         }
@@ -1082,6 +1290,7 @@ namespace Hotdrop.UI
 
         public void HideAllPanels()
         {
+            quickChatWheel?.Close();
             PreparationView.Hide(this);
             ResultsView.Hide(this);
             if (preparationPanel != null) preparationPanel.SetActive(false);
@@ -1152,12 +1361,16 @@ namespace Hotdrop.UI
     /// <summary>Spec section 18: personal bests (objective time, pad-assisted plays). Local only, no XP.</summary>
     public static class PersonalBests
     {
-        public static string Record(IMatchParticipant player)
+        public static string Record(IMatchParticipant player, bool localPractice)
         {
+            // The old unscoped keys contain mixed historical values; their source mode is
+            // unknowable, so keep them untouched rather than promoting an offline score into
+            // the online context (or vice versa). New records are scoped by match context.
+            string scope = localPractice ? "Offline" : "Online";
             var sb = new System.Text.StringBuilder();
-            Check("Best.ObjectiveSeconds", Mathf.RoundToInt(player.ObjectiveSeconds), "ZONE TIME", sb);
-            Check("Best.PadLaunches", player.PadLaunches, "PAD LAUNCHES", sb);
-            Check("Best.Eliminations", player.Eliminations, "ELIMINATIONS", sb);
+            Check($"Best.{scope}.ObjectiveSeconds", Mathf.RoundToInt(player.ObjectiveSeconds), UiDraw.L("hud.best.zoneTime", "Zone Time"), sb);
+            Check($"Best.{scope}.PadLaunches", player.PadLaunches, UiDraw.L("hud.best.padLaunches", "Pad Launches"), sb);
+            Check($"Best.{scope}.Eliminations", player.Eliminations, UiDraw.L("hud.best.eliminations", "Eliminations"), sb);
             PlayerPrefs.Save();
             return sb.ToString();
         }

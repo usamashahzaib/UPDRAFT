@@ -18,8 +18,19 @@ namespace Hotdrop.Editor
             importer.npotScale = TextureImporterNPOTScale.None;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.alphaIsTransparency = true;
-            importer.mipmapEnabled = true;
             importer.wrapMode = UnityEngine.TextureWrapMode.Clamp;
+
+            // Weapon portraits are transparent silhouettes drawn in small HUD cards and on
+            // touch controls. Mips soften their antialiased alpha edges and waste memory.
+            if (assetPath.StartsWith(Folder + "WeaponPortraits/"))
+            {
+                importer.mipmapEnabled = false;
+                importer.maxTextureSize = 1024;
+                importer.filterMode = UnityEngine.FilterMode.Bilinear;
+                return;
+            }
+
+            importer.mipmapEnabled = true;
             importer.maxTextureSize = 4096;
         }
     }

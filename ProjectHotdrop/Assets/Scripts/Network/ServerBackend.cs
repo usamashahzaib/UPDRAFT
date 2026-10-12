@@ -11,13 +11,14 @@ namespace Hotdrop.Network
     [Serializable] public class ClaimedPlayerDto { public string playerId; public string team; public string alias; public string cosmetic; }
     [Serializable] public class ClaimDto { public string matchId; public string session; public string region; public bool hasBots; public List<ClaimedPlayerDto> players; }
     [Serializable] public class TicketCheckDto { public string playerId; public string matchId; public string team; public string alias; }
-    // C04: bounded, server-computed progress facts. Contracts/mastery advance only from these
-    // authenticated facts; the backend validates them against the allocated roster and match
-    // bounds, so a client can never fabricate progress.
+    // C04: bounded, server-computed progress facts. The backend accepts results only from the
+    // allocated game-server identity, verifies the participant ticket roster, and applies
+    // eligibility and configured value bounds. These DTOs are never populated from client data.
     [Serializable] public class PadTeammateUseDto { public string PadOwnerPlayerId; public string TeammatePlayerId; public bool TeammateIsHuman; }
     [Serializable] public class ProgressFactsDto { public int ValidUncontestedOccupationSeconds; public string MajorityEquippedWeapon; public PadTeammateUseDto[] HumanTeammatePadUses; }
     [Serializable] public class ResultParticipantDto { public string PlayerId; public bool Won; public bool Eligible; public bool HadBotSubstitution; public string Team; public int Slot = -1; public ProgressFactsDto ProgressFacts; }
-    [Serializable] public class ResultDto { public bool Draw; public List<ResultParticipantDto> Participants; public bool ServerFailed; public bool HasBots; }
+    [Serializable] public class PadTelemetryFactDto { public string EventName; public string PadId; public string MapId; public float X; public float Y; public float Z; public float MatchTime; public int Team; public int PadTeam; }
+    [Serializable] public class ResultDto { public bool Draw; public List<ResultParticipantDto> Participants; public bool ServerFailed; public bool HasBots; public string Region; public string StudyCohort; public PadTelemetryFactDto[] PadTelemetry; }
 
     /// <summary>
     /// The dedicated server's side of the backend contract (spec section 21): claim a

@@ -24,13 +24,13 @@ public static class MatchmakingEndpoints
             var service = availability.CurrentValue;
             if (service.MaintenanceEnabled)
                 return Results.Json(new { error = "maintenance", message = service.MaintenanceMessage,
-                    etaUtc = service.MaintenanceEtaUtc, compensationNote = service.MaintenanceCompensationNote },
+                    etaUtc = service.PlayerFacingEtaUtc, compensationNote = service.MaintenanceCompensationNote },
                     statusCode: StatusCodes.Status503ServiceUnavailable);
             if (!features.CurrentValue.MatchmakingEnabled)
                 return Results.Json(new { error = "matchmaking_disabled" }, statusCode: StatusCodes.Status503ServiceUnavailable);
             var playerId = PlayerId(ctx);
             var account = await db.PlayerAccounts.FindAsync([playerId], cancellationToken);
-            if (account is null) return Results.NotFound();
+            if (account is null) return Results.NotFound(new { error = "profile_not_found" });
 
             var membership = await db.PartyMembers.SingleOrDefaultAsync(m => m.PlayerId == playerId, cancellationToken);
             Guid? partyId = membership?.PartyId;
@@ -38,7 +38,8 @@ public static class MatchmakingEndpoints
             {
                 var party = await db.Parties.FindAsync([partyId.Value], cancellationToken);
                 if (party is null) return Results.Conflict(new { error = "party_unavailable" });
-                if (party.LeaderId != playerId) return Results.Forbid();
+                if (party.LeaderId != playerId)
+                    return Results.Json(new { error = "party_leader_required" }, statusCode: StatusCodes.Status403Forbidden);
                 bool everyoneReady = await db.PartyMembers
                     .Where(m => m.PartyId == partyId)
                     .AllAsync(m => m.IsReady, cancellationToken);
@@ -122,7 +123,7 @@ public static class MatchmakingEndpoints
                 return Results.Ok(new { state = maintenance ? "maintenance" : "queue_paused", elapsedSeconds = 0,
                     region = allocator.FusionRegion,
                     message = maintenance ? service.MaintenanceMessage : "Matchmaking is paused right now.",
-                    etaUtc = maintenance ? service.MaintenanceEtaUtc : string.Empty,
+                    etaUtc = maintenance ? service.PlayerFacingEtaUtc : string.Empty,
                     compensationNote = maintenance ? service.MaintenanceCompensationNote : string.Empty });
             if (ticket is null) return Results.Ok(new { state = "idle", elapsedSeconds = 0, region = allocator.FusionRegion });
 

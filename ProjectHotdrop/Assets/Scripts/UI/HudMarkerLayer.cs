@@ -191,7 +191,7 @@ namespace Hotdrop.UI
         /// down onto it. A row is free only if it is clear of both, so the sweep has to ask about
         /// both or one rule undoes the other.</para>
         /// </summary>
-        static bool Blocked(Vector2 anchor, IReadOnlyList<Vector2> taken, IReadOnlyList<Rect> panels)
+        public static bool Blocked(Vector2 anchor, IReadOnlyList<Vector2> taken, IReadOnlyList<Rect> panels)
         {
             if (taken != null && OverlapsAny(anchor, taken)) return true;
             return panels != null && panels.Count > 0 && OverlapsPanel(anchor, panels);

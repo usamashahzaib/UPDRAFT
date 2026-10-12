@@ -13,11 +13,11 @@ Match Search uses the 12/17/22 dp caption, value, and emphasis tokens. Header, r
 ## Verified this pass
 
 - The existing `MatchSearchLayoutFixture_CaptureBothLandscapeRatios` and `S06_Search` fixtures cover layout captures at 1920x1080 and 2400x1080; they were read but not run.
-- Runtime C# build succeeded with 0 errors and 41 existing warnings.
+- The saved 5 October 16:9 and 20:9 fixtures show the bottom fairness/venue footer clipped at the raw canvas edge. `MatchSearchView` now positions the footer using `SafeAreaRoot.ContentRectFor` and insets its left/right labels; live queue refresh reapplies placement after display/safe-area changes.
+- Runtime C# editor build succeeded with 0 errors and 41 existing warnings.
 - Source review confirms all Match Search text-size arguments are one of the three token roles.
-- `git diff --check` passed for this slice.
 
 ## Unmet
 
-- Visual capture review at 16:9 and 20:9 was not run in this pass.
-- A/B/C contrast and color-vision review remains open in `PART2_MATCH_SEARCH_PALETTE.md`.
+- Post-fix visual capture review at 16:9 and 20:9 was not run; the cited captures are pre-fix evidence.
+- Device safe-area behavior and A/B/C contrast and color-vision review remain open in `PART2_MATCH_SEARCH_PALETTE.md`.

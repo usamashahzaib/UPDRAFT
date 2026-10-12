@@ -61,7 +61,11 @@ namespace Hotdrop.Network
 
             sampleAccumulator += deltaTime;
             if (sampleAccumulator + 0.000001f < SampleIntervalSeconds) return;
-            sampleAccumulator -= SampleIntervalSeconds;
+            // Preserve the sampling phase after a slow/hitching server tick. We only have the
+            // current authoritative snapshot, so emit one sample and discard missed intervals
+            // instead of recording duplicate current-state samples on subsequent ticks.
+            sampleAccumulator %= SampleIntervalSeconds;
+            if (sampleAccumulator + 0.000001f >= SampleIntervalSeconds) sampleAccumulator = 0f;
 
             foreach (var player in NetPlayer.All)
             {

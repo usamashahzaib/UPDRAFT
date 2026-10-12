@@ -27,6 +27,12 @@ namespace Hotdrop.Core
         public bool isNewPersonalBest;
         public bool saveSucceeded;
         public string resultLabel; // Always "LOCAL RECORD" per Spec
+        public bool timeExpired;
+        public bool playerEliminated;
+        public bool accuracyRequirementMissed;
+        public int objectivesCompleted;
+        public int objectivesRequired;
+        public float accuracyRequiredPercent;
     }
 
     /// <summary>
@@ -225,7 +231,7 @@ namespace Hotdrop.Core
             // Time limit check
             if (selectedEntry.timeLimitSeconds > 0f && currentElapsedTime >= selectedEntry.timeLimitSeconds)
             {
-                CompleteChallenge(isSuccess: currentTargetsCompleted >= selectedEntry.targetCount);
+                CompleteChallenge(isSuccess: currentTargetsCompleted >= selectedEntry.targetCount, timeExpired: true);
                 return;
             }
 
@@ -271,12 +277,13 @@ namespace Hotdrop.Core
             OnPauseStateChanged?.Invoke(false);
         }
 
-        public void CompleteChallenge(bool isSuccess)
+        public void CompleteChallenge(bool isSuccess, bool timeExpired = false, bool playerEliminated = false)
         {
             if (!isGameplayActive) return;
             isGameplayActive = false;
 
             float accuracy = currentShotsFired > 0 ? ((float)currentShotsHit / currentShotsFired) * 100f : 0f;
+            bool accuracyRequirementMissed = selectedEntry.requiredAccuracy > 0 && accuracy < selectedEntry.requiredAccuracy;
             isSuccess &= selectedEntry.requiredAccuracy <= 0 || accuracy >= selectedEntry.requiredAccuracy;
             ChallengeMedal medal = isSuccess ? selectedEntry.CalculateMedal(currentElapsedTime, accuracy, currentScore) : ChallengeMedal.None;
 
@@ -302,10 +309,13 @@ namespace Hotdrop.Core
                 isNewPersonalBest = true;
             }
 
-            // Save record atomically
+            // Save record atomically. Each save call overwrites LastSaveSucceeded, so capture
+            // this attempt's own outcome before ClearSnapshot's unrelated save overwrites it;
+            // a failed attempt never calls SaveRecord, so it has nothing of its own to report.
             if (isSuccess) saveSystem.SaveRecord(newRecord);
-            bool recordSaved = saveSystem.LastSaveSucceeded;
+            bool recordSaved = !isSuccess || saveSystem.LastSaveSucceeded;
             saveSystem.ClearSnapshot();
+            bool snapshotCleared = saveSystem.LastSaveSucceeded;
 
             selectedRecord = newRecord;
 
@@ -320,8 +330,14 @@ namespace Hotdrop.Core
                 accuracyPercent = accuracy,
                 medal = medal,
                 isNewPersonalBest = isNewPersonalBest,
-                saveSucceeded = recordSaved && saveSystem.LastSaveSucceeded,
-                resultLabel = "LOCAL RECORD" // Requirement 6: Label results LOCAL RECORD
+                saveSucceeded = recordSaved && snapshotCleared,
+                resultLabel = "LOCAL RECORD", // Requirement 6: Label results LOCAL RECORD
+                timeExpired = timeExpired,
+                playerEliminated = playerEliminated,
+                accuracyRequirementMissed = accuracyRequirementMissed,
+                objectivesCompleted = currentTargetsCompleted,
+                objectivesRequired = selectedEntry.targetCount,
+                accuracyRequiredPercent = selectedEntry.requiredAccuracy
             };
             LastResult = result;
             // Amendment 4C: challenge attempts/completions are client-owned UI facts; the

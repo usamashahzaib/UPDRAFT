@@ -123,7 +123,12 @@ namespace Hotdrop.Player
             Apply();
         }
 
-        void OnEnable() => UiPresentationProfile.Changed += Apply;
+        void OnEnable()
+        {
+            UiPresentationProfile.Changed += Apply;
+            // A profile may have changed while this visual was inactive.
+            Apply();
+        }
         void OnDisable() => UiPresentationProfile.Changed -= Apply;
 
         void Apply()

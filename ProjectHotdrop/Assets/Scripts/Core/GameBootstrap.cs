@@ -31,7 +31,6 @@ namespace Hotdrop.Core
         static bool qualityDefaultsCaptured;
         static int defaultTextureMipmapLimit, defaultMaximumLodLevel;
         static float defaultLodBias;
-        static UnityEngine.ShadowQuality defaultShadowQuality;
 
         [Header("Config Assets")]
         [SerializeField] public MovementConfig movementConfig;
@@ -78,6 +77,7 @@ namespace Hotdrop.Core
 
             // Apply graphics settings
             ApplyGraphicsConfig();
+            GameAudio.SetMatchRulesConfig(matchRules);
             OriginalGameAudio.Warmup();
             _ = GameAudio.Instance; // applies saved volumes before any sound plays
             if (PlayerPrefs.GetInt("Telemetry.FirstOpenSent", 0) == 0)
@@ -148,6 +148,18 @@ namespace Hotdrop.Core
             }
         }
 
+        public const string FirstFlightQuestionSeenKey = "FirstFlightQuestionSeen";
+
+        public bool ShouldShowFirstFlightQuestion => startInTutorial &&
+            PlayerPrefs.GetInt(TutorialDoneKey, 0) == 0 && !BodyRigStore.Chosen &&
+            PlayerPrefs.GetInt(FirstFlightQuestionSeenKey, 0) == 0;
+
+        public void MarkFirstFlightQuestionSeen()
+        {
+            PlayerPrefs.SetInt(FirstFlightQuestionSeenKey, 1);
+            PlayerPrefs.Save();
+        }
+
         void ShowStartup()
         {
             var startup = GetComponent<StartupConnectionScreen>();
@@ -198,10 +210,30 @@ namespace Hotdrop.Core
 
         void ApplyGraphicsConfig()
         {
-            // Amendment 2: the saved graphics preset (Settings > Graphics) wins; LOW is the
-            // default so a first launch matches the low-end budget in the spec.
-            ApplyGraphicsQuality(PlayerPrefs.GetInt(OfflinePauseMenu.GraphicsQualityKey, 0));
+            // The Bible asks for a first-launch recommendation while preserving later player
+            // choices. Reuse the existing device-memory tiers rather than adding new thresholds.
+            int quality;
+            if (PlayerPrefs.HasKey(OfflinePauseMenu.GraphicsQualityKey))
+                quality = Mathf.Clamp(PlayerPrefs.GetInt(OfflinePauseMenu.GraphicsQualityKey), 0, 2);
+            else
+            {
+                quality = OnlineHooks.IsDedicatedServer ? 0 : GetRecommendedGraphicsQuality();
+                if (!OnlineHooks.IsDedicatedServer)
+                {
+                    PlayerPrefs.SetInt(OfflinePauseMenu.GraphicsQualityKey, quality);
+                    PlayerPrefs.Save();
+                }
+            }
+            ApplyGraphicsQuality(quality);
         }
+
+        /// <summary>Maps the existing telemetry memory tier to the first-launch graphics recommendation.</summary>
+        public static int GetRecommendedGraphicsQuality() => Telemetry.DeviceTier switch
+        {
+            "high" => 2, // Cinematic
+            "mid" => 1,  // Balanced
+            _ => 0,      // Performance, including unknown/low memory reports
+        };
 
         /// <summary>
         /// Applies Performance (60 FPS target, 80% render scale), Balanced (60 FPS target,
@@ -227,24 +259,52 @@ namespace Hotdrop.Core
                 QualitySettings.lodBias = defaultLodBias;
                 QualitySettings.maximumLODLevel = defaultMaximumLodLevel;
             }
-            QualitySettings.shadows = quality == 0 && !(config != null && config.realtimeShadowsOnLow)
+            // Startup begins on a deliberately shadowless quality level. Do not restore that
+            // captured value for richer presets: Gate G requires soft sun shadows for
+            // Balanced and Cinematic while Performance keeps them off.
+            QualitySettings.shadows = quality == 0
                 ? UnityEngine.ShadowQuality.Disable
-                : defaultShadowQuality;
-            int performanceFps = config != null ? config.performanceTargetFps : 60;
-            int balancedFps = config != null ? config.balancedTargetFps : 60;
-            int cinematicFps = config != null ? config.cinematicPresetTargetFps : 30;
+                : UnityEngine.ShadowQuality.All;
+            int performanceFps = config != null ? config.performanceTargetFps : GraphicsConfig.DefaultPerformanceTargetFps;
+            int balancedFps = config != null ? config.balancedTargetFps : GraphicsConfig.DefaultBalancedTargetFps;
+            int cinematicFps = config != null ? config.cinematicPresetTargetFps : GraphicsConfig.DefaultCinematicTargetFps;
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = quality == 0 ? performanceFps : quality == 1 ? balancedFps : cinematicFps;
-            float performanceScale = config != null ? config.performanceRenderScale : 0.8f;
-            float balancedScale = config != null ? config.balancedRenderScale : 1f;
-            float cinematicScale = config != null ? config.cinematicRenderScale : 1f;
+            float performanceScale = config != null ? config.performanceRenderScale : GraphicsConfig.DefaultPerformanceRenderScale;
+            float balancedScale = config != null ? config.balancedRenderScale : GraphicsConfig.DefaultBalancedRenderScale;
+            float cinematicScale = config != null ? config.cinematicRenderScale : GraphicsConfig.DefaultCinematicRenderScale;
             float renderScale = quality == 0 ? performanceScale : quality == 1 ? balancedScale : cinematicScale;
+            ApplyTierPipeline(quality);
             if (Application.isPlaying && !Application.isEditor
                 && GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urp)
                 urp.renderScale = renderScale;
             ApplyVolumeQualityOverrides(config, quality == 0);
+            Hotdrop.Map.SwitchyardAtmosphere.SetQuality(quality);
             string preset = quality == 0 ? "performance" : quality == 1 ? "balanced" : "cinematic";
             Debug.Log($"HOTDROP_GRAPHICS preset={preset} targetFps={Application.targetFrameRate} renderScale={renderScale} textureMipLimit={QualitySettings.globalTextureMipmapLimit} lodBias={QualitySettings.lodBias:0.##} maxLod={QualitySettings.maximumLODLevel}");
+        }
+
+        static bool tierPipelineCaptured;
+        static RenderPipelineAsset projectTierPipeline;
+
+        /// <summary>
+        /// Performance renders with its own pipeline asset (Resources/Rendering/HotdropPerformance):
+        /// the original no-HDR, no-shadow configuration. Turning shadows off only on the light while
+        /// the shared asset compiles main-light shadows in made URP sample an unrendered shadow map,
+        /// which drew single-pixel noise over every surface (07_WORLD_ART). The project's own override
+        /// is restored on quit so a play session never rewrites the checked-in quality settings.
+        /// </summary>
+        static void ApplyTierPipeline(int quality)
+        {
+            var performance = Resources.Load<RenderPipelineAsset>("Rendering/HotdropPerformance");
+            if (performance == null) return;
+            if (!tierPipelineCaptured)
+            {
+                tierPipelineCaptured = true;
+                projectTierPipeline = QualitySettings.renderPipeline;
+                Application.quitting += () => QualitySettings.renderPipeline = projectTierPipeline;
+            }
+            QualitySettings.renderPipeline = quality == 0 ? performance : projectTierPipeline;
         }
 
         static void CaptureQualityDefaults()
@@ -254,7 +314,6 @@ namespace Hotdrop.Core
             defaultTextureMipmapLimit = QualitySettings.globalTextureMipmapLimit;
             defaultLodBias = QualitySettings.lodBias;
             defaultMaximumLodLevel = QualitySettings.maximumLODLevel;
-            defaultShadowQuality = QualitySettings.shadows;
         }
 
         static void ApplyVolumeQualityOverrides(GraphicsConfig config, bool performancePreset)
@@ -308,6 +367,11 @@ namespace Hotdrop.Core
             {
                 matchHUD.graphicsConfig = graphicsConfig;
                 matchHUD.matchRules = matchRules;
+            }
+            if (mainCamera != null && matchRules != null)
+            {
+                mainCamera.SetShakeEventLimit(matchRules.shakeMaxEventsPerSecond);
+                mainCamera.SetMatchRulesConfig(matchRules);
             }
         }
 

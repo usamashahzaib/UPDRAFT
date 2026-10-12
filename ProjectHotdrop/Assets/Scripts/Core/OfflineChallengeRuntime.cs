@@ -55,6 +55,7 @@ namespace Hotdrop.Core
         public MapConfig MapConfig => game.mapConfig;
         public MatchPhase CurrentPhase => Controller.IsAttemptActive ? MatchPhase.InProgress : MatchPhase.Results;
         public float MatchTime => Controller.CurrentElapsedTime;
+        public bool IsEndgame => false;
         public ZoneId ScoringZone => entry?.objectiveType == ChallengeObjectiveType.RotateBetweenZones
             ? Rules.GetScoringZone(MatchTime) : ZoneId.Center;
         public Vector3 ActiveObjectivePosition
@@ -71,9 +72,13 @@ namespace Hotdrop.Core
             }
         }
         public bool IsLiveMatch => world != null && Controller.IsAttemptActive;
-        public string ActiveObjectiveLabel => entry?.objectiveType == ChallengeObjectiveType.BasicRoute ? "CHECKPOINT " + (Controller.CurrentTargetsCompleted + 1)
-            : entry?.chapter == ChallengeChapter.FirstFlight ? "LANDING"
-            : entry?.chapter == ChallengeChapter.RooftopOperator ? "TARGET" : ScoringZone.ToString().ToUpperInvariant();
+        public string StudyCohort => Telemetry.Cohort;
+        public bool PadsEnabled => StudySettings.PadsEnabled;
+        public string ActiveObjectiveLabel => entry?.objectiveType == ChallengeObjectiveType.BasicRoute
+            ? UiDraw.LFormat("hud.objective.checkpointTemplate", "Checkpoint {0}", Controller.CurrentTargetsCompleted + 1)
+            : entry?.chapter == ChallengeChapter.FirstFlight ? UiDraw.L("hud.objective.landing", "Landing")
+            : entry?.chapter == ChallengeChapter.RooftopOperator ? UiDraw.L("hud.objective.target", "Target")
+            : PreparationView.ZoneShortLabel(ScoringZone);
         public IMatchParticipant LocalParticipant => player;
         public IReadOnlyList<IMatchParticipant> Participants => participants;
         public IMatchParticipant SpectatedTeammate => null;
@@ -135,6 +140,8 @@ namespace Hotdrop.Core
             player.OnShotStarted += () => Controller.UpdateGameplay(0, shotFired: true);
             player.OnHitConfirmed += headshot => { Controller.UpdateGameplay(0, shotHit: true); game.matchHUD.ShowHitConfirmed(headshot: headshot); };
             player.OnHealthChanged += game.matchHUD.UpdateHealth;
+            player.OnDamagedFrom += game.matchHUD.ShowDamageFrom;
+            player.OnFlightMotion += game.matchHUD.UpdateFlightMotion;
             player.OnAmmoChanged += game.matchHUD.UpdateAmmo;
             player.OnPadRejected += game.matchHUD.ShowPadRejected;
             player.OnPadChargeReady += game.matchHUD.ShowPadReady;
@@ -143,13 +150,13 @@ namespace Hotdrop.Core
                 ownPadUsed = pad.OwnerId == player.PlayerId; enemyPadUsed = pad.TeamId != player.TeamId;
                 inPadFlight = true; lastPadLaunchFrame = Time.frameCount;
             };
-            player.OnDeath += _ => Controller.CompleteChallenge(false);
+            player.OnDeath += _ => Controller.CompleteChallenge(false, playerEliminated: true);
             participants.Add(player);
             MatchView.Register(this);
             game.mainCamera.SetTarget(player.transform); game.mainCamera.SnapBehindTarget();
             game.matchHUD.Initialize(null, player, game.weaponDefinitions);
             game.matchHUD.HideAllPanels(); game.matchHUD.EnableWeaponSelect(false);
-            game.matchHUD.activeZoneText.text = "LOCAL CHALLENGE";
+            game.matchHUD.activeZoneText.text = MatchHUD.Localized("zone.localChallenge", "Local Challenge");
             switch (entry.objectiveType)
             {
                 case ChallengeObjectiveType.BasicRoute: SetMarker(entry.routePoints[0]); break;
@@ -287,16 +294,16 @@ namespace Hotdrop.Core
         {
             switch (entry.objectiveType)
             {
-                case ChallengeObjectiveType.BasicRoute: return "Reach the marked checkpoint";
-                case ChallengeObjectiveType.CaptureOneZone: return $"Hold Center uncontested: {hold:0.0} / {entry.holdSeconds:0} s";
-                case ChallengeObjectiveType.RotateBetweenZones: return $"Active: {ScoringZone} · Next rotation: {Rules.SecondsUntilRotation(MatchTime):0} s";
-                case ChallengeObjectiveType.ReloadDiscipline: return reloadCompleted ? "Reload complete · eliminate the targets" : "Eliminate targets and complete a magazine reload";
-                case ChallengeObjectiveType.DefendAgainstBots: return "Eliminate both bots while inside the active zone";
-                case ChallengeObjectiveType.LaunchAndHit: return "Jump on the opponent pad · eliminate targets while airborne";
-                case ChallengeObjectiveType.OwnPadRoute: return "Place pad toward marker · jump to launch";
+                case ChallengeObjectiveType.BasicRoute: return UiDraw.L("offlineScreen.objective.basicRoute", "Reach the marked checkpoint");
+                case ChallengeObjectiveType.CaptureOneZone: return UiDraw.LFormat("offlineScreen.objective.holdZoneTemplate", "Hold {0} uncontested: {1:0.0} / {2:0} s", UiDraw.L("offlineScreen.zone.center", "Center"), hold, entry.holdSeconds);
+                case ChallengeObjectiveType.RotateBetweenZones: return UiDraw.LFormat("offlineScreen.objective.rotateTemplate", "Active: {0} · Next rotation: {1:0} s", UiDraw.L("offlineScreen.zone." + ScoringZone.ToString().ToLowerInvariant(), ScoringZone.ToString()), Rules.SecondsUntilRotation(MatchTime));
+                case ChallengeObjectiveType.ReloadDiscipline: return reloadCompleted ? UiDraw.L("offlineScreen.objective.reloadComplete", "Reload complete · eliminate the targets") : UiDraw.L("offlineScreen.objective.reloadTargets", "Eliminate targets and complete a magazine reload");
+                case ChallengeObjectiveType.DefendAgainstBots: return UiDraw.L("offlineScreen.objective.defendBots", "Eliminate both bots while inside the active zone");
+                case ChallengeObjectiveType.LaunchAndHit: return UiDraw.L("offlineScreen.objective.launchAndHit", "Jump on the opponent pad · eliminate targets while airborne");
+                case ChallengeObjectiveType.OwnPadRoute: return UiDraw.L("offlineScreen.objective.ownPadRoute", "Place pad toward marker · jump to launch");
                 case ChallengeObjectiveType.EnemyPadRoute:
-                case ChallengeObjectiveType.SafeLanding: return "Jump on the opponent pad · land inside the platform marker";
-                default: return entry.description;
+                case ChallengeObjectiveType.SafeLanding: return UiDraw.L("offlineScreen.objective.safeLanding", "Jump on the opponent pad · land inside the platform marker");
+                default: return UiDraw.L("offlineLibrary.challenge." + entry.id + ".description", entry.description ?? string.Empty);
             }
         }
 

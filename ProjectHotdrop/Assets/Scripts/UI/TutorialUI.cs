@@ -64,26 +64,29 @@ namespace Hotdrop.UI
 
             // SHOW ME: mono caption with the help glyph, right of the header row.
             ui.showMeButton = UiDraw.Tap(panel.transform, "Show me", new Color(0f, 0f, 0f, 0f), 4f, null);
-            var showLabel = UiDraw.Text(ui.showMeButton.transform, "Show me label", "SHOW ME", UiFont.MonoRegular, TutorialCaptionDp, UiDraw.Hex("#7f8ca3"), .05f);
+            var showLabel = UiDraw.Text(ui.showMeButton.transform, "Show me label", UiDraw.L("tutorial.showMe", "Show Me"), UiFont.MonoRegular, TutorialCaptionDp, UiDraw.Hex("#bbc6d8"), .05f);
             float showW = UiDraw.Width(showLabel);
             UiDraw.Place((RectTransform)ui.showMeButton.transform, new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-14f, -29f), new Vector2(showW + 18f, 32f));
-            UiDraw.Place(UiDraw.Icon(ui.showMeButton.transform, "Icon", "help", 12f, UiDraw.Hex("#7f8ca3")).rectTransform,
+            UiDraw.Place(UiDraw.Icon(ui.showMeButton.transform, "Icon", "help", 12f, UiDraw.Hex("#bbc6d8")).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), Vector2.zero, new Vector2(12f, 12f));
             UiDraw.Place(showLabel.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(showW + 2f, 14f));
 
             // SKIP TRAINING: 40 px, #1b2940/80 with an outline/40 rail, close glyph.
             ui.skipButton = UiDraw.Tap(canvas, "Skip training", UiDraw.Hex("#1b2940", .8f), 8f, null, UiDraw.Hex("#49627b", .4f));
-            var skipLabel = UiDraw.Text(ui.skipButton.transform, "Skip training label", "SKIP TRAINING", UiFont.Mono, TutorialCaptionDp, UiDraw.Hex("#bbc6d8"));
+            // In dp like the touch controls, directly under their top-right 40 dp row (24 dp margin +
+            // 40 + 8 gap). Training shows no radar there, and the step card owns the top centre.
+            UiDpScaler.Attach((RectTransform)ui.skipButton.transform);
+            var skipLabel = UiDraw.Text(ui.skipButton.transform, "Skip training label", UiDraw.L("tutorial.skipTraining", "Skip Training"), UiFont.Mono, TutorialCaptionDp, UiDraw.Hex("#bbc6d8"));
             float skipW = UiDraw.Width(skipLabel);
-            UiDraw.Place((RectTransform)ui.skipButton.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f - 40f - 8f, -24f), new Vector2(16f + skipW + 6f + 14f + 16f, 40f));
+            UiDraw.Place((RectTransform)ui.skipButton.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -72f), new Vector2(16f + skipW + 6f + 14f + 16f, 40f));
             UiDraw.Place(skipLabel.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(16f, 0f), new Vector2(skipW + 2f, 16f));
             UiDraw.Place(UiDraw.Icon(ui.skipButton.transform, "Icon", "close", 14f, UiDraw.Hex("#bbc6d8")).rectTransform,
                 new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-16f, 0f), new Vector2(14f, 14f));
 
-            ui.skipConfirmation = ModalView.Create(canvas, "SKIP TRAINING?",
-                "You can replay training later from More. Leave this lesson now?", "SkipTrainingConfirmation");
-            ui.skipConfirmation.AddAction("KEEP TRAINING", ButtonVariant.Secondary, () => ui.skipConfirmation.Close());
-            ui.skipConfirmation.AddAction("SKIP", ButtonVariant.Destructive, () =>
+            ui.skipConfirmation = ModalView.Create(canvas, UiDraw.L("tutorial.skipConfirmation.title", "Skip training?"),
+                UiDraw.L("tutorial.skipConfirmation.body", "You can replay training later from More. Leave this lesson now?"), "SkipTrainingConfirmation");
+            ui.skipConfirmation.AddAction(UiDraw.L("tutorial.skipConfirmation.keep", "Keep Training"), ButtonVariant.Secondary, () => ui.skipConfirmation.Close());
+            ui.skipConfirmation.AddAction(UiDraw.L("tutorial.skipConfirmation.skip", "Skip"), ButtonVariant.Destructive, () =>
             {
                 ui.skipConfirmation.Close();
                 ui.controller?.SkipTutorial();
@@ -146,7 +149,7 @@ namespace Hotdrop.UI
             {
                 int stepNum = (int)step + 1;
                 int totalSteps = 9;
-                stepCounterText.text = $"STEP {stepNum} OF {totalSteps}";
+                stepCounterText.text = UiDraw.LFormat("tutorial.stepCounterTemplate", "Step {0} of {1}", stepNum, totalSteps);
             }
             if (stepTitleText != null) stepTitleText.text = GetTitleForStep(step);
 
@@ -166,7 +169,7 @@ namespace Hotdrop.UI
                 completePanel.SetActive(true);
 
             if (instructionText != null)
-                instructionText.text = "Tutorial Complete!";
+                instructionText.text = UiDraw.L("tutorial.complete", "Tutorial Complete!");
         }
 
         public void SetInstruction(string instruction)
@@ -199,23 +202,23 @@ namespace Hotdrop.UI
             switch (step)
             {
                 case TutorialController.TutorialStep.MoveToMarker:
-                    return "Move to the marker using the left joystick";
+                    return UiDraw.L("tutorial.step.instruction.moveToMarker", "Move to the marker using the left joystick");
                 case TutorialController.TutorialStep.KillStationaryTarget:
-                    return "Aim with right side drag and shoot the target using the fire button";
+                    return UiDraw.L("tutorial.step.instruction.killTarget", "Aim with right side drag and shoot the target using the fire button");
                 case TutorialController.TutorialStep.ReloadWeapon:
-                    return "Press the reload button near the ammo counter to reload";
+                    return UiDraw.L("tutorial.step.instruction.reload", "Press the reload button near the ammo counter to reload");
                 case TutorialController.TutorialStep.PlacePad:
-                    return "Press the pad button to place a launch pad ahead of you";
+                    return UiDraw.L("tutorial.step.instruction.placePad", "Press the pad button to place a launch pad ahead of you");
                 case TutorialController.TutorialStep.RideOwnPad:
-                    return "Step onto your deployed pad. The Jump button transforms into <color=#30d5e8><b>LAUNCH</b></color>. Tap it to catch the air route!";
+                    return UiDraw.L("tutorial.step.instruction.rideOwnPad", "Step onto your deployed pad. The Jump button transforms into <color=#30d5e8><b>LAUNCH</b></color>. Tap it to catch the air route!");
                 case TutorialController.TutorialStep.UseEnemyPad:
-                    return "Enemy pads can be used too — launch from the red pad";
+                    return UiDraw.L("tutorial.step.instruction.useEnemyPad", "Enemy pads can be used too — launch from the red pad");
                 case TutorialController.TutorialStep.DestroyEnemyPad:
-                    return "Shoot enemy pads to destroy them";
+                    return UiDraw.L("tutorial.step.instruction.destroyEnemyPad", "Shoot enemy pads to destroy them");
                 case TutorialController.TutorialStep.CaptureZone:
-                    return "Stand in the capture zone to score points for your team";
+                    return UiDraw.L("tutorial.step.instruction.captureZone", "Stand in the capture zone to score points for your team");
                 case TutorialController.TutorialStep.BotFight:
-                    return "Defeat the practice bot to complete training";
+                    return UiDraw.L("tutorial.step.instruction.botFight", "Defeat the practice bot to complete training");
                 default:
                     return "";
             }
@@ -223,16 +226,16 @@ namespace Hotdrop.UI
 
         static string GetTitleForStep(TutorialController.TutorialStep step) => step switch
         {
-            TutorialController.TutorialStep.MoveToMarker => "MOVE TO THE MARKER",
-            TutorialController.TutorialStep.KillStationaryTarget => "AIM AND FIRE",
-            TutorialController.TutorialStep.ReloadWeapon => "RELOAD YOUR WEAPON",
-            TutorialController.TutorialStep.PlacePad => "PLACE A LAUNCH PAD",
-            TutorialController.TutorialStep.RideOwnPad => "LAUNCH TO THE PLATFORM",
-            TutorialController.TutorialStep.UseEnemyPad => "USE THE ENEMY PAD",
-            TutorialController.TutorialStep.DestroyEnemyPad => "DESTROY AN ENEMY PAD",
-            TutorialController.TutorialStep.CaptureZone => "CAPTURE THE ZONE",
-            TutorialController.TutorialStep.BotFight => "FINISH THE DRILL",
-            _ => "TRAINING"
+            TutorialController.TutorialStep.MoveToMarker => UiDraw.L("tutorial.step.title.moveToMarker", "Move to the Marker"),
+            TutorialController.TutorialStep.KillStationaryTarget => UiDraw.L("tutorial.step.title.killTarget", "Aim and Fire"),
+            TutorialController.TutorialStep.ReloadWeapon => UiDraw.L("tutorial.step.title.reload", "Reload Your Weapon"),
+            TutorialController.TutorialStep.PlacePad => UiDraw.L("tutorial.step.title.placePad", "Place a Launch Pad"),
+            TutorialController.TutorialStep.RideOwnPad => UiDraw.L("tutorial.step.title.rideOwnPad", "Launch to the Platform"),
+            TutorialController.TutorialStep.UseEnemyPad => UiDraw.L("tutorial.step.title.useEnemyPad", "Use the Enemy Pad"),
+            TutorialController.TutorialStep.DestroyEnemyPad => UiDraw.L("tutorial.step.title.destroyEnemyPad", "Destroy an Enemy Pad"),
+            TutorialController.TutorialStep.CaptureZone => UiDraw.L("tutorial.step.title.captureZone", "Capture the Zone"),
+            TutorialController.TutorialStep.BotFight => UiDraw.L("tutorial.step.title.botFight", "Finish the Drill"),
+            _ => UiDraw.L("tutorial.step.title.training", "Training")
         };
 
         void OnPracticeClicked()

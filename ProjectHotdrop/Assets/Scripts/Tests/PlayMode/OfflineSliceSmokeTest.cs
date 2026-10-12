@@ -107,7 +107,7 @@ namespace Hotdrop.Tests.PlayMode
                 Assert.AreEqual(map.mapConfig.platformHeight, top.y, 0.01f);
                 Assert.AreEqual(map.mapConfig.groundLevelY, bottom.y, 0.01f);
             }
-            Assert.AreEqual(8, ramps);
+            Assert.AreEqual(24, ramps);
 
             yield return ExerciseRecordedTouchInput();
 

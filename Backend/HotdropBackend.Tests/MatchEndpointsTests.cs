@@ -39,6 +39,7 @@ public class MatchEndpointsTests : IClassFixture<HotdropWebApplicationFactory>
             {
                 new ParticipantResult(playerId, Won: true, Eligible: true, HadBotSubstitution: false)
             });
+        await _factory.SeedAllocatedMatchAsync(matchId, playerId);
 
         // Act - first submission
         var response1 = await client.PostAsJsonAsync($"/api/matches/{matchId}/result", request);
@@ -87,6 +88,7 @@ public class MatchEndpointsTests : IClassFixture<HotdropWebApplicationFactory>
                 new ParticipantResult(player2Id, Won: false, Eligible: true, HadBotSubstitution: false),
                 new ParticipantResult(player3Id, Won: false, Eligible: true, HadBotSubstitution: false)
             });
+        await _factory.SeedAllocatedMatchAsync(matchId, player1Id, player2Id, player3Id);
 
         // Act - submit result
         var response = await client.PostAsJsonAsync($"/api/matches/{matchId}/result", request);
@@ -131,6 +133,7 @@ public class MatchEndpointsTests : IClassFixture<HotdropWebApplicationFactory>
             {
                 new ParticipantResult(playerId, Won: false, Eligible: true, HadBotSubstitution: false)
             });
+        await _factory.SeedAllocatedMatchAsync(matchId, playerId);
 
         // Act
         var response = await client.PostAsJsonAsync($"/api/matches/{matchId}/result", request);

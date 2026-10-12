@@ -13,7 +13,7 @@ namespace Hotdrop.Weapons
     {
         static readonly Collider[] overlap = new Collider[4];
 
-        public static int GeometryMask => LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
+        public static int GeometryMask => LayerMask.GetMask("Ground", "Cover", "SpawnBarrier", "Pad");
 
         /// <summary>True when the muzzle is inside or behind geometry relative to the shooter's body.</summary>
         public static bool IsBuried(PhysicsScene physics, Vector3 bodyCentre, Vector3 muzzle, int mask, out Vector3 blockPoint)

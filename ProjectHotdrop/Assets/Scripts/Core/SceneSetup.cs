@@ -151,8 +151,8 @@ namespace Hotdrop.Core
 
             // Active Zone & Next Zone
             GameObject zoneInfo = CreateUIPanel("ZoneInfo", canvasTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -190), new Vector2(300, 60));
-            GameObject activeZoneText = CreateText("ActiveZoneText", zoneInfo.transform, "CENTER - UNCONTROLLED", 20, TextAlignmentOptions.Center, new Vector2(0, 15));
-            GameObject nextZoneText = CreateText("NextZoneText", zoneInfo.transform, "NEXT: WEST", 18, TextAlignmentOptions.Center, new Vector2(0, -15));
+            GameObject activeZoneText = CreateText("ActiveZoneText", zoneInfo.transform, UiDraw.L("hud.zone.initialUncontrolled", "Center - Uncontrolled"), 20, TextAlignmentOptions.Center, new Vector2(0, 15));
+            GameObject nextZoneText = CreateText("NextZoneText", zoneInfo.transform, UiDraw.L("hud.rotation.initialNextWest", "Next: West"), 18, TextAlignmentOptions.Center, new Vector2(0, -15));
             
             hud.activeZoneText = activeZoneText.GetComponent<TextMeshProUGUI>();
             hud.nextZoneText = nextZoneText.GetComponent<TextMeshProUGUI>();

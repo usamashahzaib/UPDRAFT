@@ -28,6 +28,8 @@ namespace Hotdrop.UI
     public class TouchControlsView : MonoBehaviour
     {
         const float HudCaptionDp = UIDesignTokens.CaptionDp;
+        const float EquippedWeaponArtWidth = 57f;
+        const float EquippedWeaponArtHeight = 28.5f;
         TouchInputManager input;
         RectTransform canvasRect;
         Canvas canvas;
@@ -35,10 +37,11 @@ namespace Hotdrop.UI
         static Sprite discSprite;
         static Sprite ringSprite;
 
-        RectTransform fireDisc, jumpDisc, padDisc, reloadDisc, pingDisc, pauseDisc;
-        TextMeshProUGUI fireLabel, jumpLabel, padLabel, reloadLabel, pingLabel, pauseLabel;
+        RectTransform fireDisc, jumpDisc, padDisc, reloadDisc, pingDisc, pauseDisc, focusAimDisc;
+        TextMeshProUGUI fireLabel, jumpLabel, padLabel, reloadLabel, pingLabel, pauseLabel, focusAimLabel;
         Image fireFill, jumpFill, padFill, reloadFill, pingFill, pauseFill;
         Image fireBorder, jumpBorder, padBorder, reloadBorder, pingBorder, pauseBorder;
+        TextMeshProUGUI focusAimIcon;
         RawImage fireWeaponArt;
         TextMeshProUGUI fireFlash;
         string shownFireWeapon;
@@ -53,9 +56,18 @@ namespace Hotdrop.UI
         TextMeshProUGUI padPreviewLabel;
 
         RectTransform editorRoot;
-        readonly RectTransform[] editorActions = new RectTransform[6];
-        readonly Image[] editorActionFills = new Image[6];
-        readonly TextMeshProUGUI[] editorActionLabels = new TextMeshProUGUI[6];
+        readonly RectTransform[] editorActions = new RectTransform[8];
+        readonly Image[] editorActionFills = new Image[8];
+        readonly TextMeshProUGUI[] editorActionLabels = new TextMeshProUGUI[8];
+        readonly RectTransform[] editorSafeGuides = new RectTransform[4];
+        readonly Image[] editorSafeGuideFills = new Image[4];
+        readonly RectTransform[] editorControlPreviews = new RectTransform[7];
+        readonly CanvasGroup[] editorControlPreviewGroups = new CanvasGroup[7];
+        readonly TextMeshProUGUI[] editorControlPreviewLabels = new TextMeshProUGUI[7];
+        readonly Image[] editorControlPreviewFills = new Image[7];
+        Image editorBackground, editorMoveRing, editorMoveNubFill;
+        RectTransform editorMovePreview;
+        TextMeshProUGUI editorMoveLabel, editorCenterPreview;
         TextMeshProUGUI editorHint;
         Image editorSelectionImage;
         RectTransform editorSelection;
@@ -158,13 +170,15 @@ namespace Hotdrop.UI
 
         // ------------------------------------------------------------ build
 
-        // UIUX screen 08 palette for the action cluster.
-        static Color Primary => UiDraw.Hex("#7cefff");
-        static Color OnPrimaryContainer => UiDraw.Hex("#005862");
-        static Color High => UiDraw.Hex("#222a3a");
-        static Color OnSurfaceVariant => UiDraw.Hex("#bbc9cb");
-        static Color Outline => UiDraw.Hex("#859396");
-        static Color Tertiary => UiDraw.Hex("#ffda88");
+        // UIUX screen 08 palette for the action cluster. Routed through UIDesignTokens (instead
+        // of the frozen reference hexes) so these controls recolor live with the active A/B/C
+        // presentation profile; see the matching comment in UiuxHud.cs for the derivation.
+        static Color Primary => Color.Lerp(UIDesignTokens.PrimaryAction, UIDesignTokens.TextPrimary, .35f);
+        static Color OnPrimaryContainer => UIDesignTokens.TextOn(UIDesignTokens.PrimaryAction);
+        static Color High => UIDesignTokens.SurfaceSelected;
+        static Color OnSurfaceVariant => UIDesignTokens.TextSecondary;
+        static Color Outline => UIDesignTokens.SurfaceStructural;
+        static Color Tertiary => Color.Lerp(UIDesignTokens.ObjectiveGold, UIDesignTokens.TextPrimary, .35f);
 
         Image jumpPlate, jumpGlow;
         TextMeshProUGUI jumpIcon, reloadWeapon, reloadAmmo, reloadIcon;
@@ -179,16 +193,18 @@ namespace Hotdrop.UI
             BuildDisc("Reload", out reloadDisc, out reloadFill, out reloadBorder, out reloadLabel);
             BuildDisc("Ping", out pingDisc, out pingFill, out pingBorder, out pingLabel);
             BuildDisc("Pause", out pauseDisc, out pauseFill, out pauseBorder, out pauseLabel);
+            BuildDisc("FocusAim", out focusAimDisc, out _, out _, out focusAimLabel);
 
             // FIRE: 80 px rounded-2xl, cyan gradient with its shadow (rasterised), clear firing glyph.
             var fireArt = UiDraw.Art(fireDisc, "Face", "hud_fire", Vector2.zero);
             UiDraw.Place(fireArt.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -20f), new Vector2(160f, 160f));
             // Show the equipped gun on the action that actually fires it. The muzzle flash
             // appears only while that finger is firing, so the button has clear feedback.
-            fireWeaponArt = UiDraw.Art(fireDisc, "EquippedWeapon", "weapon_arc", Vector2.zero);
+            fireWeaponArt = UiDraw.Art(fireDisc, "EquippedWeapon", "WeaponPortraits/weapon_arc", Vector2.zero);
             fireWeaponArt.color = OnPrimaryContainer;
             UiDraw.Place(fireWeaponArt.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f),
-                new Vector2(-2f, 9f), new Vector2(57f, 24f));
+                new Vector2(-2f, 9f), new Vector2(EquippedWeaponArtWidth, EquippedWeaponArtHeight));
+            UiDraw.FitRawImage(fireWeaponArt, new Vector2(EquippedWeaponArtWidth, EquippedWeaponArtHeight));
             fireFlash = UiDraw.Icon(fireDisc, "MuzzleFlash", "flash_on", 17f, Tertiary);
             UiDraw.Place(fireFlash.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f),
                 new Vector2(26f, 15f), new Vector2(17f, 17f));
@@ -229,6 +245,11 @@ namespace Hotdrop.UI
             UiDraw.Place(UiDraw.Icon(pauseDisc, "Icon", "settings", 20f, OnSurfaceVariant).rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(20f, 20f));
             pingLabel.gameObject.SetActive(false);
             pauseLabel.gameObject.SetActive(false);
+            Plate(focusAimDisc, 40f, 8f, 1f);
+            focusAimIcon = UiDraw.Icon(focusAimDisc, "Icon", "center_focus_strong", 19f, OnSurfaceVariant);
+            UiDraw.Place(focusAimIcon.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 2f), new Vector2(19f, 19f));
+            Caption(focusAimLabel, UiFont.MonoMedium, OnSurfaceVariant, 0f, -15f);
+            focusAimLabel.transform.SetAsLastSibling();
 
             // Crosshair: 6 px dot, four 2x8 ticks 32 px out, primary/80.
             crosshair = UIKit.Rect(transform, "Crosshair", new Vector2(80f, 80f));
@@ -244,6 +265,7 @@ namespace Hotdrop.UI
 
             // Joystick: 144 px well at rest bottom-left, dashed index ring, 64 px nub.
             joystickBase = UIKit.Rect(transform, "JoystickBase", new Vector2(144f, 144f));
+            UiDpPanel.Mark(joystickBase);
             var well = UiDraw.Dot(joystickBase, "Well", 144f, UiDraw.Hex("#060e1d", .6f));
             UiDraw.Fill(well.rectTransform);
             UiDraw.Place(UiDraw.Ring(joystickBase, "IndexRing", 128f, 1f, UiDraw.Hex("#859396", .3f), 28).rectTransform,
@@ -273,7 +295,8 @@ namespace Hotdrop.UI
         static void Caption(TextMeshProUGUI label, UiFont font, Color color, float tracking, float y)
         {
             UIFonts.Use(label, font);
-            label.fontSize = UiMetrics.ScaleTextSize(HudCaptionDp);
+            // Faces are UiDpPanels: the caption is authored in local units (= dp once scaled).
+            label.fontSize = Mathf.Max(HudCaptionDp * UiMetrics.TextScale, UiMetrics.MinTextDp);
             label.enableAutoSizing = false;
             label.color = color;
             label.characterSpacing = tracking * 100f;
@@ -285,6 +308,7 @@ namespace Hotdrop.UI
         {
             root = UIKit.Rect(transform, name + "Control", new Vector2(120f, 120f));
             root.gameObject.AddComponent<CanvasGroup>();
+            UiDpPanel.Mark(root); // ScaleFace draws this face at 1 local unit = 1 dp
             // The face is drawn by Build; these stay as invisible handles the editor and tests use.
             fill = root.gameObject.AddComponent<Image>();
             fill.color = new Color(0f, 0f, 0f, 0f);
@@ -301,9 +325,63 @@ namespace Hotdrop.UI
         {
             editorRoot = UIKit.Rect(transform, "LayoutEditor", Vector2.zero);
             UIKit.Stretch(editorRoot);
-            var scrim = editorRoot.gameObject.AddComponent<Image>();
-            scrim.color = new Color(0.063f, 0.094f, 0.153f, 0.55f);
-            scrim.raycastTarget = false;
+            editorBackground = editorRoot.gameObject.AddComponent<Image>();
+            // Mask the live match so a moving world or active HUD never reads as part of the preview.
+            editorBackground.color = UIDesignTokens.Background;
+            editorBackground.raycastTarget = false;
+
+            for (int i = 0; i < editorSafeGuides.Length; i++)
+            {
+                var guide = UIKit.Rect(editorRoot, "SafeGuide" + i, Vector2.zero);
+                var image = guide.gameObject.AddComponent<Image>();
+                image.color = UIDesignTokens.WithAlpha(UIDesignTokens.ObjectiveGold, .72f);
+                image.raycastTarget = false;
+                editorSafeGuides[i] = guide;
+                editorSafeGuideFills[i] = image;
+            }
+
+            for (int i = 0; i < editorControlPreviews.Length; i++)
+            {
+                var control = UIKit.Rect(editorRoot, "PreviewControl" + i, Vector2.zero);
+                var fill = control.gameObject.AddComponent<Image>();
+                fill.sprite = DiscSprite();
+                fill.color = UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, .96f);
+                fill.raycastTarget = false;
+                editorControlPreviewFills[i] = fill;
+                editorControlPreviewGroups[i] = control.gameObject.AddComponent<CanvasGroup>();
+                editorControlPreviews[i] = control;
+                editorControlPreviewLabels[i] = UIKit.CenteredLabel(control, "Label", "", UiTextRole.Caption, UiTone.Neutral);
+                UIKit.Stretch(editorControlPreviewLabels[i].rectTransform, 2f, 0f, 2f, 0f);
+                editorControlPreviewLabels[i].enableAutoSizing = true;
+                editorControlPreviewLabels[i].fontSizeMin = UiMetrics.MinTextUnits;
+                editorControlPreviewLabels[i].fontSizeMax = UiMetrics.ScaleTextSize(UIDesignTokens.CaptionDp);
+            }
+
+            editorMovePreview = UIKit.Rect(editorRoot, "MovePreview", Vector2.zero);
+            editorMoveRing = editorMovePreview.gameObject.AddComponent<Image>();
+            editorMoveRing.sprite = RingSprite();
+            editorMoveRing.color = UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceSelected, .8f);
+            editorMoveRing.raycastTarget = false;
+            var editorMoveNub = UIKit.Rect(editorMovePreview, "Nub", new Vector2(32f, 32f));
+            editorMoveNubFill = editorMoveNub.gameObject.AddComponent<Image>();
+            editorMoveNubFill.sprite = DiscSprite();
+            editorMoveNubFill.color = UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, .9f);
+            editorMoveNubFill.raycastTarget = false;
+            UiDraw.Place(editorMoveNub, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, 14f), new Vector2(32f, 32f));
+            editorMoveLabel = UIKit.CenteredLabel(editorMovePreview, "Label",
+                UiDraw.L("settings.copy.move", "Move"), UiTextRole.Caption, UiTone.Neutral);
+            editorMoveLabel.enableAutoSizing = true;
+            editorMoveLabel.fontSizeMin = UiMetrics.MinTextUnits;
+            editorMoveLabel.fontSizeMax = UiMetrics.ScaleTextSize(UIDesignTokens.CaptionDp);
+            UiDraw.Place(editorMoveLabel.rectTransform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0f, -38f), new Vector2(80f, 18f));
+
+            editorCenterPreview = UIKit.CenteredLabel(editorRoot, "PassiveCenter",
+                UiDraw.L("settings.copy.center.passive.hud.no.touch.zones", "CENTER PASSIVE HUD\nNO TOUCH ZONES"),
+                UiTextRole.Caption, UiTone.Neutral);
+            editorCenterPreview.enableAutoSizing = true;
+            editorCenterPreview.fontSizeMin = UiMetrics.MinTextUnits;
+            editorCenterPreview.fontSizeMax = UiMetrics.ScaleTextSize(UIDesignTokens.CaptionDp);
+            editorCenterPreview.textWrappingMode = TextWrappingModes.Normal;
 
             editorSelection = UIKit.Rect(editorRoot, "Selection", new Vector2(80f, 80f));
             editorSelectionImage = editorSelection.gameObject.AddComponent<Image>();
@@ -315,7 +393,7 @@ namespace Hotdrop.UI
             // cover. The tint is on the image; the size stays on the rect.
             editorSelectionImage.rectTransform.sizeDelta = new Vector2(80f, 80f);
 
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < editorActions.Length; i++)
             {
                 var slot = UIKit.Rect(editorRoot, "EditAction" + i, new Vector2(130f, 75f));
                 editorActions[i] = slot;
@@ -361,6 +439,7 @@ namespace Hotdrop.UI
             PlaceDisc(reloadDisc, input.ReloadRect);
             PlaceDisc(pingDisc, input.PingRect);
             PlaceDisc(pauseDisc, input.PauseRect);
+            PlaceDisc(focusAimDisc, input.FocusAimRect);
 
             // The player's per-button opacity setting applies to the whole face.
             Opacity(fireDisc, input.FireOpacity);
@@ -369,30 +448,39 @@ namespace Hotdrop.UI
             Opacity(reloadDisc, input.ReloadOpacity);
             Opacity(pingDisc, input.PingOpacity);
             Opacity(pauseDisc, input.PauseOpacity);
+            Opacity(focusAimDisc, input.FocusAimOpacity);
 
-            fireLabel.text = "Fire";
+            fireLabel.text = MatchHUD.Localized("touch.button.fire", "Fire");
             string gun = input.WeaponLabel ?? "";
-            string weaponArt = gun.IndexOf("ZIP", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "weapon_zip"
-                : gun.IndexOf("BRICK", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "weapon_brick" : "weapon_arc";
+            string weaponArt = gun.IndexOf("ZIP", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "WeaponPortraits/weapon_zip"
+                : gun.IndexOf("BRICK", System.StringComparison.OrdinalIgnoreCase) >= 0 ? "WeaponPortraits/weapon_brick" : "WeaponPortraits/weapon_arc";
             if (shownFireWeapon != weaponArt)
             {
                 shownFireWeapon = weaponArt;
                 fireWeaponArt.texture = UiDraw.Texture(weaponArt);
+                UiDraw.FitRawImage(fireWeaponArt, new Vector2(EquippedWeaponArtWidth, EquippedWeaponArtHeight));
             }
             fireFlash.gameObject.SetActive(Time.unscaledTime < fireFlashUntil);
             bool launch = input.LaunchAvailable;
-            jumpLabel.text = launch ? "Launch" : "Jump";
+            jumpLabel.text = launch ? MatchHUD.Localized("touch.launch", "Launch") : MatchHUD.Localized("touch.button.jump", "Jump");
             jumpPlate.color = launch ? UiDraw.Hex("#30d5e8") : UiDraw.Hex("#222a3a", .9f);
             jumpGlow.enabled = launch;
             jumpIcon.color = launch ? OnPrimaryContainer : Primary;
             jumpLabel.color = launch ? OnPrimaryContainer : OnSurfaceVariant;
             padLabel.text = input.PadDisplayLabel;
             string ammo = input.AmmoLabel ?? "";
-            bool reloading = ammo.StartsWith("RELOADING");
-            reloadAmmo.text = reloading ? ammo.Replace("RELOADING ", "") : ammo;
+            string reloadPrefix = MatchHUD.Localized("touch.reloadPrefix", "Reloading ");
+            bool reloading = ammo.StartsWith(reloadPrefix, System.StringComparison.Ordinal);
+            reloadAmmo.text = reloading ? ammo.Substring(reloadPrefix.Length) : ammo;
             reloadWeapon.text = input.WeaponLabel ?? "";
             reloadIcon.rectTransform.localRotation = reloading ? Quaternion.Euler(0f, 0f, -Time.unscaledTime * 360f) : Quaternion.identity;
             padDisc.gameObject.SetActive(input.PadVisible);
+            focusAimLabel.text = MatchHUD.Localized("touch.aim", "Aim");
+            Color focusColor = input.FocusAimHeld ? Primary : OnSurfaceVariant;
+            focusAimIcon.color = focusColor;
+            focusAimLabel.color = focusColor;
+            var focusPlate = focusAimDisc.Find("Plate")?.GetComponent<Image>();
+            if (focusPlate != null) focusPlate.color = input.FocusAimHeld ? UIDesignTokens.WithAlpha(Primary, .25f) : High;
 
             // Crosshair and joystick are anchored to the composed frame, so a capture and a device
             // agree on where the centre is.
@@ -453,20 +541,52 @@ namespace Hotdrop.UI
             if (editorRoot.gameObject.activeSelf != editing) editorRoot.gameObject.SetActive(editing);
             if (!editing) return;
 
-            var actions = TouchInputManager.EditActionCaptions;
-            for (int i = 0; i < 6; i++)
+            editorBackground.color = UIDesignTokens.Background;
+            editorMoveRing.color = UIDesignTokens.WithAlpha(UIDesignTokens.SurfaceSelected, .8f);
+            editorMoveNubFill.color = UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, .9f);
+            editorMoveLabel.color = UIDesignTokens.TextPrimary;
+            editorCenterPreview.color = UIDesignTokens.TextSecondary;
+            editorSelectionImage.color = UIDesignTokens.ObjectiveGold;
+
+            for (int i = 0; i < editorActions.Length; i++)
             {
                 var rect = input.EditActionRectFor(i);
                 PlaceDisc(editorActions[i], rect);
-                editorActionFills[i].color = i == 5
+                editorActionFills[i].color = i == 7
                     ? UIDesignTokens.WithAlpha(UIDesignTokens.PrimaryAction, 0.95f)
                     : UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, 0.95f);
-                editorActionLabels[i].text = actions[i];
+                editorActionLabels[i].text = TouchInputManager.EditActionCaption(i);
             }
+            var safe = input.LayoutSafeRect;
+            const float guideWidth = 2f;
+            Place(editorSafeGuides[0], new Vector2(safe.center.x, safe.yMin), new Vector2(safe.width, guideWidth));
+            Place(editorSafeGuides[1], new Vector2(safe.center.x, safe.yMax), new Vector2(safe.width, guideWidth));
+            Place(editorSafeGuides[2], new Vector2(safe.xMin, safe.center.y), new Vector2(guideWidth, safe.height));
+            Place(editorSafeGuides[3], new Vector2(safe.xMax, safe.center.y), new Vector2(guideWidth, safe.height));
+            foreach (var guide in editorSafeGuideFills)
+                guide.color = UIDesignTokens.WithAlpha(UIDesignTokens.ObjectiveGold, .72f);
+            var frame = SafeAreaRoot.ScreenSize;
+            float u = UiMetrics.ScaleFor(frame.x, frame.y, 0f);
+            float joystickScale = u * Mathf.Max(1f, input.ControlScale);
+            var joystickCenter = new Vector2(ComposedSafeLeft(frame) + 160f * joystickScale, 104f * joystickScale);
+            Place(editorMovePreview, joystickCenter, new Vector2(144f, 144f) * joystickScale);
+            for (int i = 0; i < editorControlPreviews.Length; i++)
+            {
+                var button = (TouchInputManager.ControlButton)i;
+                PlaceDisc(editorControlPreviews[i], input.RectOf(button));
+                string id = button.ToString().ToLowerInvariant();
+                string fallback = button == TouchInputManager.ControlButton.Fire ? "Fire" : id.ToUpperInvariant();
+                editorControlPreviewLabels[i].text = MatchHUD.Localized("touch.button." + id, fallback);
+                editorControlPreviewLabels[i].color = UIDesignTokens.TextPrimary;
+                editorControlPreviewFills[i].color = UIDesignTokens.WithAlpha(UIDesignTokens.SurfacePanel, .96f);
+                editorControlPreviewGroups[i].alpha = Mathf.Clamp01(Mathf.Max(.25f, input.OpacityOf(button) / .65f));
+            }
+            editorCenterPreview.text = UiDraw.L("settings.copy.center.passive.hud.no.touch.zones", "CENTER PASSIVE HUD\nNO TOUCH ZONES");
+            Place(editorCenterPreview.rectTransform, new Vector2(frame.x * .5f, frame.y * .5f), new Vector2(260f, 44f) * u);
             PlaceDisc(editorSelection, input.SelectedRect);
             editorSelection.sizeDelta += new Vector2(10f, 10f);
             editorSelection.SetAsLastSibling();
-            editorHint.text = input.EditHintText;
+            editorHint.text = input.EditHintText + (string.IsNullOrEmpty(input.LayoutWarningText) ? string.Empty : "  |  " + input.LayoutWarningText);
             var hintRect = editorHint.rectTransform;
             hintRect.anchoredPosition = new Vector2(0f, editorActions[0].anchoredPosition.y - 26f);
         }

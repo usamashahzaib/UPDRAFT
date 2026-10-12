@@ -76,6 +76,12 @@ namespace Hotdrop.Player
 
         public static string Id(BodyRig rig) => rig == BodyRig.Female ? FemaleId : MaleId;
 
+        /// <summary>Server/inventory mask for a cosmetic variant: Male=1, Female=2.</summary>
+        public static int VariantMask(BodyRig rig) => rig == BodyRig.Female ? 2 : 1;
+
+        /// <summary>Legacy inventory responses with no mask remain usable as universal items.</summary>
+        public static bool SupportsVariant(int mask, BodyRig rig) => mask == 0 || (mask & VariantMask(rig)) != 0;
+
         public static string DisplayName(BodyRig rig) => rig == BodyRig.Female ? "Female" : "Male";
 
         public static bool TryParse(string id, out BodyRig rig)

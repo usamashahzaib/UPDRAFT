@@ -39,7 +39,8 @@ namespace Hotdrop.UI
         }
 
         /// <summary>Everything a remote viewer should see: body | wrap | badge.</summary>
-        public static string LocalComposite => string.Join("|", LocalEquipped, LocalWrap, LocalBadge);
+        public static string LocalComposite => string.Join("|", LocalEquipped, LocalWrap, LocalBadge,
+            Hotdrop.Player.BodyRigs.Id(Hotdrop.Player.BodyRigStore.Current));
 
         /// <summary>One player's equipped look. Any part may be empty.</summary>
         public readonly struct Look
@@ -77,12 +78,52 @@ namespace Hotdrop.UI
 
         public static string DisplayName(string id)
         {
-            if (string.IsNullOrEmpty(id)) return "Standard";
+            if (string.IsNullOrEmpty(id)) return ItemName("");
             int cut = id.IndexOf('_');
             string kind = cut > 0 ? id.Substring(0, cut) : "";
-            string name = (cut > 0 ? id.Substring(cut + 1) : id).Replace('_', ' ');
-            name = name.Length > 0 ? char.ToUpperInvariant(name[0]) + name.Substring(1) : name;
-            return kind switch { "body" => "Body style: " + name, "wrap" => "Weapon wrap: " + name, "badge" => "Badge: " + name, _ => name };
+            string name = ItemName(id);
+            return kind switch
+            {
+                "body" => UiDraw.LFormat("appearance.cosmetic.display.bodyStyle", "Body style: {0}", name),
+                "wrap" => UiDraw.LFormat("appearance.cosmetic.display.weaponWrap", "Weapon wrap: {0}", name),
+                "badge" => UiDraw.LFormat("appearance.cosmetic.display.badge", "Badge: {0}", name),
+                _ => name,
+            };
+        }
+
+        /// <summary>Returns the cosmetic's value text without repeating its slot label.</summary>
+        public static string ItemName(string id)
+        {
+            string name;
+            if (string.IsNullOrEmpty(id)) name = "Standard";
+            else
+            {
+                int cut = id.IndexOf('_');
+                name = (cut > 0 ? id.Substring(cut + 1) : id).Replace('_', ' ');
+                name = name.Length > 0 ? char.ToUpperInvariant(name[0]) + name.Substring(1) : name;
+            }
+
+            // Cosmetic IDs are server-owned identifiers, not display copy. Resolve known
+            // catalog IDs through Localization and keep the readable English form for new
+            // or legacy IDs until their authored translation entry is added.
+            if (string.IsNullOrEmpty(id))
+                return UiDraw.L("appearance.cosmetic.item.standard", name);
+            if (!IsLocalizationSafeCosmeticId(id)) return name;
+            string itemKey = id == "body_standard" || id == "wrap_standard"
+                ? "appearance.cosmetic.item.standard"
+                : "appearance.cosmetic.item." + id;
+            return UiDraw.L(itemKey, name);
+        }
+
+        static bool IsLocalizationSafeCosmeticId(string id)
+        {
+            if (string.IsNullOrEmpty(id) || id.Length > 64) return false;
+            for (int i = 0; i < id.Length; i++)
+            {
+                char c = id[i];
+                if ((c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') return false;
+            }
+            return true;
         }
 
         /// <summary>Short badge tag for name plates ("" when the equipped badge is the default).</summary>
@@ -102,8 +143,8 @@ namespace Hotdrop.UI
             var gun = visualRoot.Find("Gun");
             if (gun == null)
             {
-                var rig = visualRoot.Find("Rig");
-                if (rig != null) gun = rig.Find("Gun");
+                var rigRoot = visualRoot.Find("Rig");
+                if (rigRoot != null) gun = rigRoot.Find("Gun");
             }
             if (gun != null)
             {
@@ -118,6 +159,12 @@ namespace Hotdrop.UI
             string id = look.BodyStyle;
             if (string.IsNullOrEmpty(id) || !(id.StartsWith("body_") || id.EndsWith("_body")) || id == "body_standard") return;
 
+            var rig = Hotdrop.Player.BodyRigStore.Current;
+            if (Hotdrop.Player.BodyRigs.TryParse(look.BodyRig, out var lookRig)) rig = lookRig;
+            float horizontalScale = rig == Hotdrop.Player.BodyRig.Female ? .93f : 1f;
+            Vector3 VariantPosition(Vector3 position) => new Vector3(position.x * horizontalScale, position.y, position.z * horizontalScale);
+            Vector3 VariantSize(Vector3 size) => new Vector3(size.x * horizontalScale, size.y, size.z * horizontalScale);
+
             var root = new GameObject(RootName).transform;
             root.SetParent(visualRoot, false);
             var mat = Material(id, BodyColour(id));
@@ -126,20 +173,40 @@ namespace Hotdrop.UI
                 case "body_teal_stripe": // two vertical stripes, front and back
                     for (int side = -1; side <= 1; side += 2)
                         for (int face = -1; face <= 1; face += 2)
-                            Part(root, "Stripe", new Vector3(side * 0.12f, 1.1f, face * 0.18f), new Vector3(0.06f, 0.66f, 0.02f), mat);
+                            Part(root, "Stripe", VariantPosition(new Vector3(side * 0.12f, 1.1f, face * 0.18f)), VariantSize(new Vector3(0.06f, 0.66f, 0.02f)), mat);
                     break;
                 case "body_rooftop": // shoulder plates
                     for (int side = -1; side <= 1; side += 2)
-                        Part(root, "Plate", new Vector3(side * 0.3f, 1.42f, 0f), new Vector3(0.14f, 0.07f, 0.36f), mat);
+                        Part(root, "Plate", VariantPosition(new Vector3(side * 0.3f, 1.42f, 0f)), VariantSize(new Vector3(0.14f, 0.07f, 0.36f)), mat);
                     break;
                 default: // chevron on the back
-                    Part(root, "ChevronL", new Vector3(-0.08f, 1.15f, -0.18f), new Vector3(0.2f, 0.05f, 0.02f), mat, 35f);
-                    Part(root, "ChevronR", new Vector3(0.08f, 1.15f, -0.18f), new Vector3(0.2f, 0.05f, 0.02f), mat, -35f);
+                    Part(root, "ChevronL", VariantPosition(new Vector3(-0.08f, 1.15f, -0.18f)), VariantSize(new Vector3(0.2f, 0.05f, 0.02f)), mat, 35f);
+                    Part(root, "ChevronR", VariantPosition(new Vector3(0.08f, 1.15f, -0.18f)), VariantSize(new Vector3(0.2f, 0.05f, 0.02f)), mat, -35f);
                     break;
             }
         }
 
         static readonly Dictionary<Renderer, Material> gunDefaults = new Dictionary<Renderer, Material>();
+
+        /// <summary>
+        /// Updates the equipped model's baseline surface without removing an active wrap.
+        /// When the wrap is later cleared, Apply restores the current weapon's material.
+        /// </summary>
+        public static void SetWeaponBaseMaterial(Renderer renderer, Material baseMaterial)
+        {
+            if (renderer == null || baseMaterial == null) return;
+            if (gunDefaults.TryGetValue(renderer, out var previous))
+            {
+                bool wrapped = renderer.sharedMaterial != previous;
+                gunDefaults[renderer] = baseMaterial;
+                if (!wrapped) renderer.sharedMaterial = baseMaterial;
+            }
+            else
+            {
+                gunDefaults[renderer] = baseMaterial;
+                renderer.sharedMaterial = baseMaterial;
+            }
+        }
 
         /// <summary>A wrap is only "active" when it is not the default blank wrap.</summary>
         static bool ActiveWrap(string id) =>

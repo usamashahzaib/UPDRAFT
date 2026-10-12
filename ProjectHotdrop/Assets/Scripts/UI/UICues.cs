@@ -62,9 +62,9 @@ namespace Hotdrop.UI
         /// <summary>The default word for a tone.</summary>
         public static string LabelFor(UiTone tone) => tone switch
         {
-            UiTone.Friendly => "ALLY",
-            UiTone.Enemy => "ENEMY",
-            UiTone.Objective => "ZONE",
+            UiTone.Friendly => UiDraw.L("ui.cue.ally", "Ally"),
+            UiTone.Enemy => UiDraw.L("ui.cue.enemy", "Enemy"),
+            UiTone.Objective => UiDraw.L("ui.cue.objective", "Zone"),
             _ => "",
         };
 

@@ -17,18 +17,21 @@ MonoBehaviour:
   - id: signal
     displayName: Signal
     referenceUsdPrice: 1.99
+    supportedBodyRigMask: 3
     contents:
     - 'Body style: Signal'
     - 'Weapon wrap: Signal (ARC/ZIP/BRICK)'
   - id: foundry
     displayName: Foundry
     referenceUsdPrice: 3.99
+    supportedBodyRigMask: 3
     contents:
     - 'Body style: Foundry'
     - 'Profile badge: Foundry'
   - id: skyline
     displayName: Skyline
     referenceUsdPrice: 5.99
+    supportedBodyRigMask: 3
     contents:
     - 'Body style: Skyline'
     - 'Profile badge: Skyline'

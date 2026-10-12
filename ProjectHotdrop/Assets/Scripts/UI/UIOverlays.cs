@@ -188,7 +188,7 @@ namespace Hotdrop.UI
             UIKit.Border(root, "Border", UIDesignTokens.SignalWarning, UIDesignTokens.BorderNormalUnits);
 
             // The shape cue means the block still reads when the warning tint does not.
-            var cue = UICue.Create(root, UiTone.Warning, "OFFLINE", UIDesignTokens.Dp(UIDesignTokens.BodyDp));
+            var cue = UICue.Create(root, UiTone.Warning, UiDraw.L("network.errorRetry.offlineCue", "Offline"), UIDesignTokens.Dp(UIDesignTokens.BodyDp));
             cue.Shape = CueShape.Cross;
             var cueRt = cue.GetComponent<RectTransform>();
             cueRt.anchorMin = cueRt.anchorMax = new Vector2(0f, 1f);
@@ -214,7 +214,7 @@ namespace Hotdrop.UI
             var row = UIKit.Row(column, "Actions", UIDesignTokens.SpaceMdDp);
             var rowElement = row.gameObject.AddComponent<LayoutElement>();
             rowElement.minHeight = UiMetrics.MinTouchUnits;
-            view.retry = UIKit.Button(row, "TRY AGAIN", ButtonVariant.Primary, onRetry, "Retry");
+            view.retry = UIKit.Button(row, UiDraw.L("network.errorRetry.retry", "Try Again"), ButtonVariant.Primary, onRetry, "Retry");
 
             return view;
         }
@@ -250,7 +250,7 @@ namespace Hotdrop.UI
         public bool IsVisible => shown;
 
         /// <summary>Builds an offline banner, hidden by default.</summary>
-        public static OfflineBannerView Create(Transform parent, string messageText = "OFFLINE — SAVED CONTENT STILL WORKS", string name = "OfflineBanner")
+        public static OfflineBannerView Create(Transform parent, string messageText = null, string name = "OfflineBanner")
         {
             var root = UIKit.Rect(parent, name, new Vector2(0f, UIDesignTokens.Dp(40f)));
             var view = root.gameObject.AddComponent<OfflineBannerView>();
@@ -268,7 +268,7 @@ namespace Hotdrop.UI
             var cueElement = cue.gameObject.AddComponent<LayoutElement>();
             cueElement.preferredWidth = UIDesignTokens.Dp(UIDesignTokens.BodySmallDp);
 
-            view.message = UIKit.Label(row, "Message", messageText, UiTextRole.Caption, UiTone.Warning);
+            view.message = UIKit.Label(row, "Message", messageText ?? UiDraw.L("network.offlineBanner.savedContent", "Offline — saved content still works"), UiTextRole.Caption, UiTone.Warning);
             view.message.alignment = TextAlignmentOptions.MidlineLeft;
 
             view.group = root.gameObject.AddComponent<CanvasGroup>();
@@ -340,7 +340,7 @@ namespace Hotdrop.UI
                 view.bars[i] = bar;
             }
 
-            view.label = UIKit.Label(row, "Label", "GOOD", UiTextRole.Caption);
+            view.label = UIKit.Label(row, "Label", LabelFor(4), UiTextRole.Caption);
             var labelElement = view.label.gameObject.AddComponent<LayoutElement>();
             labelElement.preferredWidth = UIDesignTokens.Dp(64f);
             labelElement.minHeight = UiMetrics.MinTextUnits;
@@ -352,11 +352,11 @@ namespace Hotdrop.UI
         /// <summary>The word shown for a quality level. Exposed so tests can assert the text channel.</summary>
         public static string LabelFor(int quality) => quality switch
         {
-            <= 0 => "OFFLINE",
-            1 => "POOR",
-            2 => "FAIR",
-            3 => "GOOD",
-            _ => "EXCELLENT",
+            <= 0 => UiDraw.L("network.quality.offline", "Offline"),
+            1 => UiDraw.L("network.quality.poor", "Poor"),
+            2 => UiDraw.L("network.quality.fair", "Fair"),
+            3 => UiDraw.L("network.quality.good", "Good"),
+            _ => UiDraw.L("network.quality.excellent", "Excellent"),
         };
 
         /// <summary>The tone shown for a quality level.</summary>

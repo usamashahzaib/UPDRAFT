@@ -100,6 +100,8 @@ namespace Hotdrop.Tutorial
 
             // Subscribe to events
             localPlayer.OnHealthChanged += (hp) => matchHUD?.UpdateHealth(hp);
+            localPlayer.OnDamagedFrom += direction => matchHUD?.ShowDamageFrom(direction);
+            localPlayer.OnFlightMotion += (speed, airborne) => matchHUD?.UpdateFlightMotion(speed, airborne);
             localPlayer.OnAmmoChanged += (cur, max) => matchHUD?.UpdateAmmo(cur, max);
             localPlayer.OnPadPlaced += (pad) => CheckStepCompletion(TutorialStep.PlacePad);
             localPlayer.OnPadActivated += (pad) => CheckPadActivationStep(pad);
@@ -109,7 +111,7 @@ namespace Hotdrop.Tutorial
             localPlayer.OnEliminated += (killerId, weapon) =>
             {
                 var killer = PlayerController.Find(killerId);
-                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer.DisplayName : "", weapon, localPlayer.LastAttackDirection);
+                matchHUD?.ShowEliminated(killer != null && killer != localPlayer ? killer : null, weapon, localPlayer.LastAttackDirection);
             };
             localPlayer.OnRespawn += _ => ReturnAfterRespawn();
             localPlayer.DisplayName = "YOU";
@@ -266,7 +268,7 @@ namespace Hotdrop.Tutorial
         void SetupDestroyEnemyPadStep()
         {
             SetupUseEnemyPadStep(); // a fresh enemy pad, player facing it
-            tutorialUI?.SetInstruction("Shoot the enemy pad to destroy it");
+            tutorialUI?.SetInstruction(UiDraw.L("tutorial.step.instruction.destroyEnemyPad", "Shoot the enemy pad to destroy it"));
         }
 
         void SetupCaptureZoneStep()
@@ -464,16 +466,16 @@ namespace Hotdrop.Tutorial
         {
             string hint = currentStep switch
             {
-                TutorialStep.MoveToMarker => "Follow the marker using the left thumb zone.",
-                TutorialStep.KillStationaryTarget => "Drag on the right side to aim, then hold FIRE when the target is clear.",
-                TutorialStep.ReloadWeapon => "Tap RELOAD after the low-ammo prompt.",
-                TutorialStep.PlacePad => "Tap PAD while standing on the marked ground.",
-                TutorialStep.RideOwnPad => "Stand on your cyan pad, then press JUMP / LAUNCH.",
-                TutorialStep.UseEnemyPad => "The coral pad belongs to the other team, but you can still launch from it.",
-                TutorialStep.DestroyEnemyPad => "Aim at the coral pad and use your weapon until it breaks.",
-                TutorialStep.CaptureZone => "Stay inside the gold zone ring for a few seconds.",
-                TutorialStep.BotFight => "Use cover, pads, and your weapon to finish the practice bot.",
-                _ => "Training is complete.",
+                TutorialStep.MoveToMarker => UiDraw.L("tutorial.step.hint.moveToMarker", "Follow the marker using the left thumb zone."),
+                TutorialStep.KillStationaryTarget => UiDraw.L("tutorial.step.hint.killTarget", "Drag on the right side to aim, then hold FIRE when the target is clear."),
+                TutorialStep.ReloadWeapon => UiDraw.L("tutorial.step.hint.reload", "Tap RELOAD after the low-ammo prompt."),
+                TutorialStep.PlacePad => UiDraw.L("tutorial.step.hint.placePad", "Tap PAD while standing on the marked ground."),
+                TutorialStep.RideOwnPad => UiDraw.L("tutorial.step.hint.rideOwnPad", "Stand on your cyan pad, then press JUMP / LAUNCH."),
+                TutorialStep.UseEnemyPad => UiDraw.L("tutorial.step.hint.useEnemyPad", "The coral pad belongs to the other team, but you can still launch from it."),
+                TutorialStep.DestroyEnemyPad => UiDraw.L("tutorial.step.hint.destroyEnemyPad", "Aim at the coral pad and use your weapon until it breaks."),
+                TutorialStep.CaptureZone => UiDraw.L("tutorial.step.hint.captureZone", "Stay inside the gold zone ring for a few seconds."),
+                TutorialStep.BotFight => UiDraw.L("tutorial.step.hint.botFight", "Use cover, pads, and your weapon to finish the practice bot."),
+                _ => UiDraw.L("tutorial.step.hint.complete", "Training is complete."),
             };
             tutorialUI?.SetInstruction(hint);
             Hotdrop.Core.Telemetry.Track("tutorial_show_me", ("step", currentStep.ToString()));

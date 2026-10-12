@@ -37,10 +37,11 @@ namespace Hotdrop.Network
         [Networked] public TickTimer LoadTimeout { get; set; }
         [Networked] public NetworkBool ZoneAllyA { get; set; }
         [Networked] public NetworkBool ZoneAllyB { get; set; }
+        [Networked] public NetworkString<_32> StudyCohortCode { get; set; }
 
         // ownerSlot (C04): the pad's owner, so the result can attribute a teammate's use
         // of someone else's pad back to the player who built it.
-        public struct PadEvent { public string name; public int slot; public int team; public int padTeam; public int ownerSlot; public float matchTime; }
+        public struct PadEvent { public string name; public string padId; public int slot; public int team; public int padTeam; public int ownerSlot; public float matchTime; public Vector3 position; }
         readonly List<PadEvent> serverPadEvents = new List<PadEvent>();
         public System.Collections.ObjectModel.ReadOnlyCollection<PadEvent> ServerPadEvents => serverPadEvents.AsReadOnly();
         ServerMatchReplay serverReplay;
@@ -48,6 +49,7 @@ namespace Hotdrop.Network
         public System.Action<NetMatch> OnServerMatchEnded;
         public System.Action<NetMatch> OnServerMatchCancelled;
         public event System.Action<int, int, PingKind, Vector3> OnPingBroadcast;
+        public event System.Action<int, int, byte> OnQuickChatBroadcast;
         public NetworkObject PadPrefab;
 
         MatchFlowController flow;
@@ -73,12 +75,18 @@ namespace Hotdrop.Network
 
         public bool IsLive => Phase == MatchPhase.InProgress || Phase == MatchPhase.Overtime;
         public MatchOutcome Outcome => (MatchOutcome)OutcomeValue;
+        public bool IsEndgame => Phase == MatchPhase.Overtime || MatchClock >= Mathf.Max(0f, R.regulationDurationSeconds - R.endgameHudTrimSeconds);
+        public string StudyCohort => StudyCohortCode.ToString();
+        public bool PadsEnabled => Hotdrop.Core.StudySettings.PadsEnabledFor(StudyCohort);
 
         public override void Spawned()
         {
+            if (HasStateAuthority)
+                _ = NetConfigs.Progression; // Validate configured AFK/disconnect windows before the match starts.
             byRunner[Runner] = this;
             if (HasStateAuthority)
             {
+                StudyCohortCode = Hotdrop.Core.StudySettings.NormalizeCohort(DedicatedServer.StudyCohort);
                 flow = new MatchFlowController(R);
                 scoring = new RelayScoringController(R);
                 serverReplay = new ServerMatchReplay(R.regulationDurationSeconds + R.maxOvertimeSeconds, MatchmakingSize);
@@ -267,13 +275,12 @@ namespace Hotdrop.Network
                     p.ServerRespawn(Map.SpawnExit(p.Team, exitCursor[p.Team]++), matchStart: false);
         }
 
-        // Spec 10 (disconnect → labeled bot after 5 s) and 18 (AFK: warn at 30 s, bot after +15 s).
+        // Spec 10 (disconnect → labeled bot) and 18 (AFK warning and substitution windows).
         void HandleAbsence()
         {
-            // Spec 18 / C10: the warn/remove windows come from ProgressionConfig, not literals.
             var progression = NetConfigs.Progression;
-            float warnSeconds = progression != null ? progression.afkWarningSeconds : 30f;
-            float removeSeconds = warnSeconds + (progression != null ? progression.afkRemovalAfterWarningSeconds : 15f);
+            float warnSeconds = progression.afkWarningSeconds;
+            float removeSeconds = warnSeconds + progression.afkRemovalAfterWarningSeconds;
             int afkWarnTicks = Mathf.RoundToInt(warnSeconds / Runner.DeltaTime);
             int afkRemoveTicks = Mathf.RoundToInt(removeSeconds / Runner.DeltaTime);
             foreach (var p in NetPlayer.All)
@@ -329,21 +336,22 @@ namespace Hotdrop.Network
             var previous = NetPad.ActiveOwnedBy(Runner, owner.Slot);
             if (previous != null) previous.Removed = true;
             if (PadPrefab == null) PadPrefab = Resources.Load<NetworkObject>("NetPrefabs/NetPad");
+            string padId = System.Guid.NewGuid().ToString("N");
             Runner.Spawn(PadPrefab, position, Quaternion.LookRotation(forward), PlayerRef.None,
-                (runner, obj) => obj.GetComponent<NetPad>().Init(owner.Slot, owner.Team, forward));
-            serverPadEvents.Add(new PadEvent { name = "pad_placed", slot = owner.Slot, team = owner.Team, padTeam = owner.Team, ownerSlot = owner.Slot, matchTime = MatchClock });
+                (runner, obj) => obj.GetComponent<NetPad>().Init(owner.Slot, owner.Team, forward, padId));
+            serverPadEvents.Add(new PadEvent { name = "pad_placed", padId = padId, slot = owner.Slot, team = owner.Team, padTeam = owner.Team, ownerSlot = owner.Slot, matchTime = MatchClock, position = position });
         }
 
         public void RecordPadUse(NetPad pad, NetPlayer user)
         {
             if (!HasStateAuthority || pad == null || user == null || pad.Runner != Runner || user.Runner != Runner) return;
-            serverPadEvents.Add(new PadEvent { name = "pad_used", slot = user.Slot, team = user.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
+            serverPadEvents.Add(new PadEvent { name = "pad_used", padId = pad.TelemetryId, slot = user.Slot, team = user.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock, position = pad.transform.position });
         }
 
         public void RecordPadDestroyed(NetPad pad)
         {
             if (!HasStateAuthority || pad == null || pad.Runner != Runner) return;
-            serverPadEvents.Add(new PadEvent { name = "pad_destroyed", slot = pad.OwnerSlot, team = pad.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock });
+            serverPadEvents.Add(new PadEvent { name = "pad_destroyed", padId = pad.TelemetryId, slot = pad.OwnerSlot, team = pad.Team, padTeam = pad.Team, ownerSlot = pad.OwnerSlot, matchTime = MatchClock, position = pad.transform.position });
         }
 
         public void BroadcastPing(int senderSlot, int team, PingKind kind, Vector3 position) =>
@@ -360,6 +368,21 @@ namespace Hotdrop.Network
         {
             if (kind < (int)PingKind.GoHere || kind > (int)PingKind.PadReady) return;
             OnPingBroadcast?.Invoke(senderSlot, team, (PingKind)kind, position);
+        }
+
+        public void BroadcastQuickChat(int senderSlot, int team, byte choice)
+        {
+            if (!HasStateAuthority || !Hotdrop.UI.QuickChatWheelView.AvailabilityGateOpen ||
+                choice >= Hotdrop.UI.QuickChatWheelView.MessageCount) return;
+            RPC_BroadcastQuickChat(senderSlot, team, choice);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        void RPC_BroadcastQuickChat(int senderSlot, int team, byte choice)
+        {
+            if (!Hotdrop.UI.QuickChatWheelView.AvailabilityGateOpen ||
+                choice >= Hotdrop.UI.QuickChatWheelView.MessageCount) return;
+            OnQuickChatBroadcast?.Invoke(senderSlot, team, choice);
         }
 
         // ---- IMatchView (clients' presentation) ----

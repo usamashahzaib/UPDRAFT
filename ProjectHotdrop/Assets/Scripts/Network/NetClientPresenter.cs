@@ -20,14 +20,19 @@ namespace Hotdrop.Network
         NetPlayer local;
         NetMatch match;
         MatchPhase lastPhase = (MatchPhase)(-1);
-        bool wasDead, lastLaunched;
+        int lastCountdownBeep = -1;
+        bool wasDead, wasZoneContested, lastLaunched;
+        Hotdrop.Config.ZoneId? lastAudioZone;
+        int lastMilestoneA, lastMilestoneB;
         int lastEliminations, lastShotCounter, lastHitConfirms, lastHeadshotConfirms;
         readonly int[] rttSampleBuckets = new int[6];
         int rttSampleCount, maxRttSampleMs;
         float nextRttTelemetryAt;
         float lastHealth = -1f;
+        int lastDamageEventSequence;
         float nextLatencyRefresh;
         byte pendingWeaponChoice;
+        byte pendingQuickChatChoice = byte.MaxValue;
         // Button presses are latched until the next network tick consumes them, so a
         // tap shorter than a tick is never lost.
         bool jumpLatch, padLatch, reloadLatch, pingLatch;
@@ -53,7 +58,12 @@ namespace Hotdrop.Network
             game = bootstrap;
             session = net;
             returnHome = onReturnHome;
-            shotObstructionMask = LayerMask.GetMask("Ground", "Cover", "SpawnBarrier");
+            lastPhase = (MatchPhase)(-1);
+            lastCountdownBeep = -1;
+            wasZoneContested = false;
+            lastAudioZone = null;
+            lastMilestoneA = lastMilestoneB = 0;
+            shotObstructionMask = Hotdrop.Weapons.MuzzleObstruction.GeometryMask;
             session.InputSource = SampleInput;
             session.OnShutdownComplete += () =>
             {
@@ -74,6 +84,8 @@ namespace Hotdrop.Network
             var localVelocity = local.Kcc != null ? local.Kcc.RealVelocity : Vector3.zero;
             GameAudio.SetFlightMix(new Vector2(localVelocity.x, localVelocity.z).magnitude,
                 localVelocity.y, local.Kcc != null && !local.Kcc.IsGrounded && !local.Dead);
+            game.matchHUD?.UpdateFlightMotion(new Vector2(localVelocity.x, localVelocity.z).magnitude,
+                local.Kcc != null && !local.Kcc.IsGrounded && !local.Dead);
             if (local.AfkRemoved && !ShowingResults)
             {
                 // Without this the player would sit in the match with dead controls, watching a bot play as them.
@@ -98,6 +110,7 @@ namespace Hotdrop.Network
                 lastPadRejectCounter = -1;
                 lastEliminations = p.EliminationCount;
                 lastHitConfirms = p.HitConfirmCounter;
+                lastDamageEventSequence = p.DamageEventSequence;
                 lastHeadshotConfirms = p.HeadshotConfirmCounter;
                 lastLaunched = p.Launched;
                 Array.Clear(rttSampleBuckets, 0, rttSampleBuckets.Length);
@@ -105,12 +118,30 @@ namespace Hotdrop.Network
                 nextRttTelemetryAt = 0f;
                 hasSampledYaw = false;
                 match.LocalParticipant = p;
+                lastAudioZone = match.ScoringZone;
+                lastMilestoneA = match.ScoreA / 30;
+                lastMilestoneB = match.ScoreB / 30;
+                wasZoneContested = match.ZoneAllyA && match.ZoneAllyB;
                 MatchView.Register(match);
                 game.mainCamera.SetTarget(p.transform);
                 game.mainCamera.SnapBehindTarget();
-                game.matchHUD.InitializeNetwork(p, game.touchInput, NetConfigs.Weapons, PlayAgain, Home, i => pendingWeaponChoice = (byte)(i + 1));
+                string reportMatchId = MatchId;
+                game.matchHUD.InitializeNetwork(p, game.touchInput, NetConfigs.Weapons, PlayAgain, Home,
+                    i => pendingWeaponChoice = (byte)(i + 1),
+                    string.IsNullOrWhiteSpace(reportMatchId) ? null : slot => ReportParticipantFromResults(slot, reportMatchId),
+                    string.IsNullOrWhiteSpace(reportMatchId) ? null : slot => IsReportableParticipantSlot(slot, reportMatchId));
                 game.matchHUD.HideAllPanels();
                 match.OnPingBroadcast += ReceivePing;
+                if (Hotdrop.UI.QuickChatWheelView.AvailabilityGateOpen)
+                {
+                    match.OnQuickChatBroadcast += ReceiveQuickChat;
+                    var quickChat = game.matchHUD.GetComponent<Hotdrop.UI.QuickChatWheelView>();
+                    if (quickChat != null)
+                    {
+                        quickChat.MessageSelected -= QueueQuickChat;
+                        quickChat.MessageSelected += QueueQuickChat;
+                    }
+                }
                 p.OnLocalShot += (from, to) => Hotdrop.Weapons.ShotTracers.Show(from, to, true);
                 p.OnLocalFired += shotInMagazine =>
                 {
@@ -141,6 +172,20 @@ namespace Hotdrop.Network
                 senderId = senderSlot,
                 senderName = senderName,
             });
+        }
+
+        void QueueQuickChat(byte choice)
+        {
+            if (Hotdrop.UI.QuickChatWheelView.AvailabilityGateOpen &&
+                choice < Hotdrop.UI.QuickChatWheelView.MessageCount) pendingQuickChatChoice = choice;
+        }
+
+        void ReceiveQuickChat(int senderSlot, int team, byte choice)
+        {
+            if (!Hotdrop.UI.QuickChatWheelView.AvailabilityGateOpen || local == null || team != local.Team ||
+                choice >= Hotdrop.UI.QuickChatWheelView.MessageCount) return;
+            if (Hotdrop.UI.QuickChatWheelView.Muted && senderSlot != local.Slot) return;
+            game.matchHUD.GetComponent<Hotdrop.UI.QuickChatWheelView>()?.ShowMessage(choice);
         }
 
         // ---------- Input ----------
@@ -221,7 +266,10 @@ namespace Hotdrop.Network
             input.Set(NetButton.Pad, padLatch);
             input.Set(NetButton.Reload, reloadLatch);
             input.Set(NetButton.Ping, pingLatch);
+            input.QuickChatChoice = pendingQuickChatChoice;
+            input.Set(NetButton.QuickChat, pendingQuickChatChoice < Hotdrop.UI.QuickChatWheelView.MessageCount);
             jumpLatch = padLatch = reloadLatch = pingLatch = false;
+            pendingQuickChatChoice = byte.MaxValue;
             input.WeaponChoice = pendingWeaponChoice;
 
             // Send the camera's selected world point. The server derives a muzzle-to-point
@@ -270,7 +318,19 @@ namespace Hotdrop.Network
             touch.PadPreviewReason = reason;
         }
 
-        void OnDestroy() => padPreview.Destroy();
+        void OnDestroy()
+        {
+            if (match != null)
+            {
+                match.OnPingBroadcast -= ReceivePing;
+                match.OnQuickChatBroadcast -= ReceiveQuickChat;
+            }
+            var quickChat = game?.matchHUD != null ? game.matchHUD.GetComponent<Hotdrop.UI.QuickChatWheelView>() : null;
+            if (quickChat != null) quickChat.MessageSelected -= QueueQuickChat;
+            padPreview.Destroy();
+        }
+
+        void OnDisable() => GameAudio.ClearFlightMix();
 
         void UpdateBlockedShotFeedback()
         {
@@ -326,6 +386,27 @@ namespace Hotdrop.Network
             var touch = game.touchInput;
             var phase = match.Phase;
             bool preparing = !match.Started;
+            if (phase == MatchPhase.Countdown)
+                GameAudio.SetCountdownMusic(match.PhaseElapsed, NetConfigs.Rules.countdownSeconds, NetConfigs.Rules);
+            else if (preparing)
+                GameAudio.StopMusic();
+
+            if (phase == MatchPhase.Countdown)
+            {
+                int count = Mathf.CeilToInt(NetConfigs.Rules.countdownSeconds - match.PhaseElapsed);
+                if (count != lastCountdownBeep && count > 0)
+                {
+                    lastCountdownBeep = count;
+                    GameAudio.Play2D(GameCue.Countdown);
+                    GameAudio.ReportLocalCaption(GameCue.Countdown, count.ToString());
+                }
+            }
+            else if (phase == MatchPhase.InProgress && lastPhase == MatchPhase.Countdown && lastCountdownBeep != 0)
+            {
+                lastCountdownBeep = 0;
+                GameAudio.Play2D(GameCue.CountdownGo);
+                GameAudio.ReportLocalCaption(GameCue.CountdownGo, Hotdrop.UI.UiDraw.L("hud.countdown.go", "Go"));
+            }
 
             // Fusion's measured round trip time is the only source for the live ping label.
             // Keep the read outside Runtime UI to preserve the one-way assembly dependency.
@@ -352,6 +433,11 @@ namespace Hotdrop.Network
                 lastHealth = local.HealthFraction;
                 hud.UpdateHealth(lastHealth);
             }
+            if (local.DamageEventSequence != lastDamageEventSequence)
+            {
+                lastDamageEventSequence = local.DamageEventSequence;
+                if (!local.Dead) hud.ShowDamageFrom(local.DamageSourceDirection); // Bible 2.5 hit arc
+            }
             hud.UpdateAmmo(local.Ammo, local.Weapon.magazineSize, local.IsReloading, local.ReloadProgress);
             touch.PadAvailable = local.HasPadCharge;
             touch.PadCooldown = local.HasPadCharge ? 0f : local.PadRecharge.RemainingTime(session.Runner) ?? 0f;
@@ -360,7 +446,11 @@ namespace Hotdrop.Network
             // and performs the launch on the server when the button is pressed.
             touch.LaunchAvailable = !local.Dead &&
                 NetPad.FindUsableUnder(session.Runner, local.transform.position, NetConfigs.Pad) != null;
-            if (local.Launched && !lastLaunched) HapticFeedback.Pulse();
+            if (local.Launched && !lastLaunched)
+            {
+                HapticFeedback.Pulse();
+                game.mainCamera.TriggerPadLaunchFeedback();
+            }
             lastLaunched = local.Launched;
 
             // QA-010: every landed hit confirms (marker + sound); eliminations get the stronger cue.
@@ -372,7 +462,7 @@ namespace Hotdrop.Network
             lastHitConfirms = local.HitConfirmCounter;
             lastHeadshotConfirms = local.HeadshotConfirmCounter;
 
-            if (preparing)
+            if (preparing && phase == MatchPhase.Preparation)
             {
                 hud.ShowPhase(MatchPhase.Preparation, 0f);
                 return;
@@ -386,20 +476,37 @@ namespace Hotdrop.Network
                 if (phase == MatchPhase.Results) ShowResults();
                 lastPhase = phase;
             }
+            if (phase == MatchPhase.InProgress || phase == MatchPhase.Overtime)
+                GameAudio.SetMatchMusic(match.MatchClock, phase == MatchPhase.Overtime, NetConfigs.Rules);
             if (phase == MatchPhase.Preparation) { hud.EnableWeaponSelect(true); hud.ShowPreparationCountdown(match.PhaseElapsed); }
             if (phase == MatchPhase.Countdown) { hud.EnableWeaponSelect(false); hud.ShowCountdown(match.PhaseElapsed); }
             if (phase == MatchPhase.InProgress || phase == MatchPhase.Overtime)
             {
                 hud.ShowRotation(match.MatchClock);
                 hud.UpdateZoneStatus(match.ActiveObjectivePosition, match.ZoneAllyA, match.ZoneAllyB);
+                var zone = match.ScoringZone;
+                if (lastAudioZone.HasValue && lastAudioZone.Value != zone)
+                    GameAudio.Play2D(GameCue.ZoneActivate);
+                lastAudioZone = zone;
+
+                int milestoneA = match.ScoreA / 30, milestoneB = match.ScoreB / 30;
+                if (milestoneA > lastMilestoneA || milestoneB > lastMilestoneB)
+                    GameAudio.Play2D(GameCue.ZoneMilestone);
+                lastMilestoneA = milestoneA;
+                lastMilestoneB = milestoneB;
+
+                bool contested = match.ZoneAllyA && match.ZoneAllyB;
+                if (contested && !wasZoneContested) GameAudio.Play2D(GameCue.ZoneContest);
+                wasZoneContested = contested;
             }
+            else wasZoneContested = false;
             if (phase != MatchPhase.Preparation && !local.Dead) pendingWeaponChoice = 0;
 
             if (local.Dead && !wasDead)
             {
-                string killer = "";
+                NetPlayer killer = null;
                 foreach (var p in NetPlayer.All)
-                    if (p.Runner == session.Runner && p.Slot == local.LastKillerSlot && p != local) killer = p.DisplayName;
+                    if (p.Runner == session.Runner && p.Slot == local.LastKillerSlot && p != local) killer = p;
                 var weaponId = NetConfigs.Weapons[Mathf.Clamp(local.LastKillerWeapon, 0, 2)].id;
                 hud.ShowEliminated(killer, weaponId, local.LastAttackDirection);
             }
@@ -407,7 +514,7 @@ namespace Hotdrop.Network
             if (local.Dead) SpectateTeammate();
             wasDead = local.Dead;
 
-            if (local.AfkWarned) hud.ShowCombatFeedback("MOVE OR A SQUADMATE WILL TAKE OVER", Hotdrop.UI.MatchHUD.Objective, 1f);
+            if (local.AfkWarned) hud.ShowCombatFeedback(Hotdrop.UI.MatchHUD.Localized("afkWarning", "Move or a squadmate will take over"), Hotdrop.UI.MatchHUD.Objective, 1f);
         }
 
         void SpectateTeammate()
@@ -430,14 +537,21 @@ namespace Hotdrop.Network
             var outcome = match.Outcome;
             bool draw = outcome == MatchOutcome.Draw;
             bool won = !draw && ((outcome == MatchOutcome.TeamAWins && local.Team == 0) || (outcome == MatchOutcome.TeamBWins && local.Team == 1));
-            string footer = match.Cancelled ? "MATCH CANCELLED  ·  NO RATING OR REWARDS CHANGED"
-                : match.HasBots ? "MIXED ROSTER  ·  RATING UNCHANGED" : "RANKED 3v3";
+            GameAudio.ResolveMatchMusic(!won && !draw && !match.Cancelled);
+            // Footer is informational only; the authoritative outcome/status is passed explicitly so the results screen never infers
+            // cancellation or receipt state from footer copy.
             var receiptState = match.Cancelled ? Hotdrop.UI.ResultsTrustState.Cancelled
-                : string.IsNullOrEmpty(MatchId) ? Hotdrop.UI.ResultsTrustState.UnverifiedDevelopment
+                : string.IsNullOrWhiteSpace(MatchId) ? Hotdrop.UI.ResultsTrustState.UnverifiedDevelopment
                 : BackendClient.Instance == null ? Hotdrop.UI.ResultsTrustState.Unavailable
                 : Hotdrop.UI.ResultsTrustState.Pending;
-            game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, null, match.Participants, footer,
+            game.matchHUD.ShowResults(won, draw, match.ScoreA, match.ScoreB, null, match.Participants,
+                match.Cancelled ? Hotdrop.UI.MatchHUD.Localized("result.cancelledFooter", "MATCH CANCELLED  ·  NO RATING OR REWARDS CHANGED")
+                    : match.HasBots ? Hotdrop.UI.MatchHUD.Localized("result.mixedRosterFooter", "MIXED ROSTER  ·  RATING UNCHANGED")
+                    : Hotdrop.UI.MatchHUD.Localized("result.rankedFooter", "RANKED 3v3"),
                 trustState: receiptState);
+            // A cancelled match has no receipt to poll: its explicit Cancelled trust state already
+            // told the screen not to imply progression. The sticky Play Again action is built for
+            // every state, so keeping the screen open here needs no extra state change.
             if (!match.Cancelled) PollRewardReceipt();
             // QA-025: remember who was in this match so the player can report someone by name.
             var others = new System.Collections.Generic.List<RecentMatch.Entry>();
@@ -450,9 +564,16 @@ namespace Hotdrop.Network
                     others.Add(new RecentMatch.Entry { alias = reportAlias, slot = p.Slot, team = p.Team });
                 }
             RecentMatch.Remember(MatchId, others, local != null ? local.Team : -1);
-            GameAudio.Play2D(draw ? GameCue.ZoneMilestone : won ? GameCue.Victory : GameCue.Defeat);
+            if (!match.Cancelled)
+            {
+                var resultCue = draw ? GameCue.ZoneMilestone : won ? GameCue.Victory : GameCue.Defeat;
+                GameAudio.Play2D(resultCue);
+                string resultCaption = Hotdrop.UI.ResultsView.Localized(draw ? "outcome.draw"
+                    : won ? "outcome.victory" : "outcome.defeat", draw ? "DRAW" : won ? "VICTORY" : "DEFEAT");
+                GameAudio.ReportLocalCaption(resultCue, resultCaption);
+            }
             Telemetry.Track("online_match_completed",
-                ("result", draw ? "draw" : won ? "win" : "loss"),
+                ("result", match.Cancelled ? "cancelled" : draw ? "draw" : won ? "win" : "loss"),
                 ("network_rtt_sample_count", rttSampleCount),
                 ("rtt_0_50_ms_count", rttSampleBuckets[0]),
                 ("rtt_51_100_ms_count", rttSampleBuckets[1]),
@@ -473,7 +594,17 @@ namespace Hotdrop.Network
             maxRttSampleMs = Mathf.Max(maxRttSampleMs, milliseconds);
         }
 
-        public string MatchId { get; set; }
+        string matchIdOverride;
+        public string MatchId
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(matchIdOverride)) return matchIdOverride;
+                if (session != null) return !string.IsNullOrWhiteSpace(session.MatchId) ? session.MatchId : null;
+                return RecentMatch.TryGet(out string recentMatchId, out _) ? recentMatchId : null;
+            }
+            set => matchIdOverride = value;
+        }
 
         /// <summary>
         /// QA-017: show what the player actually earned, as recorded by the backend. Until the
@@ -483,21 +614,21 @@ namespace Hotdrop.Network
         async void PollRewardReceipt()
         {
             var hud = game.matchHUD;
-            if (string.IsNullOrEmpty(MatchId))
+            if (string.IsNullOrWhiteSpace(MatchId))
             {
-                hud.SetResultsReceipt("REWARD NOT VERIFIED — no match receipt ID is available for this development session",
+                hud.SetResultsReceipt(Hotdrop.UI.ResultsView.Localized("receipt.noMatchId", "REWARD NOT VERIFIED — no match receipt ID is available for this development session"),
                     Hotdrop.UI.MatchHUD.SecondaryText,
-                    "No server receipt is available for this development session.", Hotdrop.UI.ResultsTrustState.UnverifiedDevelopment);
+                    Hotdrop.UI.ResultsView.Localized("save.development", "No server receipt is available for this development session."), Hotdrop.UI.ResultsTrustState.UnverifiedDevelopment);
                 return;
             }
             if (BackendClient.Instance == null)
             {
-                hud.SetResultsReceipt("REWARD STATUS UNAVAILABLE — the server receipt service is not configured",
+                hud.SetResultsReceipt(Hotdrop.UI.ResultsView.Localized("receipt.serviceUnavailable", "REWARD STATUS UNAVAILABLE — the server receipt service is not configured"),
                     Hotdrop.UI.MatchHUD.SecondaryText,
-                    "This screen could not confirm the receipt. Check your profile later.", Hotdrop.UI.ResultsTrustState.Unavailable);
+                    Hotdrop.UI.ResultsView.Localized("save.unavailable", "This screen could not confirm the receipt. Check your profile later."), Hotdrop.UI.ResultsTrustState.Unavailable);
                 return;
             }
-            hud.SetResultsReceipt("REWARD PENDING — confirming your result with the server…", Hotdrop.UI.MatchHUD.SecondaryText,
+            hud.SetResultsReceipt(Hotdrop.UI.ResultsView.Localized("receipt.confirming", "REWARD PENDING — confirming your result with the server…"), Hotdrop.UI.MatchHUD.SecondaryText,
                 trustState: Hotdrop.UI.ResultsTrustState.Pending);
             float delay = 2f;
             while (ShowingResults)
@@ -508,8 +639,8 @@ namespace Hotdrop.Network
                 {
                     var r = receipt.Value;
                     if (!r.eligible)
-                        hud.SetResultsReceipt("NO REWARD FOR THIS MATCH (not eligible: left early, replaced by a bot, or server failure)", Hotdrop.UI.MatchHUD.SecondaryText,
-                            "The server recorded this match without XP or credits.", Hotdrop.UI.ResultsTrustState.Verified);
+                        hud.SetResultsReceipt(Hotdrop.UI.ResultsView.Localized("receipt.ineligible", "NO REWARD FOR THIS MATCH (not eligible: left early, replaced by a bot, or server failure)"), Hotdrop.UI.MatchHUD.SecondaryText,
+                            Hotdrop.UI.ResultsView.Localized("save.recordedNoRewards", "The server recorded this match without XP or credits."), Hotdrop.UI.ResultsTrustState.RecordedIneligible);
                     else
                     {
                         hud.SetResultsReward(r, Hotdrop.UI.MatchHUD.Objective);
@@ -518,11 +649,11 @@ namespace Hotdrop.Network
                 }
                 if (!receipt.Ok && receipt.Error != BackendError.NoInternet && receipt.Error != BackendError.ServerBusy && receipt.Error != BackendError.ServerError)
                 {
-                    hud.SetResultsReceipt("REWARD STATUS UNAVAILABLE — it will appear in your profile once recorded", Hotdrop.UI.MatchHUD.SecondaryText,
-                        "This screen could not confirm the receipt. Check your profile later.", Hotdrop.UI.ResultsTrustState.Unavailable);
+                    hud.SetResultsReceipt(Hotdrop.UI.ResultsView.Localized("receipt.unavailable", "REWARD STATUS UNAVAILABLE — it will appear in your profile once recorded"), Hotdrop.UI.MatchHUD.SecondaryText,
+                        Hotdrop.UI.ResultsView.Localized("save.unavailable", "This screen could not confirm the receipt. Check your profile later."), Hotdrop.UI.ResultsTrustState.Unavailable);
                     return;
                 }
-                hud.SetResultsReceipt("REWARD PENDING — the server is still delivering this result; it is kept until it arrives",
+                hud.SetResultsReceipt(Hotdrop.UI.ResultsView.Localized("receipt.deliveryPending", "REWARD PENDING — the server is still delivering this result; it is kept until it arrives"),
                     Hotdrop.UI.MatchHUD.SecondaryText, trustState: Hotdrop.UI.ResultsTrustState.Pending);
                 await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(delay));
                 delay = Mathf.Min(delay * 1.5f, 15f);
@@ -543,6 +674,40 @@ namespace Hotdrop.Network
             ShowingResults = false;
             if (session != null) session.Leave(); // Unity null: false once the session is destroyed
             returnHome?.Invoke();
+            GameAudio.SetHubMusic(true);
+        }
+
+        void ReportParticipantFromResults(int slot, string resultMatchId)
+        {
+            if (slot < 0 || string.IsNullOrWhiteSpace(resultMatchId) || game == null
+                || !RecentMatch.TryGet(out string recentMatchId, out var recentPlayers)
+                || !string.Equals(recentMatchId, resultMatchId, StringComparison.Ordinal)
+                || !ContainsReportSlot(recentPlayers, slot)) return;
+            Home();
+            game.GetComponent<OfflineHomeScreen>()?.OpenSupportReport(slot);
+        }
+
+        bool IsReportableParticipantSlot(int slot, string resultMatchId)
+        {
+            if (slot < 0 || string.IsNullOrWhiteSpace(resultMatchId)) return false;
+            if (RecentMatch.TryGet(out string recentMatchId, out var recentPlayers)
+                && string.Equals(recentMatchId, resultMatchId, StringComparison.Ordinal))
+                return ContainsReportSlot(recentPlayers, slot);
+            if (session == null || session.Runner == null) return false;
+            foreach (var player in NetPlayer.All)
+                if (player != null && player.Runner == session.Runner && player.Slot == slot)
+                    return RecentMatch.IsReportableAlias(player.ReportAlias)
+                        && (!player.BotControlled || player.HadBotSubstitution);
+            return false;
+        }
+
+        static bool ContainsReportSlot(System.Collections.Generic.IReadOnlyList<RecentMatch.Entry> players, int slot)
+        {
+            if (players == null) return false;
+            for (int i = 0; i < players.Count; i++)
+                if (players[i] != null && players[i].slot == slot && !string.IsNullOrWhiteSpace(players[i].alias))
+                    return true;
+            return false;
         }
     }
 }

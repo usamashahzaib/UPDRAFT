@@ -139,13 +139,31 @@ public static class MatchEndpoints
         }).RequireAuthorization(policy => policy.RequireClaim("service", "game-server"));
 
         // Spec section 21: results come only from the authenticated game server.
-        group.MapPost("/{matchId}/result", async (Guid matchId, SubmitResultRequest request, HotdropDbContext db,
+        group.MapPost("/{matchId}/result", async (Guid matchId, HttpContext ctx, SubmitResultRequest request, HotdropDbContext db,
             MatchResultProcessor processor, IOptionsMonitor<FeatureFlags> features, CancellationToken cancellationToken) =>
         {
             if (request.Participants is null || request.Participants.Count is 0 or > MatchmakingOptions.MatchSize)
                 return Results.BadRequest(new { error = "invalid_participants" });
-            var summaries = await processor.ApplyAsync(matchId, request, db, features.CurrentValue.ContractsMasteryEnabled, cancellationToken);
+
+            // Bind the receipt to both the allocation lease and its server-assigned roster.
+            // Service authentication alone would let any game-server token submit a result
+            // for an unrelated match or inject an arbitrary player into progression.
+            var serverId = ctx.User.FindFirst("server_id")?.Value;
             var allocation = await db.MatchAllocations.FindAsync([matchId], cancellationToken);
+            if (string.IsNullOrWhiteSpace(serverId) || allocation is null || allocation.ServerId != serverId)
+                return Results.Forbid();
+
+            var roster = await db.MatchmakingTickets.AsNoTracking()
+                .Where(ticket => ticket.MatchId == matchId && ticket.Status == "matched")
+                .Select(ticket => ticket.PlayerId)
+                .ToListAsync(cancellationToken);
+            var rosterIds = roster.ToHashSet();
+            var submittedIds = request.Participants.Select(participant => participant.PlayerId).ToList();
+            if (roster.Count == 0 || rosterIds.Count != roster.Count || submittedIds.Count != rosterIds.Count ||
+                submittedIds.Distinct().Count() != submittedIds.Count || submittedIds.Any(id => !rosterIds.Contains(id)))
+                return Results.BadRequest(new { error = "participant_roster_mismatch" });
+
+            var summaries = await processor.ApplyAsync(matchId, request, db, features.CurrentValue.ContractsMasteryEnabled, cancellationToken);
             if (allocation is { CompletedAt: null })
             {
                 allocation.CompletedAt = DateTimeOffset.UtcNow;

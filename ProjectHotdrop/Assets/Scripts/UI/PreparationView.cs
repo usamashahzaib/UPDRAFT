@@ -26,8 +26,53 @@ namespace Hotdrop.UI
         static Color Text2 => UIDesignTokens.TextSecondary;
         static Color Muted => UIDesignTokens.TextMuted;
 
+        static string L(string key, string fallback) => UiDraw.L("preparation." + key, fallback);
+        static string Format(string key, string fallback, params object[] args) =>
+            UiDraw.LFormat("preparation." + key, fallback, args);
+
         const float CardWidth = 368f, CardHeight = 425f, CardGap = 24f;
-        const float FooterHeight = 73f;
+        // 73 px design bar around the 48 px CONFIRM; grows with the 48 dp floor on dense phones.
+        static float FooterHeight => UiMetrics.BarHeight(73f, 48f);
+
+        sealed class DensityReflow : MonoBehaviour
+        {
+            internal Vector3 lastScreen;
+            internal float lastWidth;
+            internal float lastTextScale;
+            internal bool initialized;
+
+            void OnEnable() => StreamSafePresentation.Changed += OnStreamSafeChanged;
+
+            void OnDisable() => StreamSafePresentation.Changed -= OnStreamSafeChanged;
+
+            void OnStreamSafeChanged()
+            {
+                if (initialized) Rebuild();
+            }
+
+            void LateUpdate()
+            {
+                Vector3 screen = UiMetrics.CurrentScreen;
+                var root = (RectTransform)transform;
+                float width = root.rect.width;
+                bool textScaleChanged = !Mathf.Approximately(UiMetrics.TextScale, lastTextScale);
+                if (initialized && screen == lastScreen && Mathf.Abs(width - lastWidth) <= 4f && !textScaleChanged)
+                    return;
+
+                // Preparation contains measured labels and widths. Recreate them when display
+                // metrics or larger text changes instead of only resizing the footer floor.
+                // Show preserves the active weapon choice and countdown and suppresses a second
+                // phase-entry animation while replacing an existing root.
+                Rebuild();
+            }
+
+            void Rebuild()
+            {
+                var hud = GetComponentInParent<MatchHUD>();
+                if (hud == null || lastWeapons == null) return;
+                Show(hud, lastWeapons, lastSelected, lastSeconds, lastChoose);
+            }
+        }
 
         static void ReserveTouchClusterSpace(float designPx)
         {
@@ -38,11 +83,14 @@ namespace Hotdrop.UI
         static WeaponDefinition[] lastWeapons;
         static Action<int> lastChoose;
         static float lastSeconds;
+        static int lastSelected;
 
         public static void Hide(MatchHUD hud)
         {
             var root = hud != null ? hud.transform.Find("PreparationVisual") : null;
             if (root == null) return;
+            var reflow = root.GetComponent<DensityReflow>();
+            if (reflow != null) reflow.enabled = false;
             ReserveTouchClusterSpace(0f);
             var rootObject = root.gameObject;
             UiScreenEnterMotion.Exit(rootObject, () => DestroyRoot(rootObject));
@@ -62,8 +110,14 @@ namespace Hotdrop.UI
             // preparation surface gets screen-entry motion, so tapping a card cannot replay it.
             var previous = hud.transform.Find("PreparationVisual");
             bool enteringPhase = previous == null;
-            if (previous != null) DestroyRoot(previous.gameObject);
-            lastWeapons = weapons; lastChoose = choose; lastSeconds = seconds;
+            if (previous != null)
+            {
+                // Destroy is deferred in play mode. Give the outgoing root a different name so
+                // SetCountdown below resolves the newly built surface during this same frame.
+                previous.name = "PreparationVisual_Destroying";
+                DestroyRoot(previous.gameObject);
+            }
+            lastWeapons = weapons; lastChoose = choose; lastSeconds = seconds; lastSelected = selected;
             var root = UiDraw.Node(hud.transform, "PreparationVisual");
             if (enteringPhase) root.gameObject.AddComponent<UiScreenEnterMotion>();
             UiDraw.Fill(root);
@@ -77,8 +131,22 @@ namespace Hotdrop.UI
             for (int i = 0; i < count; i++)
                 WeaponCard(row, weapons[i], i, i == selected, choose, (i - (count - 1) / 2f) * (CardWidth + CardGap));
             BuildFooter(root, selected, choose);
-            ReserveTouchClusterSpace(FooterHeight);
+            var reflow = root.gameObject.AddComponent<DensityReflow>();
+            Reflow(root, reflow);
             SetCountdown(hud, seconds);
+        }
+
+        static void Reflow(RectTransform root, DensityReflow watcher)
+        {
+            if (root == null) return;
+            if (root.Find("Footer") is RectTransform footer)
+                footer.sizeDelta = new Vector2(footer.sizeDelta.x, FooterHeight);
+            ReserveTouchClusterSpace(FooterHeight);
+            UiFloor.Apply(root);
+            watcher.lastScreen = UiMetrics.CurrentScreen;
+            watcher.lastWidth = root.rect.width;
+            watcher.lastTextScale = UiMetrics.TextScale;
+            watcher.initialized = true;
         }
 
         static void BuildHeader(RectTransform root, float seconds)
@@ -90,15 +158,16 @@ namespace Hotdrop.UI
             rule.anchorMin = Vector2.zero; rule.anchorMax = new Vector2(1f, 0f); rule.pivot = new Vector2(.5f, 0f);
             rule.sizeDelta = new Vector2(0f, 1f);
 
-            string zone = MatchView.Current != null ? MatchView.Current.ScoringZone.ToString().ToUpperInvariant() + " RELAY" : "CENTER RELAY";
-            UiDraw.Place(UiDraw.Text(header, "Kicker", "RELAY  ·  SWITCHYARD", UiFont.Heading, PreparationCaptionDp, Cyan, .05f).rectTransform,
+            string zone = ZoneLabel(MatchView.Current != null ? MatchView.Current.ScoringZone : ZoneId.Center);
+            UiDraw.Place(UiDraw.Text(header, "Kicker", L("header.kicker", "RELAY  ·  SWITCHYARD"), UiFont.Heading, PreparationCaptionDp, Cyan, .05f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(32f, -26f), new Vector2(300f, 16f));
-            var objective = UiDraw.Text(header, "Objective", $"OPENING OBJECTIVE: <color=#{ColorUtility.ToHtmlStringRGB(Gold)}>{zone}</color>", UiFont.Heading, PreparationValueDp, Text1, -.025f);
+            var objective = UiDraw.Text(header, "Objective", Format("header.objectiveTemplate", "Opening Objective: {0}",
+                $"<color=#{ColorUtility.ToHtmlStringRGB(Gold)}>{zone}</color>"), UiFont.Heading, PreparationValueDp, Text1, -.025f);
             float objW = UiDraw.Width(objective);
             UiDraw.Place(objective.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(32f, -48f), new Vector2(objW + 2f, 28f));
             UiDraw.Place(UiDraw.Box(header, "Divider", UIDesignTokens.WithAlpha(Edge, .5f)).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(32f + objW + 16f, -40f), new Vector2(1f, 24f));
-            var instruction = UiDraw.Text(header, "Instruction", "Equip weapon for this life. Changeable on respawn.", UiFont.Body, PreparationCaptionDp, Text2);
+            var instruction = UiDraw.Text(header, "Instruction", L("header.instruction", "Equip weapon for this life. Changeable on respawn."), UiFont.Body, PreparationCaptionDp, Text2);
             float instW = UiDraw.Width(instruction);
             UiDraw.Place(instruction.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(32f + objW + 33f, -40f), new Vector2(instW + 2f, 16f));
             float leftW = objW + 33f + instW;
@@ -117,7 +186,7 @@ namespace Hotdrop.UI
                     var p = mates[i];
                     var chip = UiDraw.Box(header, "Mate" + i, Panel, 8f, Edge);
                     var name = UiDraw.Text(chip.transform, "Name", p.DisplayName, UiFont.Heading, PreparationCaptionDp, Text1);
-                    string gun = p is PlayerController pc && pc.CurrentWeapon != null ? pc.CurrentWeapon.displayName.Split(' ')[0].ToUpperInvariant() : "";
+                    string gun = p is PlayerController pc && pc.CurrentWeapon != null ? WeaponShortName(pc.CurrentWeapon) : "";
                     var weapon = UiDraw.Text(chip.transform, "Weapon", gun, UiFont.MonoRegular, PreparationCaptionDp, Muted);
                     float nw = UiDraw.Width(name), ww = gun.Length > 0 ? UiDraw.Width(weapon) : 0f;
                     float w = 12f + 8f + 8f + nw + (ww > 0f ? 8f + ww : 0f) + 12f + 2f;
@@ -130,8 +199,8 @@ namespace Hotdrop.UI
             }
 
             // Countdown, placed in the free space as justify-between places it.
-            var caption = UiDraw.Text(header, "CountdownCaption", "MATCH STARTS IN", UiFont.Heading, PreparationCaptionDp, Gold, .05f);
-            var count = UiDraw.Text(header, "Countdown", $"{Mathf.Max(0, Mathf.CeilToInt(seconds)):00}s", UiFont.Mono, PreparationEmphasisDp, Gold);
+            var caption = UiDraw.Text(header, "CountdownCaption", L("countdown.caption", "Match Starts In"), UiFont.Heading, PreparationCaptionDp, Gold, .05f);
+            var count = UiDraw.Text(header, "Countdown", Format("countdown.secondsTemplate", "{0:00}s", Mathf.Max(0, Mathf.CeilToInt(seconds))), UiFont.Mono, PreparationEmphasisDp, Gold);
             float cw = UiDraw.Width(caption), nwid = UiDraw.Width(count, "00s");
             float boxW = 20f + cw + 12f + nwid + 20f + 4f;
             var box = UiDraw.Box(header, "CountdownPanel", Panel, 12f);
@@ -153,7 +222,7 @@ namespace Hotdrop.UI
 
         static void BuildSafety(RectTransform root)
         {
-            var text = UiDraw.Text(root, "SafetyText", "SPAWN DOORS LOCKED • DAMAGE DISABLED • PADS SAFE", UiFont.HeadingMedium, PreparationCaptionDp, Text2, .05f);
+            var text = UiDraw.Text(root, "SafetyText", L("safety.notice", "SPAWN DOORS LOCKED • DAMAGE DISABLED • PADS SAFE"), UiFont.HeadingMedium, PreparationCaptionDp, Text2, .05f);
             float w = UiDraw.Width(text);
             var pill = UiDraw.Box(root, "SafetyNotice", UIDesignTokens.WithAlpha(Panel, .9f), 15f, Edge);
             UiDraw.Place(pill.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -111f), new Vector2(16f + 8f + 8f + w + 16f + 2f, 30f));
@@ -169,11 +238,11 @@ namespace Hotdrop.UI
             footer.sizeDelta = new Vector2(0f, FooterHeight); footer.anchoredPosition = Vector2.zero;
             UiDraw.HRule(footer, "FooterRule", UIDesignTokens.WithAlpha(Edge, .4f), 0f);
             UiDraw.Place(UiDraw.Icon(footer, "Verified", "verified", 14f, Cyan).rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(32f, 0f), new Vector2(14f, 14f));
-            UiDraw.Place(UiDraw.Text(footer, "UnlockNote", "All 3 weapons fully unlocked from day one • Cosmetics never change weapon power or spread.", UiFont.Body, PreparationCaptionDp, Text2).rectTransform,
+            UiDraw.Place(UiDraw.Text(footer, "UnlockNote", L("footer.unlockNote", "All 3 weapons fully unlocked from day one • Cosmetics never change weapon power or spread."), UiFont.Body, PreparationCaptionDp, Text2).rectTransform,
                 new Vector2(0f, .5f), new Vector2(0f, .5f), new Vector2(54f, 0f), new Vector2(700f, 16f));
             // Equipping is immediate; CONFIRM re-applies the current choice and the match starts itself.
-            var label = UiDraw.Text(footer, "Text", "CONFIRM LOADOUT (AUTO IN 08s)", UiFont.Heading, PreparationCaptionDp, Ink, .05f, TextAlignmentOptions.Midline);
-            float w = UiDraw.Width(label, "CONFIRM LOADOUT (AUTO IN 00s)") + 64f;
+            var label = UiDraw.Text(footer, "Text", Format("footer.confirmAutoTemplate", "CONFIRM LOADOUT (AUTO IN {0:00}s)", 8), UiFont.Heading, PreparationCaptionDp, Ink, .05f, TextAlignmentOptions.Midline);
+            float w = UiDraw.Width(label, Format("footer.confirmAutoTemplate", "CONFIRM LOADOUT (AUTO IN {0:00}s)", 0)) + 64f;
             var confirm = UiDraw.Tap(footer, "Confirm", Cyan, 12f, () => choose?.Invoke(selected));
             UiDraw.Place((RectTransform)confirm.transform, new Vector2(1f, .5f), new Vector2(1f, .5f), new Vector2(-32f, 0f), new Vector2(w, 48f));
             label.transform.SetParent(confirm.transform, false);
@@ -187,9 +256,9 @@ namespace Hotdrop.UI
             lastSeconds = seconds;
             int s = Mathf.Max(0, Mathf.CeilToInt(seconds));
             var label = root.Find("Header/CountdownPanel/Countdown")?.GetComponent<TextMeshProUGUI>();
-            if (label != null) label.text = $"{s:00}s";
+            if (label != null) label.text = Format("countdown.secondsTemplate", "{0:00}s", s);
             var confirm = root.Find("Footer/Confirm/Text")?.GetComponent<TextMeshProUGUI>();
-            if (confirm != null) confirm.text = $"CONFIRM LOADOUT (AUTO IN {s:00}s)";
+            if (confirm != null) confirm.text = Format("footer.confirmAutoTemplate", "CONFIRM LOADOUT (AUTO IN {0:00}s)", s);
         }
 
         /// <summary>Selection changes restyle three cards and the confirm action, so the view is rebuilt.</summary>
@@ -200,14 +269,46 @@ namespace Hotdrop.UI
             Show(hud, lastWeapons, selected, lastSeconds, lastChoose);
         }
 
-        static string ShortName(WeaponDefinition weapon) =>
-            string.IsNullOrEmpty(weapon.displayName) ? weapon.id.ToString().ToUpperInvariant() : weapon.displayName.Split(' ')[0].ToUpperInvariant();
+        static string WeaponKey(WeaponDefinition weapon, string field) =>
+            "weapon." + weapon.id.ToString().ToLowerInvariant() + "." + field;
 
-        static string FireBehavior(WeaponDefinition w) =>
-            w.pelletsPerShot > 1 ? $"{w.pelletsPerShot}-Pellet Spread" : w.roundsPerMinute >= 700f ? "Rapid Fire" : "Precision Auto";
+        internal static string WeaponName(WeaponDefinition weapon)
+        {
+            string fallback = string.IsNullOrEmpty(weapon.displayName) ? weapon.id.ToString().ToUpperInvariant() : weapon.displayName;
+            return L(WeaponKey(weapon, "name"), fallback);
+        }
 
-        static string Role(WeaponDefinition w) => w.id == WeaponId.Arc ? "BALANCED • MID RANGE"
-            : w.id == WeaponId.Zip ? "FAST • CLOSE RANGE" : "HEAVY • VERY CLOSE";
+        internal static string WeaponShortName(WeaponDefinition weapon) =>
+            L(WeaponKey(weapon, "shortName"), string.IsNullOrEmpty(weapon.displayName) ? weapon.id.ToString().ToUpperInvariant() : weapon.displayName.Split(' ')[0]);
+
+        internal static string ZoneLabel(ZoneId zone) => zone switch
+        {
+            ZoneId.West => L("zone.west", "West Relay"),
+            ZoneId.East => L("zone.east", "East Relay"),
+            _ => L("zone.center", "Center Relay"),
+        };
+
+        internal static string ZoneShortLabel(ZoneId zone) => zone switch
+        {
+            ZoneId.West => L("zone.westShort", "West"),
+            ZoneId.East => L("zone.eastShort", "East"),
+            _ => L("zone.centerShort", "Center"),
+        };
+
+        static string FireBehavior(WeaponDefinition w) => w.pelletsPerShot > 1
+            ? Format("behavior.pelletSpreadTemplate", "{0}-Pellet Spread", w.pelletsPerShot)
+            : w.roundsPerMinute >= 700f ? L("behavior.rapidFire", "Rapid Fire") : L("behavior.precisionAuto", "Precision Auto");
+
+        internal static string Role(WeaponDefinition w) => w.id == WeaponId.Arc ? L(WeaponKey(w, "role"), "BALANCED • MID RANGE")
+            : w.id == WeaponId.Zip ? L(WeaponKey(w, "role"), "FAST • CLOSE RANGE") : L(WeaponKey(w, "role"), "HEAVY • VERY CLOSE");
+
+        static string Ammo(WeaponDefinition weapon) => weapon.pelletsPerShot > 1
+            ? Format("ammo.shellsTemplate", "{0} Shells", weapon.magazineSize)
+            : Format("ammo.roundsTemplate", "{0} Rounds", weapon.magazineSize);
+
+        static string LearningTip(WeaponDefinition weapon) =>
+            Format("card.learningTipTemplate", "<color=#{0}><b>Learning Tip:</b></color> {1}",
+                ColorUtility.ToHtmlStringRGB(Text1), L(WeaponKey(weapon, "learningTip"), weapon.roleDescription ?? string.Empty));
 
         static void WeaponCard(RectTransform row, WeaponDefinition weapon, int index, bool selected, Action<int> choose, float x)
         {
@@ -219,26 +320,29 @@ namespace Hotdrop.UI
             // Header row.
             if (selected)
             {
-                var badgeText = UiDraw.Text(card, "Badge", "SELECTED", UiFont.Heading, PreparationCaptionDp, Cyan, .05f, TextAlignmentOptions.Midline);
+                var badgeText = UiDraw.Text(card, "Badge", L("card.selected", "Selected"), UiFont.Heading, PreparationCaptionDp, Cyan, .05f, TextAlignmentOptions.Midline);
                 float bw = UiDraw.Width(badgeText) + 22f;
                 var chip = UiDraw.Box(card, "BadgeChip", UIDesignTokens.WithAlpha(Cyan, .2f), 4f, UIDesignTokens.WithAlpha(Cyan, .5f));
                 chip.transform.SetSiblingIndex(badgeText.transform.GetSiblingIndex());
                 UiDraw.Place(chip.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad, -33f), new Vector2(bw, 22f));
                 UiDraw.Place(badgeText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad, -33f), new Vector2(bw, 16f));
             }
-            else UiDraw.Place(UiDraw.Text(card, "Badge", "UNLOCKED", UiFont.Heading, PreparationCaptionDp, Muted, .05f).rectTransform,
+            else UiDraw.Place(UiDraw.Text(card, "Badge", L("card.unlocked", "Unlocked"), UiFont.Heading, PreparationCaptionDp, Text2, .05f).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(pad, -33f), new Vector2(120f, 16f));
-            UiDraw.Place(UiDraw.Text(card, "Ammo", weapon.magazineSize + (weapon.pelletsPerShot > 1 ? " SHELLS" : " ROUNDS"), UiFont.Mono, PreparationCaptionDp,
+            UiDraw.Place(UiDraw.Text(card, "Ammo", Ammo(weapon), UiFont.Mono, PreparationCaptionDp,
                     selected ? Cyan : Text2, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-pad, -33f), new Vector2(140f, 16f));
             UiDraw.HRule(card, "TopRule", UIDesignTokens.WithAlpha(Edge, .4f), 56f, pad, pad);
 
             // Silhouette, name, role.
-            string art = weapon.id == WeaponId.Arc ? "weapon_arc" : weapon.id == WeaponId.Zip ? "weapon_zip" : "weapon_brick";
+            string art = weapon.id == WeaponId.Arc ? "WeaponPortraits/weapon_arc"
+                : weapon.id == WeaponId.Zip ? "WeaponPortraits/weapon_zip" : "WeaponPortraits/weapon_brick";
             var icon = UiDraw.Art(card, "WeaponSilhouette", art, Vector2.zero);
             icon.color = accent;
-            UiDraw.Place(icon.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -121f), selected ? new Vector2(192f, 80f) : new Vector2(160f, 66.7f));
-            UiDraw.Place(UiDraw.Text(card, "Name", weapon.displayName.ToUpperInvariant(), UiFont.Heading, PreparationEmphasisDp, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
+            var portraitSize = selected ? new Vector2(192f, 96f) : new Vector2(160f, 80f);
+            UiDraw.Place(icon.rectTransform, new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -121f), portraitSize);
+            UiDraw.FitRawImage(icon, portraitSize);
+            UiDraw.Place(UiDraw.Text(card, "Name", WeaponName(weapon), UiFont.Heading, PreparationEmphasisDp, Text1, -.025f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -187f), new Vector2(CardWidth - 2f * pad, 28f));
             UiDraw.Place(UiDraw.Text(card, "Role", Role(weapon), UiFont.HeadingSemiBold, PreparationCaptionDp, accent, .05f, TextAlignmentOptions.Midline).rectTransform,
                 new Vector2(.5f, 1f), new Vector2(.5f, .5f), new Vector2(0f, -209f), new Vector2(CardWidth - 2f * pad, 16f));
@@ -252,7 +356,7 @@ namespace Hotdrop.UI
             var fill = UiDraw.Box(track.transform, "Fill", selected ? Cyan : UIDesignTokens.WithAlpha(Cyan, .6f), 3f);
             float frac = Mathf.Clamp01(weapon.maxRange > 0f ? weapon.fullDamageDistance / weapon.maxRange : .5f);
             UiDraw.Place(fill.rectTransform, new Vector2(0f, .5f), new Vector2(0f, .5f), Vector2.zero, new Vector2((CardWidth - 2f * pad) * frac, 6f));
-            var tip = UiDraw.Text(card, "Tip", $"<color=#{ColorUtility.ToHtmlStringRGB(Text1)}><b>Learning Tip:</b></color> {weapon.roleDescription}", UiFont.Body, PreparationCaptionDp, Text2);
+            var tip = UiDraw.Text(card, "Tip", LearningTip(weapon), UiFont.Body, PreparationCaptionDp, Text2);
             tip.textWrappingMode = TextWrappingModes.Normal;
             tip.alignment = TextAlignmentOptions.TopLeft;
             tip.lineSpacing = 4f;
@@ -261,7 +365,8 @@ namespace Hotdrop.UI
             // Action.
             var button = UiDraw.Tap(card, "Choose", selected ? Cyan : Panel, 8f, () => choose?.Invoke(index), selected ? (Color?)null : Edge);
             UiDraw.Place((RectTransform)button.transform, new Vector2(.5f, 0f), new Vector2(.5f, 0f), new Vector2(0f, pad), new Vector2(CardWidth - 2f * pad, 44f));
-            var label = UiDraw.Text(button.transform, "Label", selected ? "CONFIRMED EQUIPPED" : "EQUIP " + ShortName(weapon) + (weapon.id == WeaponId.Zip ? " SMG" : ""),
+            var label = UiDraw.Text(button.transform, "Label", selected ? L("action.confirmedEquipped", "Confirmed Equipped")
+                    : Format("action.equipTemplate", "Equip {0}", L(WeaponKey(weapon, "equipName"), weapon.id == WeaponId.Zip ? "ZIP SMG" : WeaponShortName(weapon))),
                 UiFont.Heading, PreparationCaptionDp, selected ? Ink : Text1, .05f, TextAlignmentOptions.Midline);
             UiDraw.Fill(label.rectTransform);
             if (selected)
@@ -275,7 +380,8 @@ namespace Hotdrop.UI
 
         static void Row(RectTransform card, string name, string label, string value, Color valueColor, bool bold, float y)
         {
-            UiDraw.Place(UiDraw.Text(card, name + "Label", label, UiFont.Body, PreparationCaptionDp, Muted).rectTransform,
+            string key = name == "Fire" ? "row.fireBehavior" : "row.optimalDistance";
+            UiDraw.Place(UiDraw.Text(card, name + "Label", L(key, label), UiFont.Body, PreparationCaptionDp, Muted).rectTransform,
                 new Vector2(0f, 1f), new Vector2(0f, .5f), new Vector2(22f, -y), new Vector2(160f, 16f));
             UiDraw.Place(UiDraw.Text(card, name + "Value", value, bold ? UiFont.Mono : UiFont.MonoRegular, PreparationCaptionDp, valueColor, 0f, TextAlignmentOptions.MidlineRight).rectTransform,
                 new Vector2(1f, 1f), new Vector2(1f, .5f), new Vector2(-22f, -y), new Vector2(200f, 16f));

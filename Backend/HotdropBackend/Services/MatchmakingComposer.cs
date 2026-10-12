@@ -18,11 +18,26 @@ public sealed class MatchmakingOptions
     public int BotFillWaitSeconds { get; set; } = 45;
     public int PollIntervalSeconds { get; set; } = 2;
 
+    public void Validate()
+    {
+        if (RatingWindowBase < 0 || RatingWindowExpandAfterSeconds < 0 ||
+            RatingWindowExpandStep <= 0 || RatingWindowExpandIntervalSeconds <= 0 ||
+            RatingWindowMax <= RatingWindowBase)
+            throw new InvalidOperationException("Matchmaking rating-window settings must use a nonnegative base and delay, positive expansion step and interval, and a maximum above the base.");
+        if (BotFillWaitSeconds <= 0)
+            throw new InvalidOperationException("Matchmaking:BotFillWaitSeconds must be positive; zero would fill every new queue immediately.");
+        if (PollIntervalSeconds <= 0)
+            throw new InvalidOperationException("Matchmaking:PollIntervalSeconds must be positive.");
+    }
+
     public int RatingWindow(double waitSeconds)
     {
         if (waitSeconds <= RatingWindowExpandAfterSeconds) return RatingWindowBase;
-        int steps = (int)((waitSeconds - RatingWindowExpandAfterSeconds) / RatingWindowExpandIntervalSeconds);
-        return Math.Min(RatingWindowMax, RatingWindowBase + steps * RatingWindowExpandStep);
+        long steps = (long)((waitSeconds - RatingWindowExpandAfterSeconds) / RatingWindowExpandIntervalSeconds);
+        long remainingWindow = (long)RatingWindowMax - RatingWindowBase;
+        long stepsToCap = (remainingWindow + RatingWindowExpandStep - 1L) / RatingWindowExpandStep;
+        if (steps >= stepsToCap) return RatingWindowMax;
+        return RatingWindowBase + (int)(steps * RatingWindowExpandStep);
     }
 }
 

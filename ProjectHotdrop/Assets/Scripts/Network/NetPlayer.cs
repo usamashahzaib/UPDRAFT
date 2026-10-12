@@ -40,6 +40,7 @@ namespace Hotdrop.Network
         [Networked] public TickTimer DisconnectGrace { get; set; }
 
         [Networked] public float Health { get; set; }
+        [Networked] public float FacingYaw { get; set; }
         [Networked] public TickTimer RegenDelay { get; set; }
         [Networked] public NetworkBool Dead { get; set; }
         [Networked] public TickTimer RespawnTimer { get; set; }
@@ -80,6 +81,9 @@ namespace Hotdrop.Network
         [Networked] public int LastKillerSlot { get; set; }
         [Networked] public int LastKillerWeapon { get; set; }
         [Networked] public byte LastKillerDirection { get; set; } // 0 unknown, 1 front, 2 right, 3 behind, 4 left
+        [Networked] public int DamageCounter { get; set; }          // bumps once per damaging tick with a known attacker
+        [Networked] public Vector3 DamageSourceDirection { get; set; } // world direction from this player toward that attacker
+        [Networked] public int DamageEventSequence { get; set; } // player-object-lifetime arc sequence; survives respawn and rematch
         [Networked] public int PresentTicks { get; set; }
         [Networked] public int LastActiveTick { get; set; }
         [Networked] public NetworkBool AfkWarned { get; set; }
@@ -126,8 +130,11 @@ namespace Hotdrop.Network
         public int Eliminations => EliminationCount;
         public int Deaths => DeathCount;
         public int PadLaunches => PadLaunchCount;
+        bool IMatchParticipant.HasPadCharge => HasPadCharge;
+        public float PadRechargeRemaining => HasPadCharge ? 0f : PadRecharge.RemainingTime(Runner) ?? 0f;
         public float ObjectiveSeconds => ZoneSeconds;
         public Vector3 Position => transform.position;
+        public Vector3 FacingForward => Quaternion.Euler(0f, FacingYaw, 0f) * Vector3.forward;
         public Vector3 GetMuzzlePosition(float yaw) => transform.position +
             Quaternion.Euler(0f, yaw, 0f) * NetAvatarVisual.MuzzleLocalPosition;
         public bool IsSpawnProtected => Protection.IsRunning && !Protection.Expired(Runner);
@@ -144,6 +151,7 @@ namespace Hotdrop.Network
             if (HasStateAuthority)
             {
                 Health = M.maxHealth;
+                FacingYaw = transform.eulerAngles.y;
                 Ammo = Weapon.magazineSize;
                 HasPadCharge = true;
                 PendingWeapon = -1;
@@ -168,6 +176,8 @@ namespace Hotdrop.Network
         int cueShotCounter = -1;
         string cueCosmetic;
         string cueRig = "";
+        int cueVisualWeaponIndex = -1;
+        Hotdrop.Player.OperatorWeaponFollow cueWeaponVisual;
         bool cueReloading, cueLaunched, cueDead, cueAirborne;
         float cueHealth, cueFallSpeed, cueStepTimer;
 
@@ -175,9 +185,9 @@ namespace Hotdrop.Network
         {
             if (Application.isBatchMode && Runner.IsServer) return; // headless server plays nothing
             string cosmetic = Cosmetic.ToString(); // QA-024: everyone sees this player's equipped identity
+            var visual = transform.Find("Visual");
             if (cosmetic != cueCosmetic)
             {
-                var visual = transform.Find("Visual");
                 var look = Hotdrop.UI.CosmeticLook.Parse(cosmetic);
                 // Amendment 3: the chosen body rig replicates too, so remote viewers see it.
                 if (visual != null && look.BodyRig != cueRig)
@@ -185,10 +195,15 @@ namespace Hotdrop.Network
                     cueRig = look.BodyRig;
                     Hotdrop.Network.NetAvatarVisual.ApplyRig(visual,
                         Hotdrop.Player.BodyRigs.FromStoredId(look.BodyRig), MatchView.IsFriendly(Team));
+                    cueWeaponVisual = null; // ApplyRig rebuilt the hand and weapon nodes.
+                    cueVisualWeaponIndex = -1;
                 }
                 Hotdrop.UI.CosmeticLook.Apply(visual, look);
                 cueCosmetic = cosmetic;
             }
+            UpdateWeaponVisual(visual);
+            if (visual != null)
+                Hotdrop.Player.AvatarRigVisual.SetPersistentDamage(visual.gameObject, DamageCounter > 0);
             bool reloading = ReloadTimer.IsRunning && !ReloadTimer.Expired(Runner);
             bool grounded = Kcc != null && Kcc.IsGrounded;
             if (cueShotCounter < 0)
@@ -202,7 +217,7 @@ namespace Hotdrop.Network
             bool mine = HasInputAuthority;
             Vector3 chest = transform.position + Vector3.up * 1.1f;
             if (ShotCounter > cueShotCounter)
-                Hotdrop.Core.GameAudio.Play((Hotdrop.Core.GameCue)Mathf.Clamp(WeaponIndex, 0, 2), chest, mine ? 0.85f : 1f);
+                Hotdrop.Core.GameAudio.Play((Hotdrop.Core.GameCue)Mathf.Clamp(WeaponIndex, 0, 2), chest, mine ? 0.85f : 1f, !mine);
             cueShotCounter = Mathf.Max(cueShotCounter, ShotCounter); // resimulation never replays a shot
 
             if (reloading && !cueReloading)
@@ -212,7 +227,12 @@ namespace Hotdrop.Network
             }
             cueReloading = reloading;
 
-            if (Launched && !cueLaunched) Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.PadLaunch, transform.position);
+            if (Launched && !cueLaunched)
+            {
+                // The local presenter owns this device's haptic/camera feedback. Each avatar
+                // still owns its spatial launch sound, including remote players.
+                Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.PadLaunch, transform.position);
+            }
             cueLaunched = Launched;
 
             if (!Dead)
@@ -230,6 +250,7 @@ namespace Hotdrop.Network
                     if (cueStepTimer <= 0f)
                     {
                         Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.Step, transform.position, 0.5f);
+                        if (!mine) Hotdrop.Core.GameAudio.ReportNearbyFootsteps(transform.position);
                         cueStepTimer = 0.38f;
                     }
                 }
@@ -245,7 +266,13 @@ namespace Hotdrop.Network
 
             if (Dead != cueDead)
             {
-                if (Dead) Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.Elimination, chest);
+                if (Dead)
+                {
+                    // The input owner hears a gentle non-spatial own-death drone; remote
+                    // avatars keep the spatial elimination cue.
+                    if (mine) Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.OwnDeath);
+                    else Hotdrop.Core.GameAudio.Play(Hotdrop.Core.GameCue.Elimination, chest);
+                }
                 SetBodyVisible(!Dead);
                 cueDead = Dead;
             }
@@ -255,6 +282,21 @@ namespace Hotdrop.Network
         {
             var body = transform.Find("Visual");
             if (body != null && body.gameObject.activeSelf != visible) body.gameObject.SetActive(visible);
+        }
+
+        /// <summary>Every client renders the server-replicated weapon on this avatar's hand.</summary>
+        void UpdateWeaponVisual(Transform visual)
+        {
+            if (visual == null) return;
+            if (cueWeaponVisual == null)
+                cueWeaponVisual = visual.GetComponentInChildren<Hotdrop.Player.OperatorWeaponFollow>(true);
+            if (cueWeaponVisual == null) return;
+
+            int weaponIndex = Mathf.Clamp(WeaponIndex, 0, 2);
+            if (cueVisualWeaponIndex == weaponIndex) return;
+            var weapon = NetConfigs.Weapons[weaponIndex];
+            if (weapon != null && cueWeaponVisual.SetWeapon(weapon.id.ToString().ToUpperInvariant()))
+                cueVisualWeaponIndex = weaponIndex;
         }
 
         public override void FixedUpdateNetwork()
@@ -272,12 +314,15 @@ namespace Hotdrop.Network
                 input.Pitch = LastInput.Pitch;
             }
             input.Sanitize();
+            if (HasStateAuthority) FacingYaw = input.Yaw;
             var previousInput = LastInput;
             LastInput = input;
 
             if (HasStateAuthority && hasInput && !BotControlled && IsActivity(input, previousInput)) { LastActiveTick = Runner.Tick; AfkWarned = false; }
 
             bool live = match.IsLive;
+            if (HasStateAuthority && match.Phase != MatchPhase.Results &&
+                input.Buttons.WasPressed(PreviousButtons, (int)NetButton.QuickChat)) TrySendQuickChat(match, input);
             if (input.WeaponChoice > 0 && (Dead || match.Phase == MatchPhase.Preparation))
                 PendingWeapon = input.WeaponChoice - 1;
             if (match.Phase == MatchPhase.Preparation && PendingWeapon >= 0 && PendingWeapon != WeaponIndex)
@@ -315,6 +360,12 @@ namespace Hotdrop.Network
 
             PingCooldown = TickTimer.CreateFromSeconds(Runner, PingSystem.CooldownSeconds);
             match.BroadcastPing(Slot, Team, kind, position);
+        }
+
+        void TrySendQuickChat(NetMatch match, NetInput input)
+        {
+            if (!QuickChatWheelView.AvailabilityGateOpen || input.QuickChatChoice >= QuickChatWheelView.MessageCount) return;
+            match.BroadcastQuickChat(Slot, Team, input.QuickChatChoice);
         }
 
         // QA-018: aim changes count as activity (spec 18), not only movement and buttons.
@@ -439,15 +490,24 @@ namespace Hotdrop.Network
                 if (buried) { OnLocalShot?.Invoke(muzzle, buriedAt); return; }
                 int pelletCount = ShotResolver.ResolvePellets(weapon, aim, seed, state, pelletBuffer);
                 for (int i = 0; i < pelletCount; i++)
-                    OnLocalShot?.Invoke(muzzle, PredictPelletEnd(physics, muzzle, pelletBuffer[i].direction, weapon.maxRange));
+                {
+                    Vector3 end = PredictPelletEnd(physics, muzzle, pelletBuffer[i].direction, weapon.maxRange,
+                        out Collider impactCollider, out Vector3 impactNormal);
+                    OnLocalShot?.Invoke(muzzle, end);
+                    if (impactCollider != null)
+                        Hotdrop.Core.ShotImpactVfx.TryShow(impactCollider, end, impactNormal);
+                }
             }
         }
 
         /// <summary>Where a pellet visibly stops, using the server's blocking rules: the shooter
         /// and living teammates never stop it; enemies, walls and pads do.</summary>
-        Vector3 PredictPelletEnd(PhysicsScene physics, Vector3 muzzle, Vector3 direction, float range)
+        Vector3 PredictPelletEnd(PhysicsScene physics, Vector3 muzzle, Vector3 direction, float range,
+            out Collider impactCollider, out Vector3 impactNormal)
         {
             Vector3 end = muzzle + direction * range;
+            impactCollider = null;
+            impactNormal = Vector3.up;
             int count = physics.Raycast(muzzle, direction, fxHits, range, ~0, QueryTriggerInteraction.Ignore);
             float nearest = range;
             for (int i = 0; i < count; i++)
@@ -457,6 +517,8 @@ namespace Hotdrop.Network
                 if (player == this || (player != null && (player.Team == Team || player.Dead))) continue;
                 nearest = fxHits[i].distance;
                 end = fxHits[i].point;
+                impactCollider = fxHits[i].collider;
+                impactNormal = fxHits[i].normal;
             }
             return end;
         }
@@ -489,7 +551,7 @@ namespace Hotdrop.Network
         {
             forward = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
             position = transform.position + forward * P.placementForwardOffset;
-            if (!Hotdrop.Core.StudySettings.PadsEnabled) return "PADS DISABLED IN THIS VERSION";
+            if (match != null && !match.PadsEnabled) return "PADS DISABLED IN THIS VERSION";
             if (match == null || !match.IsLive) return "NOT DURING THIS PHASE";
             if (!HasPadCharge) return "RECHARGING";
             if (!Kcc.IsGrounded) return "MUST BE GROUNDED";
@@ -523,6 +585,14 @@ namespace Hotdrop.Network
         {
             if (!HasStateAuthority || !IsFinitePositive(amount) || Match == null || !Match.IsLive || Dead || IsSpawnProtected) return;
             Health -= amount;
+            foreach (var attacker in All)
+            {
+                if (attacker.Runner != Runner || attacker.Slot != attackerSlot || attacker == this) continue;
+                DamageSourceDirection = attacker.transform.position - transform.position;
+                DamageCounter++;
+                DamageEventSequence++;
+                break;
+            }
             RegenDelay = TickTimer.CreateFromSeconds(Runner, M.recoveryDelayAfterDamage);
             if (Health <= 0f) Match.Eliminate(this, attackerSlot, weapon);
         }
@@ -589,6 +659,7 @@ namespace Hotdrop.Network
             Kcc.SetLookRotation(0f, spawn.rotation.eulerAngles.y);
             Dead = false;
             Health = M.maxHealth;
+            DamageCounter = 0;
             Ammo = Weapon.magazineSize;
             ReloadTimer = TickTimer.None;
             LaunchWeaponLockout = TickTimer.None;

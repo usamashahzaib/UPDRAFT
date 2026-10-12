@@ -71,8 +71,20 @@ public class InventoryItem
     public long Id { get; set; }
     public Guid PlayerId { get; set; }
     public string CosmeticId { get; set; } = string.Empty;
+    // One catalog entitlement covers both supported presentation variants by default.
+    // The mask makes variant support explicit without duplicating ownership or price.
+    public int SupportedBodyRigMask { get; set; } = (int)BodyRigVariantMask.All;
     public DateTimeOffset AcquiredAt { get; set; } = DateTimeOffset.UtcNow;
     public string AcquiredVia { get; set; } = string.Empty; // "starter", "unlock", "purchase:<txn_id>"
+}
+
+[Flags]
+public enum BodyRigVariantMask
+{
+    None = 0,
+    Male = 1,
+    Female = 2,
+    All = Male | Female,
 }
 
 public class MatchParticipation

@@ -4,13 +4,14 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
+    env_file:
+      - "${GAME_SERVER_KEYS_ENV_FILE:?Set GAME_SERVER_KEYS_ENV_FILE to a file containing GameServer__ServerKeys__<serverId> entries}"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Jwt__Issuer: "${JWT_ISSUER}"
       Jwt__Audience: "${JWT_AUDIENCE}"
       Jwt__SigningKey: "${JWT_SIGNING_KEY}"
-      GameServer__ApiKey: "${GAME_SERVER_API_KEY}"
       Allocator__FusionRegion: "${FUSION_REGION:-eu}"
       Support__PublicBaseUrl: "${SUPPORT_PUBLIC_BASE_URL}"
       Email__From: "${EMAIL_FROM}"

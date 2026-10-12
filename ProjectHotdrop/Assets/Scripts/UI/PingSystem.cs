@@ -155,9 +155,27 @@ namespace Hotdrop.UI
             active.Add(ping);
             OnPingSent?.Invoke(ping);
             var local = Hotdrop.Match.MatchView.Current?.LocalParticipant;
-            if (local != null && ping.teamId == local.TeamId && (!Muted || ping.senderId == local.ParticipantId))
-                Hotdrop.Core.GameAudio.Play2D(Hotdrop.Core.GameCue.Ping, 0.6f);
+            if (local != null && ping.teamId == local.TeamId)
+            {
+                var cue = CueFor(ping.kind);
+                if (!Muted || ping.senderId == local.ParticipantId)
+                    Hotdrop.Core.GameAudio.Play2D(cue, 0.6f);
+
+                // Projected world captions can be behind the camera, blocked by HUD chrome,
+                // or hidden by teammate-ping mute. Keep a localized kind caption on the
+                // existing critical-caption path so a radar-only pip remains understandable.
+                Hotdrop.Core.GameAudio.ReportLocalCaption(cue, Label(ping.kind));
+            }
         }
+
+        static Hotdrop.Core.GameCue CueFor(PingKind kind) => kind switch
+        {
+            PingKind.GoHere => Hotdrop.Core.GameCue.PingGoHere,
+            PingKind.EnemyHere => Hotdrop.Core.GameCue.PingEnemyHere,
+            PingKind.GroupUp => Hotdrop.Core.GameCue.PingGroupUp,
+            PingKind.PadReady => Hotdrop.Core.GameCue.PingPadReady,
+            _ => Hotdrop.Core.GameCue.Ping,
+        };
 
         void LateUpdate() => RefreshMarkers();
 
@@ -201,6 +219,17 @@ namespace Hotdrop.UI
                         HudMarkerLayer.MarkerRowHeight, placed);
                     slot = HudMarkerLayer.SeparateFromPlaced(slot, placed, canvasRect.rect,
                         HudMarkerLayer.MarkerRowHeight, panelExclusions);
+                    // Observed in the 1920x1080 playable capture: two pings competing for the only
+                    // free 100-unit gap between a dead player's panels; the second had no clear row
+                    // and kept its spot across a panel. A caption over a panel the player is reading
+                    // (or over another caption) hides both, so this ping waits for room instead. Its
+                    // world position and expiry are untouched; it draws again the frame space opens.
+                    if (HudMarkerLayer.Blocked(slot, placed, panelExclusions))
+                    {
+                        marker.root.gameObject.SetActive(false);
+                        shown--;
+                        continue;
+                    }
                     placed.Add(slot);
                     marker.root.localPosition = slot;
                     Color color = ping.kind == PingKind.EnemyHere ? MatchHUD.Enemy : ping.kind == PingKind.PadReady ? MatchHUD.Objective : MatchHUD.Friendly;
@@ -209,7 +238,7 @@ namespace Hotdrop.UI
                     var plate = marker.root.Find("Plate")?.GetComponent<UnityEngine.UI.Image>();
                     if (plate != null) plate.enabled = true;
                     float distance = Vector3.Distance(local.Position, ping.position);
-                    marker.label.text = $"{Label(ping.kind)} {distance:0}m";
+                    marker.label.text = UiDraw.LFormat("hud.ping.markerTemplate", "{0} {1:0}m", Label(ping.kind), distance);
                 }
             }
             for (int i = shown; i < markers.Count; i++)
@@ -218,10 +247,10 @@ namespace Hotdrop.UI
 
         public static string Label(PingKind kind) => kind switch
         {
-            PingKind.EnemyHere => "ENEMY HERE",
-            PingKind.GroupUp => "GROUP UP",
-            PingKind.PadReady => "PAD READY",
-            _ => "GO HERE",
+            PingKind.EnemyHere => MatchHUD.Localized("ping.enemyHere", "Enemy Here"),
+            PingKind.GroupUp => MatchHUD.Localized("ping.groupUp", "Group Up"),
+            PingKind.PadReady => MatchHUD.Localized("ping.padReady", "Pad Ready"),
+            _ => MatchHUD.Localized("ping.goHere", "Go Here"),
         };
 
         /// <summary>Most recent live "go here"/"group up" ping from a teammate, for bot teammates to follow.</summary>

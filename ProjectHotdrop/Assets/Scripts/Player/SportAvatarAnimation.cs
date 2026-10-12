@@ -23,6 +23,17 @@ namespace Hotdrop.Player
 
         Vector3 previousPosition;
         float phase;
+
+        // Skinned operator (07_WORLD_ART): when the rig carries an Animator, real clips replace
+        // the procedural swing. Same inputs, same call sites; still presentation-only.
+        Animator animator;
+        Transform animatedRoot, spine, chest;
+        float legYaw;
+        static readonly int SpeedId = Animator.StringToHash("Speed");
+        static readonly int MoveDirId = Animator.StringToHash("MoveDir");
+        static readonly int GroundedId = Animator.StringToHash("Grounded");
+        static readonly int ReloadingId = Animator.StringToHash("Reloading");
+        static readonly int FireId = Animator.StringToHash("Fire");
         float firePulse;
         bool reloading;
         bool grounded = true;
@@ -35,7 +46,51 @@ namespace Hotdrop.Player
         }
 
         /// <summary>A short right-arm kick + torso dip for a fired shot.</summary>
-        public void PulseFire() => firePulse = 1f;
+        public void PulseFire()
+        {
+            firePulse = 1f;
+            if (ResolveAnimator() != null) animator.SetTrigger(FireId);
+        }
+
+        Animator ResolveAnimator()
+        {
+            if (animator != null && animator.transform.IsChildOf(transform)) return animator;
+            animator = GetComponentInChildren<Animator>();
+            animatedRoot = animator != null ? animator.transform : null;
+            spine = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Spine) : null;
+            chest = animator != null && animator.isHuman
+                ? (animator.GetBoneTransform(HumanBodyBones.UpperChest) ?? animator.GetBoneTransform(HumanBodyBones.Chest)) : null;
+            legYaw = 0f;
+            return animator;
+        }
+
+        /// <summary>
+        /// Clips follow measured motion: speed picks idle/walk/jog/sprint, a backpedal plays the
+        /// run in reverse, and a strafe turns the legs (up to 55 degrees) toward the movement while
+        /// the spine turns back so the chest and weapon stay on the aim line.
+        /// </summary>
+        void DriveAnimator(Vector3 velocity, float dt)
+        {
+            var flat = new Vector3(velocity.x, 0f, velocity.z);
+            float speed = Mathf.Min(flat.magnitude, 8f);
+            float direction = 1f, targetYaw = 0f;
+            if (speed > .4f)
+            {
+                var local = transform.InverseTransformDirection(flat);
+                float angle = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
+                if (Mathf.Abs(angle) > 100f) { direction = -1f; angle -= 180f * Mathf.Sign(angle); }
+                targetYaw = Mathf.Clamp(angle, -55f, 55f);
+            }
+            animator.SetFloat(SpeedId, speed, .08f, dt);
+            animator.SetFloat(MoveDirId, direction);
+            animator.SetBool(GroundedId, grounded);
+            animator.SetBool(ReloadingId, reloading);
+            legYaw = Mathf.MoveTowardsAngle(legYaw, targetYaw, 300f * dt);
+            if (animatedRoot != null) animatedRoot.localRotation = Quaternion.Euler(0f, legYaw, 0f);
+            var up = transform.up;
+            if (spine != null) spine.rotation = Quaternion.AngleAxis(-legYaw * .5f, up) * spine.rotation;
+            if (chest != null && chest != spine) chest.rotation = Quaternion.AngleAxis(-legYaw * .5f, up) * chest.rotation;
+        }
 
         void OnEnable()
         {
@@ -46,8 +101,14 @@ namespace Hotdrop.Player
         void LateUpdate()
         {
             float dt = Mathf.Max(Time.deltaTime, 0.001f);
-            float speed = Vector3.Distance(transform.position, previousPosition) / dt;
+            var velocity = (transform.position - previousPosition) / dt;
+            float speed = velocity.magnitude;
             previousPosition = transform.position;
+            if (ResolveAnimator() != null && animator.isActiveAndEnabled)
+            {
+                DriveAnimator(velocity, dt);
+                return;
+            }
             speed = Mathf.Clamp(speed, 0f, 8f);
 
             phase += dt * Mathf.Clamp(speed, 0f, 6f) * 2.5f;

@@ -46,14 +46,14 @@ namespace Hotdrop.UI
         public static Color PrimaryAction => UiPresentationProfile.Palette.PrimaryAction;
         /// <summary>Compatibility alias for older UI callers; new code should use PrimaryAction or Ally.</summary>
         public static Color ActionCyan => PrimaryAction;
-        /// <summary>Pressed primary action tint.</summary>
-        public static Color ActionCyanPressed => Color.Lerp(PrimaryAction, Background, 0.28f);
+        /// <summary>Pressed primary action tint, owned by the palette so it remaps on a profile switch.</summary>
+        public static Color ActionCyanPressed => UiPresentationProfile.Palette.ActionPressed;
         /// <summary>Ally signal; kept separate from the primary action role.</summary>
         public static Color Ally => UiPresentationProfile.Palette.Ally;
         /// <summary>Enemy identity and damage feedback only.</summary>
         public static Color HazardCoral => UiPresentationProfile.Palette.Enemy;
-        /// <summary>Pressed enemy cue tint derived from the selected profile's enemy signal.</summary>
-        public static Color HazardCoralPressed => Color.Lerp(HazardCoral, Background, 0.28f);
+        /// <summary>Pressed enemy cue tint, owned by the palette so it remaps on a profile switch.</summary>
+        public static Color HazardCoralPressed => UiPresentationProfile.Palette.HazardPressed;
         /// <summary>Objectives, rewards, contested zones.</summary>
         public static Color ObjectiveGold => UiPresentationProfile.Palette.Objective;
         /// <summary>#7ED68A - shields active, match ready.</summary>
@@ -68,7 +68,7 @@ namespace Hotdrop.UI
         /// <summary>#BBC6D8 - sub-headers, equipment names, conditions.</summary>
         public static Color TextSecondary => UiPresentationProfile.Palette.TextSecondary;
         /// <summary>#7F8CA3 - metadata, units, timestamps, inactive rows.</summary>
-        public static Color TextMuted => Color.Lerp(TextSecondary, Background, 0.28f);
+        public static Color TextMuted => UiPresentationProfile.Palette.TextMuted;
         /// <summary>Dark canvas colour, used as text drawn on a filled accent surface.</summary>
         public static Color TextOnAccent => Background;
 

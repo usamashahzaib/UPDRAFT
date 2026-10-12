@@ -8,6 +8,7 @@ namespace Hotdrop.Config
         public string id;
         public string displayName;
         public float referenceUsdPrice; // actual localized price comes from Google Play at runtime
+        public int supportedBodyRigMask; // both paired cosmetic variants ship under the same catalog price
         public string[] contents;
     }
 
@@ -27,6 +28,7 @@ namespace Hotdrop.Config
                 id = "signal",
                 displayName = "Signal",
                 referenceUsdPrice = 1.99f,
+                supportedBodyRigMask = 3,
                 contents = new[] { "Body style: Signal", "Weapon wrap: Signal (ARC/ZIP/BRICK)" },
             },
             new CosmeticBundle
@@ -34,6 +36,7 @@ namespace Hotdrop.Config
                 id = "foundry",
                 displayName = "Foundry",
                 referenceUsdPrice = 3.99f,
+                supportedBodyRigMask = 3,
                 contents = new[] { "Body style: Foundry", "Profile badge: Foundry" },
             },
             new CosmeticBundle
@@ -41,6 +44,7 @@ namespace Hotdrop.Config
                 id = "skyline",
                 displayName = "Skyline",
                 referenceUsdPrice = 5.99f,
+                supportedBodyRigMask = 3,
                 contents = new[] { "Body style: Skyline", "Profile badge: Skyline" },
             },
         };

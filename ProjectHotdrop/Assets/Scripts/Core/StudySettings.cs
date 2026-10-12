@@ -11,11 +11,17 @@ namespace Hotdrop.Core
     /// </summary>
     public static class StudySettings
     {
+        public const string DefaultCohort = "default";
         public const string PadsOn = "study_pads_on";
         public const string PadsOff = "study_pads_off";
 
         public static bool PadsEnabled => Telemetry.Cohort != PadsOff;
         public static bool IncentivizedTester => Telemetry.IncentivizedTester;
+
+        /// <summary>Normalize only the existing facilitator cohorts; unknown values fail to the normal, pads-on game.</summary>
+        public static string NormalizeCohort(string cohort) => cohort == PadsOn || cohort == PadsOff ? cohort : DefaultCohort;
+
+        public static bool PadsEnabledFor(string cohort) => NormalizeCohort(cohort) != PadsOff;
 
         public static void SetCohort(string cohort)
         {

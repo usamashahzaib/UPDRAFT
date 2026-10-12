@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Weapon_ZIP
   m_EditorClassIdentifier: Updraft.Runtime::Updraft.Config.WeaponDefinition
   id: 1
-  displayName: ZIP SMG
+  displayName: Zip SMG
   roleDescription: Close-range volume. High fire rate, wider spread, fast reload.
   bodyDamage: 13
   pelletsPerShot: 1

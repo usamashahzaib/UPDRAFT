@@ -68,3 +68,5 @@ Spec: no monetization work until Gate D passes. When Gate H approaches, the desk
 - KPI report: table per §3 with n, rate, Wilson 95% CI, threshold, PASS/FAIL/NOT-MEASURABLE, and the exclusions ledger.
 - Balance report: the fixed delta format from §4, plus "insufficient data — collect N more matches" where n < the pre-registered minimum (default n ≥ 60 analysable matches per weapon/zone cell before a delta is proposed).
 - This desk never certifies gates and never overrides the auditor: the numbers here are inputs to the recorded go decision.
+
+Pad placement/use/destruction spatial aggregation is implemented in `tools/analytics/pad_heatmap.py`. Run it on the pulled offline `analytics_queue.jsonl` files with the current `MapConfig.asset`, `PadConfig.asset`, and a preregistered `--cell-size`; it excludes bot matches and non-analysis cohorts, pairs events by match-local pad ID, and writes the chosen grid size into each CSV row. See `PART8_PAD_HEATMAP_FACTS.md` for the online-cohort and contact-metric gaps.

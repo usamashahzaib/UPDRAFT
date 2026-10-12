@@ -1,3 +1,20 @@
+## 2026-10-09 — World-art gate lifted; Gate G art work starts
+
+Owner decision (asked directly, answer "Approve both"): AGENTS.md's gate on authored world
+assets and post-processing is lifted under `docs/design/07_WORLD_ART.md`. Blood/gore stays gated.
+
+- **Assets must cost $0:** CC0 sources (Poly Haven, Quaternius, Kenney, ambientCG) or
+  project-original work, each registered in `ProjectHotdrop/ASSET_LICENSE_REGISTER.md`.
+- **Post-processing is tiered:** Performance keeps the old cost (no shadows, no HDR, no post)
+  but gains a sky, fog and three-colour ambient. Balanced and Cinematic add soft sun shadows
+  and the tonemap/grade/bloom/vignette stack. The URP renderer had no PostProcessData assigned,
+  so post could not render before this change.
+- **HUD is laid out in dp:** `UiDpPanel` marks panels scaled to one local unit = one dp. Text
+  inside them is no longer dp-converted a second time, which had drawn HUD text about 2.8x too
+  large and caused every overlap in the 2026-10-07 captures.
+- The "graybox is expected until Gate G" rule from 2026-10-01 no longer applies to world
+  presentation; the Gate G bar from that entry is the target.
+
 
 ## 2026-10-01 — Spec Amendment v2.1: two body rigs + Gate G art bar
 

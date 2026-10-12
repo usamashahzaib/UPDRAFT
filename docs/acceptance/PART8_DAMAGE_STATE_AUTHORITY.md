@@ -26,6 +26,16 @@ No damage or health values changed; weapon damage and health remain in the exist
 - Public mutation methods independently guard authority and runner ownership where needed; pad event collections are exposed read-only to result submission code.
 - Existing combat/authority tests were read but not run; runtime compilation was used for this slice.
 
+## 11 October follow-up: expired pad damage
+
+- `NetPad.ServerDamage` now rejects damage when the pad is no longer active,
+  including the interval after its lifetime expires and before the despawn tick.
+  Authority, live-match, finite-positive-damage, and friendly-fire guards remain
+  in place. No damage or health values changed.
+- `dotnet build Hotdrop.Network.csproj -v:q -m:1` passed with 0 errors and
+  0 warnings. No tests or live multi-client checks were run; exact tick-order
+  behavior remains unverified in Fusion runtime.
+
 ## Telemetry
 
 No new event is emitted. Existing `pad_placed`, `pad_used`, and `pad_destroyed` facts are appended only by state-authority code.

@@ -9,23 +9,25 @@ namespace Hotdrop.Core
     /// </summary>
     public static class NextGoal
     {
+        static string L(string key, string fallback) => Hotdrop.UI.UiDraw.L("home.goal." + key, fallback);
+
         /// <summary>Two-line goal text. Does not create components; call <see cref="EnsureOwner"/> first
         /// when the caller is willing to build the challenge runtime.</summary>
         public static string Describe(GameObject owner)
         {
-            if (owner == null) return "PLAY A MATCH\nThree minutes. Hold the zone.";
+            if (owner == null) return L("playMatch.title", "Play a Match") + "\n" + L("playMatch.detail", "Three minutes. Hold the zone.");
             if (PlayerPrefs.GetInt(GameBootstrap.TutorialDoneKey, 0) == 0)
-                return "LEARN TO LAUNCH\nMove, shoot and use your first pad.";
+                return L("learnToLaunch.title", "Learn to Launch") + "\n" + L("learnToLaunch.detail", "Move, shoot and use your first pad.");
 
             var controller = owner.GetComponent<OfflineChallengeRuntime>()?.Controller;
             if (controller != null && controller.config != null && controller.config.entries != null)
                 foreach (var entry in controller.config.entries)
                     if (controller.RecordForCurrentContext(entry.id)?.isCompleted != true)
-                        return entry.title.ToUpperInvariant() + "\nYour next rooftop challenge.";
+                        return Hotdrop.UI.UiDraw.L("offlineLibrary.challenge." + entry.id + ".title", entry.title) + "\n" + L("challenge.detail", "Your next rooftop challenge.");
 
             return controller == null
-                ? "BASIC ROUTE\nStart your rooftop challenge run."
-                : "ROOFTOPS MASTERED\nBeat your best in another Relay.";
+                ? L("basicRoute.title", "Basic Route") + "\n" + L("basicRoute.detail", "Start your rooftop challenge run.")
+                : L("rooftopsMastered.title", "Rooftops Mastered") + "\n" + L("rooftopsMastered.detail", "Beat your best in another Relay.");
         }
 
         /// <summary>Single-line form for the results screen: outcome, one contribution and the
@@ -34,8 +36,8 @@ namespace Hotdrop.Core
         {
             string text = Describe(owner);
             int newline = text.IndexOf('\n');
-            if (newline < 0) return "NEXT: " + text;
-            return "NEXT: " + text.Substring(0, newline) + " — " + text.Substring(newline + 1);
+            if (newline < 0) return Hotdrop.UI.UiDraw.LFormat("home.goal.shortSingleLine", "Next: {0}", text);
+            return Hotdrop.UI.UiDraw.LFormat("home.goal.shortTwoLine", "NEXT: {0} — {1}", text.Substring(0, newline), text.Substring(newline + 1));
         }
 
         /// <summary>

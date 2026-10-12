@@ -48,6 +48,15 @@ namespace Hotdrop.UI
         public static float AtLeastDp(float units, float dp) => Mathf.Max(units, UnitsForDp(dp));
 
         /// <summary>
+        /// Height of a header/footer bar whose controls are authored <paramref name="designControl"/>
+        /// tall and centred in it. <see cref="UiFloor"/> raises those controls to 48 dp around their
+        /// centre, so on dense phones they would overhang the bar and the screen edge; the bar grows
+        /// instead, keeping its authored inset. Returns <paramref name="designBar"/> when it already fits.
+        /// </summary>
+        public static float BarHeight(float designBar, float designControl) =>
+            Mathf.Max(designBar, Mathf.Max(designControl, MinTouchUnits) + (designBar - designControl));
+
+        /// <summary>
         /// Largest size no smaller than <paramref name="floorDp"/> dp that still fits
         /// <paramref name="naturalWidth"/> inside <paramref name="availableWidth"/> once the text
         /// has expanded by <paramref name="tolerance"/>. Returns <paramref name="designDp"/> unchanged
@@ -120,6 +129,14 @@ namespace Hotdrop.UI
 
             foreach (var text in root.GetComponentsInChildren<TMPro.TMP_Text>(true))
             {
+                if (UiDpPanel.Contains(text.transform))
+                {
+                    // One local unit is one dp (or more) once the panel is scaled, whatever its
+                    // scale is right now; measuring lossy scale here would lock in a pre-scale size.
+                    if (text.fontSize < UiMetrics.MinTextDp) text.fontSize = UiMetrics.MinTextDp;
+                    if (text.enableAutoSizing && text.fontSizeMin < UiMetrics.MinTextDp) text.fontSizeMin = UiMetrics.MinTextDp;
+                    continue;
+                }
                 float textScaleY = Mathf.Max(0.0001f, Mathf.Abs(text.transform.lossyScale.y) / canvasScaleY);
                 float minFontSize = UiMetrics.MinTextUnits / textScaleY;
                 if (text.fontSize < minFontSize) text.fontSize = minFontSize;
@@ -133,6 +150,15 @@ namespace Hotdrop.UI
                 if (!selectable.interactable) continue;
                 var rt = selectable.GetComponent<RectTransform>();
                 if (rt == null) continue;
+                if (UiDpPanel.Contains(rt))
+                {
+                    // Local units are dp here, so the 48 dp floor applies directly.
+                    var local = rt.sizeDelta;
+                    if (rt.anchorMin.y == rt.anchorMax.y && local.y < UiMetrics.MinTouchDp) local.y = UiMetrics.MinTouchDp;
+                    if (rt.anchorMin.x == rt.anchorMax.x && local.x < UiMetrics.MinTouchDp) local.x = UiMetrics.MinTouchDp;
+                    rt.sizeDelta = local;
+                    continue;
+                }
                 float touchWidth = UiMetrics.MinTouchUnits * canvasScaleX / Mathf.Max(0.0001f, Mathf.Abs(rt.lossyScale.x));
                 float touchHeight = UiMetrics.MinTouchUnits * canvasScaleY / Mathf.Max(0.0001f, Mathf.Abs(rt.lossyScale.y));
                 if (rt.GetComponentInParent<LayoutGroup>() != null)

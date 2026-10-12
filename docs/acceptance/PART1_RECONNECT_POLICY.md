@@ -8,7 +8,7 @@
 
 ## Scope and implementation
 
-The existing five-second disconnect-to-bot grace now comes from `ProgressionConfig.disconnectBotSubstitutionSeconds`, the same config asset that owns AFK warning/removal windows. The checked-in value and generated default remain five seconds, so runtime behavior is unchanged. Reconnect eligibility and join-ticket lifetime are unchanged.
+The existing five-second disconnect-to-bot grace now comes from `ProgressionConfig.disconnectBotSubstitutionSeconds`, the same config asset that owns AFK warning/removal windows. The authoritative match loads and validates the asset before play; missing or malformed values fail closed instead of reverting to server literals. The checked-in value and generated default remain five seconds, so valid-config runtime behavior is unchanged. Reconnect eligibility and join-ticket lifetime are unchanged.
 
 ## Verified this pass
 

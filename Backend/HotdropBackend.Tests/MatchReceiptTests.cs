@@ -39,6 +39,13 @@ public class MatchReceiptTests : IClassFixture<HotdropWebApplicationFactory>
         },
     };
 
+    async Task<HttpResponseMessage> SubmitResultAsync(Guid matchId, Guid a, Guid b, bool aEligible = true)
+    {
+        await _factory.SeedAllocatedMatchAsync(matchId, a, b);
+        return await _factory.CreateGameServerClient()
+            .PostAsJsonAsync($"/api/matches/{matchId}/result", Result(a, b, aEligible));
+    }
+
     async Task<JsonElement> ReceiptAsync(Guid player, Guid matchId)
     {
         var response = await _factory.CreateClientWithPlayerId(player).GetAsync($"/api/matches/{matchId}/receipt");
@@ -68,7 +75,7 @@ public class MatchReceiptTests : IClassFixture<HotdropWebApplicationFactory>
     {
         var (a, _) = await SeedPlayersAsync(profileXpA: 700); // a win crosses into level 3 (unlocks wrap_hazard)
         var matchId = Guid.NewGuid();
-        var submit = await _factory.CreateGameServerClient().PostAsJsonAsync($"/api/matches/{matchId}/result", Result(a, Guid.NewGuid()));
+        var submit = await SubmitResultAsync(matchId, a, Guid.NewGuid());
         submit.EnsureSuccessStatusCode();
         var summary = (await submit.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("players").EnumerateArray()
             .Single(p => p.GetProperty("playerId").GetGuid() == a);
@@ -93,7 +100,7 @@ public class MatchReceiptTests : IClassFixture<HotdropWebApplicationFactory>
     {
         var (a, b) = await SeedPlayersAsync();
         var matchId = Guid.NewGuid();
-        (await _factory.CreateGameServerClient().PostAsJsonAsync($"/api/matches/{matchId}/result", Result(a, b, aEligible: false))).EnsureSuccessStatusCode();
+        (await SubmitResultAsync(matchId, a, b, aEligible: false)).EnsureSuccessStatusCode();
 
         var receipt = await ReceiptAsync(a, matchId);
         Assert.True(receipt.GetProperty("recorded").GetBoolean());
@@ -109,7 +116,7 @@ public class MatchReceiptTests : IClassFixture<HotdropWebApplicationFactory>
         var (a, b) = await SeedPlayersAsync();
         var (outsider, _) = await SeedPlayersAsync();
         var matchId = Guid.NewGuid();
-        (await _factory.CreateGameServerClient().PostAsJsonAsync($"/api/matches/{matchId}/result", Result(a, b))).EnsureSuccessStatusCode();
+        (await SubmitResultAsync(matchId, a, b)).EnsureSuccessStatusCode();
 
         var outsiderReceipt = await ReceiptAsync(outsider, matchId);
         Assert.False(outsiderReceipt.GetProperty("recorded").GetBoolean());
@@ -126,6 +133,7 @@ public class MatchReceiptTests : IClassFixture<HotdropWebApplicationFactory>
         var matchId = Guid.NewGuid();
         var server = _factory.CreateGameServerClient();
 
+        await _factory.SeedAllocatedMatchAsync(matchId, a, b);
         var first = await server.PostAsJsonAsync($"/api/matches/{matchId}/result", Result(a, b));
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         var receiptAfterFirst = await ReceiptAsync(a, matchId);
